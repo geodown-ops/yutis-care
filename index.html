@@ -1,0 +1,44 @@
+<title>Yutis Care</title>
+<meta name="description" content="Yutis Care 職場員工健康照護平台雛形">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Sans+Thai:wght@400;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<div class="shell">
+  <aside class="side" id="side" aria-label="主選單">
+    <div class="brand">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="var(--brand)"/>
+        <path d="M9.5 8.5 16 16.5l6.5-8M16 16.5v7.5" stroke="var(--on-strong)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <circle cx="24" cy="23.5" r="2.4" fill="var(--on-strong)"/>
+      </svg>
+      <div><b>Yutis Care</b><small>職場員工健康照護平台</small></div>
+    </div>
+    <nav id="nav"></nav>
+    <div class="side-foot">雛形 · 所有人員與數據皆為示範資料<br><button data-act="resetDemo">重置示範資料</button></div>
+  </aside>
+  <div class="scrim" data-act="closeNav"></div>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu" data-act="toggleNav" aria-label="開啟選單">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="crumb" id="crumb"></div>
+      <form class="gsearch" id="gsearch" role="search">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="gq" name="q" placeholder="帳號或姓名，按 Enter" aria-label="以帳號或姓名搜尋員工">
+      </form>
+      <div class="me"><i aria-hidden="true">張</i>張雅婷 <span>職護</span></div>
+    </header>
+    <main class="page" id="page"></main>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+<script src="programs.js"></script>
+<script src="more.js"></script>
