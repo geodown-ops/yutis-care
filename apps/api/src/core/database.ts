@@ -1,10 +1,11 @@
 import { Global, Inject, Injectable, Module, type CallHandler, type DynamicModule, type ExecutionContext, type NestInterceptor, type OnApplicationShutdown } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { createDb, withTenant, type Db } from '@yutis/db';
 import type { FastifyRequest } from 'fastify';
 import pg from 'pg';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import type { ApiConfig } from '../config.js';
+import { ApiExceptionFilter } from './errors.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 export const PG_POOL = Symbol('PG_POOL');
@@ -54,6 +55,7 @@ export class CoreModule {
         { provide: PG_POOL, useFactory: () => new pg.Pool({ connectionString: config.databaseUrl, max: 10 }) },
         { provide: DB, useFactory: (pool: pg.Pool) => createDb(pool), inject: [PG_POOL] },
         { provide: APP_INTERCEPTOR, useClass: TenantTransactionInterceptor },
+        { provide: APP_FILTER, useClass: ApiExceptionFilter },
         PoolLifecycle,
       ],
       exports: [API_CONFIG, PG_POOL, DB],

@@ -17,6 +17,7 @@ export class AuthModule {
         { provide: IDENTITY_VERIFIER, useClass: options.devSignIn ? DevIdentityVerifier : UnconfiguredIdentityVerifier },
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
+      exports: [IDENTITY_VERIFIER],
     };
   }
 }

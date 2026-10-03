@@ -1,10 +1,11 @@
 import { Body, Controller, HttpCode, Inject, Logger, Post, Res, UnauthorizedException } from '@nestjs/common';
-import { ApiBody, ApiNoContentResponse, ApiOperation, ApiServiceUnavailableResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBody, ApiNoContentResponse, ApiOperation, ApiServiceUnavailableResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { employees, users } from '@yutis/db';
 import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { recordAudit } from '../core/audit.js';
+import { ApiErrorDto } from '../core/errors.js';
 import { Ctx, signedIn, type EmployeePrincipal, type Principal, type RequestContext, type StaffPrincipal } from '../core/context.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { Public, SignedIn } from './access.js';
@@ -40,8 +41,9 @@ export class AuthController {
   })
   @ApiBody({ schema: openApiSchema(SignIn) })
   @ApiNoContentResponse({ description: '已登入，回應帶 Set-Cookie' })
-  @ApiUnauthorizedResponse({ description: 'token 無效，或沒有對應的帳號' })
-  @ApiServiceUnavailableResponse({ description: '登入服務尚未設定' })
+  @ApiBadRequestResponse({ description: '格式錯誤（validation_failed）', type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ description: 'token 無效，或沒有對應的帳號', type: ApiErrorDto })
+  @ApiServiceUnavailableResponse({ description: '登入服務尚未設定（sign_in_unavailable）', type: ApiErrorDto })
   async signIn(@Ctx() ctx: RequestContext, @Body() body: unknown, @Res({ passthrough: true }) reply: FastifyReply): Promise<void> {
     const req = parse(SignIn, body);
     const identity = await this.identity.verify(req.token, ctx.tenant);

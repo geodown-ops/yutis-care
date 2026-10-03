@@ -18,10 +18,24 @@
             }
           },
           "403": {
-            "description": "租戶已停用，或沒有權限"
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "網址不是任何租戶的子網域"
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "summary": "網址子網域對應的租戶",
@@ -41,6 +55,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
                 }
               }
             }
@@ -82,13 +106,34 @@
             }
           },
           "401": {
-            "description": "未登入或登入已逾時"
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "403": {
-            "description": "租戶已停用，或沒有權限"
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "網址不是任何租戶的子網域"
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -140,17 +185,55 @@
           "204": {
             "description": "已登入，回應帶 Set-Cookie"
           },
+          "400": {
+            "description": "格式錯誤（validation_failed）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "token 無效，或沒有對應的帳號"
+            "description": "token 無效，或沒有對應的帳號",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "403": {
-            "description": "租戶已停用，或沒有權限"
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "網址不是任何租戶的子網域"
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "503": {
-            "description": "登入服務尚未設定"
+            "description": "登入服務尚未設定（sign_in_unavailable）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "summary": "登入：以登入服務的 ID token 換取 session cookie",
@@ -168,13 +251,34 @@
             "description": ""
           },
           "401": {
-            "description": "未登入或登入已逾時"
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "403": {
-            "description": "租戶已停用，或沒有權限"
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           },
           "404": {
-            "description": "網址不是任何租戶的子網域"
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -209,20 +313,69 @@
       "TenantDto": {
         "type": "object",
         "properties": {
-          "slug": {
+          "id": {
             "type": "string",
-            "description": "子網域",
-            "example": "acme"
+            "format": "uuid"
           },
           "name": {
             "type": "string",
             "description": "公司名稱",
             "example": "範例股份有限公司"
+          },
+          "subdomain": {
+            "type": "string",
+            "description": "子網域",
+            "example": "acme"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "公司 Logo；尚未設定時為 null"
+          },
+          "loginMethods": {
+            "type": "array",
+            "description": "登入頁要顯示的登入方式；dev 只在本機開發模式出現",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sso",
+                "password",
+                "sms",
+                "email_otp",
+                "dev"
+              ]
+            }
           }
         },
         "required": [
-          "slug",
-          "name"
+          "id",
+          "name",
+          "subdomain",
+          "logoUrl",
+          "loginMethods"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "number",
+            "example": 403
+          },
+          "code": {
+            "type": "string",
+            "description": "機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable",
+            "example": "forbidden"
+          },
+          "message": {
+            "type": "string",
+            "description": "給開發者看的說明，不直接顯示給使用者"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message"
         ]
       },
       "HealthDto": {

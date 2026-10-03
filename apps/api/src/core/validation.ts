@@ -6,7 +6,7 @@ import { z } from 'zod';
 export function parse<S extends z.ZodType>(schema: S, value: unknown): z.infer<S> {
   const result = schema.safeParse(value);
   if (!result.success) {
-    throw new BadRequestException({ statusCode: 400, error: 'Bad Request', message: z.prettifyError(result.error), issues: result.error.issues });
+    throw new BadRequestException({ code: 'validation_failed', message: z.prettifyError(result.error), issues: result.error.issues });
   }
   return result.data;
 }

@@ -4,6 +4,7 @@
  */
 import { applyDecorators, SetMetadata } from '@nestjs/common';
 import { ApiCookieAuth, ApiForbiddenResponse, ApiNotFoundResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiErrorDto } from '../core/errors.js';
 import type { DataCategory, Feature } from './permissions.js';
 
 export type AccessRule =
@@ -17,10 +18,13 @@ export const ACCESS_RULE = 'yutis:access-rule';
 export const SESSION_SECURITY = 'session';
 
 const tenantResponses = [
-  ApiNotFoundResponse({ description: '網址不是任何租戶的子網域' }),
-  ApiForbiddenResponse({ description: '租戶已停用，或沒有權限' }),
+  ApiNotFoundResponse({ description: '網址不是任何租戶的子網域（unknown_tenant）', type: ApiErrorDto }),
+  ApiForbiddenResponse({ description: '租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限', type: ApiErrorDto }),
 ];
-const signedInResponses = [ApiCookieAuth(SESSION_SECURITY), ApiUnauthorizedResponse({ description: '未登入或登入已逾時' })];
+const signedInResponses = [
+  ApiCookieAuth(SESSION_SECURITY),
+  ApiUnauthorizedResponse({ description: '未登入或登入已逾時', type: ApiErrorDto }),
+];
 
 /** Not tied to a tenant: health checks. */
 export const NoTenant = () => SetMetadata(ACCESS_RULE, { kind: 'no-tenant' } satisfies AccessRule);

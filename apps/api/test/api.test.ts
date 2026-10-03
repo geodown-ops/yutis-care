@@ -55,6 +55,12 @@ class ProbeController {
     await recordAudit(ctx, { action: 'update', reason: 'probe-fail' });
     throw new InternalServerErrorException();
   }
+
+  @Get('crash')
+  @StaffOnly()
+  crash() {
+    throw new Error('duplicate key value violates unique constraint, Key (emp_no)=(E001)');
+  }
 }
 
 let db: TestDatabase;
@@ -144,11 +150,13 @@ describe('tenant from subdomain', () => {
   it('returns the tenant for its subdomain, before sign-in', async () => {
     const res = await call('acme', 'GET', '/api/tenant');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ slug: 'acme', name: 'acme 股份有限公司' });
+    expect(res.json()).toEqual({ id: ids.acme, name: 'acme 股份有限公司', subdomain: 'acme', logoUrl: null, loginMethods: ['dev'] });
   });
 
   it.each([['nobody'], ['admin'], ['www'], ['a.acme']])('refuses %s', async slug => {
-    expect((await call(slug, 'GET', '/api/tenant')).statusCode).toBe(404);
+    const res = await call(slug, 'GET', '/api/tenant');
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({ status: 404, code: 'unknown_tenant', message: 'Unknown tenant' });
   });
 
   it('refuses the bare product domain and foreign hosts', async () => {
@@ -157,7 +165,9 @@ describe('tenant from subdomain', () => {
   });
 
   it('refuses a suspended tenant', async () => {
-    expect((await call('dormant', 'GET', '/api/tenant')).statusCode).toBe(403);
+    const res = await call('dormant', 'GET', '/api/tenant');
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ code: 'tenant_inactive' });
   });
 
   it('answers health checks on any host', async () => {
@@ -202,7 +212,9 @@ describe('sign-in and sessions', () => {
   });
 
   it('rejects malformed sign-in requests', async () => {
-    expect((await call('acme', 'POST', '/api/auth/sign-in', { body: { token: 'nurse@acme.test' } })).statusCode).toBe(400);
+    const res = await call('acme', 'POST', '/api/auth/sign-in', { body: { token: 'nurse@acme.test' } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ status: 400, code: 'validation_failed', issues: [expect.objectContaining({ path: ['as'] })] });
   });
 
   it('signs out', async () => {
@@ -223,7 +235,9 @@ describe('sign-in and sessions', () => {
   it('refuses state-changing requests from another origin', async () => {
     const cookie = await signIn('acme', 'nurse@acme.test');
     const evil = { origin: 'http://globex.care.test' };
-    expect((await call('acme', 'POST', '/api/auth/sign-out', { cookie, headers: evil })).statusCode).toBe(403);
+    const res = await call('acme', 'POST', '/api/auth/sign-out', { cookie, headers: evil });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ code: 'cross_origin' });
     expect((await call('acme', 'POST', '/api/auth/sign-out', { cookie, headers: { 'sec-fetch-site': 'same-site' } })).statusCode).toBe(403);
     expect((await call('acme', 'POST', '/api/auth/sign-out', { cookie, headers: { origin: 'http://acme.care.test' } })).statusCode).toBe(204);
   });
@@ -231,7 +245,9 @@ describe('sign-in and sessions', () => {
 
 describe('GET /api/me', () => {
   it('requires sign-in', async () => {
-    expect((await call('acme', 'GET', '/api/me')).statusCode).toBe(401);
+    const res = await call('acme', 'GET', '/api/me');
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ status: 401, code: 'unauthorized', message: 'Unauthorized' });
   });
 
   it('returns role, sites, data categories and features', async () => {
@@ -272,7 +288,9 @@ describe('permission pipeline', () => {
 
   it('refuses employees outside the staff member\'s sites unless a break-glass grant is active', async () => {
     const cookie = await signIn('acme', 'nurse@acme.test');
-    expect((await call('acme', 'GET', `/api/probe/health/${ids.eS2}`, { cookie })).statusCode).toBe(403);
+    const outside = await call('acme', 'GET', `/api/probe/health/${ids.eS2}`, { cookie });
+    expect(outside.statusCode).toBe(403);
+    expect(outside.json()).toMatchObject({ code: 'outside_sites' });
     await owner.insert(breakGlassGrants).values({ tenantId: ids.acme, userId: ids.nurse, siteId: ids.s2, reason: '代理', expiresAt: sql`now() - interval '1 minute'` });
     expect((await call('acme', 'GET', `/api/probe/health/${ids.eS2}`, { cookie })).statusCode).toBe(403);
     await owner.insert(breakGlassGrants).values({ tenantId: ids.acme, userId: ids.nurse, siteId: ids.s2, reason: '代理', expiresAt: sql`now() + interval '1 hour'` });
@@ -305,6 +323,13 @@ describe('permission pipeline', () => {
   it('refuses routes that declare no access rule', async () => {
     const cookie = await signIn('acme', 'admin@acme.test');
     expect((await call('acme', 'GET', '/api/probe/undeclared', { cookie })).statusCode).toBe(403);
+  });
+
+  it('never sends internal error details to the client', async () => {
+    const cookie = await signIn('acme', 'nurse@acme.test');
+    const res = await call('acme', 'GET', '/api/probe/crash', { cookie });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ status: 500, code: 'internal_error', message: 'Internal server error' });
   });
 
   it('rolls the audit row back with a failed request', async () => {

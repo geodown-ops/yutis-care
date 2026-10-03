@@ -31,5 +31,5 @@ export async function assertSiteAccess(tx: Tx, principal: StaffPrincipal, siteId
     exists (select 1 from ${userSiteScopes} where ${userSiteScopes.userId} = ${principal.userId} and ${userSiteScopes.siteId} = ${siteId})
     or exists (select 1 from ${breakGlassGrants} where ${breakGlassGrants.userId} = ${principal.userId} and ${breakGlassGrants.siteId} = ${siteId}
       and ${breakGlassGrants.revokedAt} is null and ${breakGlassGrants.expiresAt} > now()) as ok`);
-  if (!rows[0]?.ok) throw new ForbiddenException('Outside your sites');
+  if (!rows[0]?.ok) throw new ForbiddenException({ code: 'outside_sites', message: 'Employee is outside your sites' });
 }

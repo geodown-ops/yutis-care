@@ -43,8 +43,8 @@ export class AccessGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const slug = tenantSlugFromHost(request.hostname, this.config.tenantBaseDomain);
     const tenant = slug ? await tenantBySlug(this.db, slug) : undefined;
-    if (!tenant) throw new NotFoundException('Unknown tenant');
-    if (tenant.status !== 'active') throw new ForbiddenException('Tenant is not active');
+    if (!tenant) throw new NotFoundException({ code: 'unknown_tenant', message: 'Unknown tenant' });
+    if (tenant.status !== 'active') throw new ForbiddenException({ code: 'tenant_inactive', message: 'Tenant is not active' });
     request.yutis = { tenant, ip: request.ip, userAgent: request.headers['user-agent'] };
 
     if (!SAFE_METHODS.has(request.method)) this.assertSameOrigin(request);
@@ -63,9 +63,10 @@ export class AccessGuard implements CanActivate {
    */
   private assertSameOrigin(request: FastifyRequest) {
     const fetchSite = request.headers['sec-fetch-site'];
-    if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') throw new ForbiddenException('Cross-origin request');
     const origin = request.headers.origin;
-    if (origin && hostOf(origin) !== request.headers.host?.toLowerCase()) throw new ForbiddenException('Cross-origin request');
+    if ((fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') || (origin && hostOf(origin) !== request.headers.host?.toLowerCase())) {
+      throw new ForbiddenException({ code: 'cross_origin', message: 'Cross-origin request' });
+    }
   }
 }
 
