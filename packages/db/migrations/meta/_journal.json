@@ -71,6 +71,20 @@
       "when": 1791033899179,
       "tag": "0009_tenant_admin_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791034532655,
+      "tag": "0010_exam_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791034533453,
+      "tag": "0011_exam_import_access",
+      "breakpoints": true
     }
   ]
 }

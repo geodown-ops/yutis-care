@@ -28,6 +28,7 @@ export const employees = pgTable('employees', {
 }, t => [
   tenantKey(t),
   unique().on(t.tenantId, t.empNo),
+  unique().on(t.tenantId, t.nationalIdHash),
   tenantRef('employees_legal_entity_fk', t, t.legalEntityId, legalEntities),
   tenantRef('employees_site_fk', t, t.siteId, sites),
   tenantRef('employees_department_fk', t, t.departmentId, departments),

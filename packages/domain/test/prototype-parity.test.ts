@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
-  cvdScore, evaluateWorkload, gradeReport, loadEval, nmqHazardLabel, suggestMaternalLevel, toIsoDate, violenceRisk,
+  CONSULT_TYPES, cvdScore, evaluateWorkload, gradeReport, LIFESTYLE_ADVICE, loadEval, nmqHazardLabel, suggestMaternalLevel, toIsoDate, violenceRisk,
 } from '../src/index.js';
 
 const dir = fileURLToPath(new URL('../../../prototype/', import.meta.url));
@@ -17,6 +17,8 @@ vm.runInContext(`${src}
 ;var S = seedState(); initEventStatus();
 globalThis.out = {
   today: TODAY,
+  consultTypes: CONSULT_TYPES,
+  lifestyle: LIFESTYLE,
   employees: S.employees,
   reports: S.reports.map(r => ({ r, g: gradeReport(r) })),
   workload: S.workload.map(a => ({ a, latest: latestReport(a.empId), w: evalWorkload(a) })),
@@ -29,6 +31,11 @@ const emp = (id: string) => out.employees.find((e: any) => e.id === id);
 
 describe('parity with prototype logic.js', () => {
   it('runs against today', () => expect(out.today).toBe(toIsoDate(new Date())));
+
+  it('offers the same assistance-record choices', () => {
+    expect([...CONSULT_TYPES]).toEqual(out.consultTypes);
+    expect([...LIFESTYLE_ADVICE]).toEqual(out.lifestyle);
+  });
 
   it('grades every seeded report the same', () => {
     expect(out.reports.length).toBeGreaterThan(20);

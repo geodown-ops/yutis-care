@@ -4,6 +4,7 @@
  */
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { auditLog, departments, employees, legalEntities, plans, sessions, sites, tenants, tenantSubscriptions, usageCounters, users, type Db } from '@yutis/db';
+import { randomBytes } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -61,7 +62,7 @@ beforeAll(async () => {
   const [plan] = await owner.insert(plans).values({ code: 'standard', name: '標準方案' }).returning();
   await owner.insert(tenantSubscriptions).values({ tenantId: ids.acme, planId: plan!.id, status: 'active', seatLimit: 2, startsOn: '2026-01-01' });
 
-  const config = loadConfig({ NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true' });
+  const config = loadConfig({ NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') });
   app = await createApp(config, { logger: false });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
@@ -241,5 +242,22 @@ describe('employee import', () => {
     const employeeAudits = await audits('employees');
     expect(employeeAudits).toHaveLength(6);
     expect(employeeAudits.every(a => a.employeeId === a.subjectId && a.dataCategory === 'identity' && a.actorUserId === ids.admin)).toBe(true);
+  });
+
+  it('stores national ID numbers only as a per-tenant fingerprint, and refuses bad or duplicate ones', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const withIds = (rows: [string, string][]) => xlsx({ 員工: [[...header, '身分證字號'], ...rows.map(([empNo, id]) => [...row(empNo), id])] });
+    const bad = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E101', 'Z12345'], ['E102', 'A123456789'], ['E103', 'a123456789']]) })).json();
+    expect(bad.issues).toEqual([
+      { row: 2, column: '身分證字號', message: '格式錯誤' },
+      { row: 4, column: '身分證字號', message: '與工號 E102 重複' },
+    ]);
+    const done = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await withIds([['E101', 'B223456789']]) })).json();
+    expect(done).toMatchObject({ committed: true, create: 1 });
+    const [e] = await owner.select().from(employees).where(eq(employees.empNo, 'E101'));
+    expect(e!.nationalIdHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(e)).not.toContain('223456789');
+    const taken = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E104', 'B223456789']]) })).json();
+    expect(taken.issues).toEqual([{ row: 2, column: '身分證字號', message: '已屬於工號 E101' }]);
   });
 });
