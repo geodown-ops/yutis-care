@@ -1,0 +1,11 @@
+/* Cards and paper sit on white (dark: navy) surfaces above the grey page body. */
+:root {
+  --mantine-color-default: var(--yutis-surface);
+}
+.mantine-Card-root,
+.mantine-Paper-root {
+  background-color: var(--yutis-surface);
+}
+body {
+  font-variant-numeric: tabular-nums;
+}
