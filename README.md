@@ -1,20 +1,42 @@
 # Yutis Care
 
-職場員工健康照護平台的可操作雛形，給職護、職醫管理員工健康與職業衛生四大計畫。
+職場員工健康照護平台，給職護、職醫管理員工健康與職業衛生四大計畫。正式版為多租戶 SaaS，部署於 Google Cloud 台灣區域，架構見 [docs/architecture.md](docs/architecture.md)。
+
+## 專案結構
+
+| 路徑 | 內容 |
+|---|---|
+| `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
+| `prototype` | 可操作的純前端雛形（需求規格） |
+
+## 開發
+
+需要 Node.js 22 與 pnpm 10：
+
+```bash
+pnpm install
+pnpm test        # 規則測試，含與雛形一致性比對
+pnpm typecheck
+pnpm build
+```
+
+---
+
+# 雛形
 
 純前端，不需要後端或建置步驟。**所有人員、公司、地址與健康數據都是虛構的示範資料。**
 
-## 在本機執行
+## 在本機執行雛形
 
 需要 Node.js（不需安裝任何套件）：
 
 ```bash
-node scripts/serve.js
+pnpm prototype   # 或 node prototype/scripts/serve.js
 ```
 
 開啟 <http://localhost:5178>。
 
-`index.html` 沒有 `<html>`／`<head>`／`<body>` 標籤，因為原本是發布在會自動補上外框的頁面上；`scripts/serve.js` 會在本機補上同樣的外框。
+`index.html` 沒有 `<html>`／`<head>`／`<body>` 標籤，因為原本是發布在會自動補上外框的頁面上；`prototype/scripts/serve.js` 會在本機補上同樣的外框。
 
 ## 功能
 
@@ -32,7 +54,7 @@ node scripts/serve.js
 | 設定 | 醫護人員管理、分級標準（可編輯並即時重算）、片語庫、組織代碼 |
 | 員工端預覽 | NMQ 問卷（中文、English、日本語、Tiếng Việt、ภาษาไทย）、過勞量表、母性面談紀錄確認 |
 
-## 檔案
+## 檔案（都在 `prototype/`）
 
 | 檔案 | 說明 |
 |---|---|
@@ -54,4 +76,4 @@ node scripts/serve.js
 - 不會真的寄 Email、列印或匯入檔案；這些按鈕只顯示提示或模擬結果。匯出以 CSV 文字呈現，可複製貼到 Excel。
 - 十年心血管風險以簡化的 Framingham 點數法示意，正式版需依「異常工作負荷促發疾病預防指引」附表校正。
 - 健檢分級標準中，部分數值為雛形示範值（分級標準頁面標示「示意」）。
-- 年齡關注門檻設為未滿 18 歲或 55 歲以上，可在 `logic.js` 的 `SENIOR_AGE` 調整。
+- 年齡關注門檻設為未滿 18 歲或 55 歲以上，可在 `prototype/logic.js` 的 `SENIOR_AGE` 調整。
