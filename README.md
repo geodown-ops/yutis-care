@@ -50,6 +50,7 @@ pnpm dev:platform   # 平台後台 http://localhost:5182
 ```bash
 cp apps/api/.env.example apps/api/.env          # 依本機資料庫的埠調整
 pnpm --filter @yutis/api db:seed                # 建立 API 登入角色與虛構的 demo 租戶
+pnpm --filter @yutis/api db:seed-demo           # 選用：把雛形的虛構示範資料（員工、健檢、四大計畫、個案）匯入 demo 租戶
 pnpm --filter @yutis/api jobs:install           # 建立背景工作佇列（pg-boss）
 pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.localhost:3000/api/tenant
 pnpm --filter @yutis/api worker                 # 另一個終端機：背景工作（匯出、每晚保存期限掃描）
