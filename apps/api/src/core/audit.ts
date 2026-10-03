@@ -15,17 +15,20 @@ export interface AuditEntry {
 }
 
 /**
- * Append an audit_log row in the request's transaction, so the record commits if and only if the access it
+ * Append audit_log rows in the request's transaction, so the record commits if and only if the access it
  * describes does. Required for every read of health or medical data, every write, export and break-glass access.
  * `actor` defaults to the signed-in principal (pass it explicitly while signing someone in).
  */
-export async function recordAudit(ctx: RequestContext, entry: AuditEntry, actor: Principal | undefined = ctx.principal): Promise<void> {
-  await ctx.tx.insert(auditLog).values({
-    tenantId: ctx.tenant.id,
-    actorUserId: actor?.kind === 'staff' ? actor.userId : null,
-    actorEmployeeId: actor?.kind === 'employee' ? actor.employeeId : null,
-    ...entry,
-    ip: ctx.ip,
-    userAgent: ctx.userAgent,
-  });
+export async function recordAudit(ctx: RequestContext, entry: AuditEntry | AuditEntry[], actor: Principal | undefined = ctx.principal): Promise<void> {
+  const entries = Array.isArray(entry) ? entry : [entry];
+  for (let i = 0; i < entries.length; i += 1000) {
+    await ctx.tx.insert(auditLog).values(entries.slice(i, i + 1000).map(e => ({
+      tenantId: ctx.tenant.id,
+      actorUserId: actor?.kind === 'staff' ? actor.userId : null,
+      actorEmployeeId: actor?.kind === 'employee' ? actor.employeeId : null,
+      ...e,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    })));
+  }
 }
