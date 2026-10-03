@@ -24,6 +24,8 @@ pnpm typecheck
 pnpm build
 ```
 
+若本機已有 PostgreSQL 佔用 5432，可改用其他埠：先設 `YUTIS_DB_PORT=5433` 再 `docker compose up -d db`，`DATABASE_URL` 也改成 `localhost:5433`。
+
 改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
 
 ---

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: yutis
     ports:
-      - "5432:5432"
+      - "${YUTIS_DB_PORT:-5432}:5432"
     volumes:
       - yutis-db:/var/lib/postgresql/data
 volumes:
