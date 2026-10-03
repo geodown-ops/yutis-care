@@ -25,8 +25,7 @@ function RootLayout() {
 
   return (
     <ConsoleShell
-      product="Yutis Care"
-      subtitle={tenant.name}
+      title={tenant.name}
       user={{ name: me.name, role: me.role }}
       headerStart={canSearch && (
         <TextInput aria-label="以姓名或工號搜尋員工" placeholder="搜尋員工姓名或工號" leftSection={<IconSearch size={16} />} maw={320} visibleFrom="md"

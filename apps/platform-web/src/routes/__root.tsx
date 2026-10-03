@@ -10,7 +10,7 @@ function PlatformLayout() {
   const { pathname } = useLocation();
   return (
     <ConsoleShell
-      product="Yutis Care"
+      title="Yutis Care"
       subtitle="平台管理"
       user={{ name: '周子航', role: '營運' }}
       nav={close => NAV.map(g => (

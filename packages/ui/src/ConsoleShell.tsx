@@ -8,9 +8,10 @@ import { YutisMark } from './YutisMark';
  * Desktop console layout shared by the tenant admin and the platform admin: a light sidebar that blends
  * into the page, with the current item as an ink pill; header with search and user; cards on the grey page.
  */
-export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerStart, headerEnd, children }: {
-  product: string;
-  subtitle: string;
+export function ConsoleShell({ title, subtitle, user, nav, navFooter, headerStart, headerEnd, children }: {
+  /** Shown next to the YUTIS mark: the tenant's name in the tenant admin, the product name elsewhere. */
+  title: string;
+  subtitle?: string;
   user: { name: string; role: string };
   /** Sidebar content; receives `close` so a nav click can close the drawer on phones. */
   nav: (close: () => void) => ReactNode;
@@ -53,8 +54,8 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
           <Group gap={10} wrap="nowrap" px={6}>
             <YutisMark height={30} />
             <div style={{ minWidth: 0 }}>
-              <Text fw={700} c="var(--mantine-color-text)" lh={1.2} truncate>{product}</Text>
-              <Text size="xs" c="var(--yutis-nav-muted)" truncate>{subtitle}</Text>
+              <Text fw={700} c="var(--mantine-color-text)" lh={1.25} lineClamp={2} title={title}>{title}</Text>
+              {subtitle && <Text size="xs" c="var(--yutis-nav-muted)" truncate>{subtitle}</Text>}
             </div>
           </Group>
         </AppShell.Section>
