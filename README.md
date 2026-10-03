@@ -7,6 +7,7 @@
 | 路徑 | 內容 |
 |---|---|
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
+| `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
 | `packages/ui` | 設計 token、Mantine 主題與共用元件 |
 | `packages/api-client` | 租戶 API 的呼叫函式與型別 |
 | `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
@@ -16,14 +17,21 @@
 
 ## 開發
 
-需要 Node.js 22 與 pnpm 10：
+需要 Node.js 22、pnpm 10 與 Docker（本機資料庫）：
 
 ```bash
 pnpm install
-pnpm test        # 規則測試，含與雛形一致性比對
+docker compose up -d db
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/yutis
+pnpm --filter @yutis/db db:migrate   # 建立資料表
+pnpm test        # 規則測試（含與雛形一致性比對）與資料庫租戶隔離測試
 pnpm typecheck
 pnpm build
 ```
+
+若本機已有 PostgreSQL 佔用 5432，可改用其他埠：先設 `YUTIS_DB_PORT=5433` 再 `docker compose up -d db`，`DATABASE_URL` 也改成 `localhost:5433`。
+
+改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
 
 前端在 API 完成前使用示範資料，可直接預覽（畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)）：
 
