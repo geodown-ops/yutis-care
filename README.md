@@ -8,6 +8,7 @@
 |---|---|
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
 | `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
+| `apps/api` | 租戶 API（NestJS + Fastify）：租戶識別、session、權限管線、稽核、OpenAPI |
 | `packages/ui` | 設計 token、Mantine 主題與共用元件 |
 | `packages/api-client` | 租戶 API 的呼叫函式與型別 |
 | `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
@@ -24,7 +25,7 @@ pnpm install
 docker compose up -d db
 export DATABASE_URL=postgres://postgres:postgres@localhost:5432/yutis
 pnpm --filter @yutis/db db:migrate   # 建立資料表
-pnpm test        # 規則測試（含與雛形一致性比對）與資料庫租戶隔離測試
+pnpm test        # 規則測試（含與雛形一致性比對）、資料庫租戶隔離測試、API 測試
 pnpm typecheck
 pnpm build
 ```
@@ -40,6 +41,23 @@ pnpm dev:web        # 租戶後台 http://localhost:5180，右上角可切換示
 pnpm dev:portal     # 員工端 http://localhost:5181/me/
 pnpm dev:platform   # 平台後台 http://localhost:5182
 ```
+
+### 租戶 API
+
+本機以子網域 `{租戶}.localhost` 區分租戶，登入暫時用開發模式（以 Email 或手機號碼當作登入 token，不需密碼；正式環境會拒絕啟動）。
+
+```bash
+cp apps/api/.env.example apps/api/.env          # 依本機資料庫的埠調整
+pnpm --filter @yutis/api db:seed                # 建立 API 登入角色與虛構的 demo 租戶
+pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.localhost:3000/api/tenant
+```
+
+- API 文件：http://localhost:3000/api/docs（非正式環境才有）。
+- 登入：`POST /api/auth/sign-in`，body `{"token": "nurse@demo.test", "as": "staff"}`；員工用 `{"token": "0900000001", "as": "employee"}`。
+- API 必須以 `yutis_app` 的成員角色連線；若用資料表擁有者或 superuser，RLS 不會生效，API 會拒絕啟動。
+- 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
+- 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
 
 ---
 

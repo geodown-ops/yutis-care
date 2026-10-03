@@ -8,3 +8,4 @@ export * from './programs.js';
 export * from './service.js';
 export * from './audit.js';
 export * from './billing.js';
+export * from './sessions.js';

@@ -19,8 +19,8 @@
 | 路徑 | 內容 | 狀態 |
 |---|---|---|
 | `packages/domain` | 健康管理規則（健檢分級、NMQ、異常工作負荷、母性、不法侵害、個案狀態），純函式、前後端共用 | 已完成，含與雛形一致性測試 |
-| `packages/db` | PostgreSQL schema（41 張表）、migration、`withTenant` 租戶範圍交易 | 已完成，含租戶隔離整合測試 |
-| `apps/api` | NestJS API | 下一步 |
+| `packages/db` | PostgreSQL schema（42 張表）、migration、`withTenant` 租戶範圍交易 | 已完成，含租戶隔離整合測試 |
+| `apps/api` | 租戶 API（NestJS + Fastify） | 骨架完成：租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me` |
 | `packages/ui` | 設計 token、Mantine 主題、側欄外框與狀態元件，三個前端共用 | 已建立 |
 | `packages/api-client` | 租戶 API 呼叫函式；目前是 `/api/tenant`、`/api/me` 的暫定型別，之後由 OpenAPI 產生 | 已建立 |
 | `apps/web` | 租戶後台（React + Vite + Mantine + TanStack Router／Query），選單依角色顯示 | 骨架完成，示範資料 |
@@ -42,3 +42,4 @@
 - 有法定保存年限的資料表帶 `retain_until`。
 - 計費擴充點：`plans` 與 `tenant_subscriptions` 由平台寫入，`yutis_app` 只能讀（訂閱只看得到自己租戶的）；`usage_counters` 以「租戶 × 月份 × 指標」累加，`yutis_app` 可新增與累加自己租戶的，不能刪除。人數上限（`seat_limit`）超過時只提醒、不阻擋。
 - 廠區範圍（職護只能看負責廠區）目前由 API 權限層處理，之後評估是否也下放到 RLS。
+- 登入 session 存在 `sessions`（只存 token 的 SHA-256），同樣受 RLS 隔離，所以拿 A 租戶的 cookie 到 B 租戶的子網域查不到。API 在知道租戶之前，用 `tenant_by_slug()` 依子網域查租戶；這個函式只回傳完全相符的一筆，無法列出租戶。

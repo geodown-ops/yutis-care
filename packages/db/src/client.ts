@@ -21,3 +21,14 @@ export function withTenant<T>(db: Db, tenantId: string, fn: (tx: Tx) => Promise<
     return fn(tx);
   });
 }
+
+export type TenantSummary = { id: string; slug: string; name: string; status: 'active' | 'suspended' | 'closed' };
+
+/**
+ * Find a tenant by its subdomain before any tenant scope is set (RLS hides `tenants` until then). Goes through the
+ * `tenant_by_slug` database function, which returns one exact match and cannot list tenants.
+ */
+export async function tenantBySlug(db: Db, slug: string): Promise<TenantSummary | undefined> {
+  const { rows } = await db.execute<TenantSummary>(sql`select id, slug, name, status from tenant_by_slug(${slug})`);
+  return rows[0];
+}

@@ -37,3 +37,7 @@ jobs:
           test -z "$(git status --porcelain packages/db/migrations)" || { git status --porcelain packages/db/migrations; echo 'Run pnpm --filter @yutis/db db:generate and commit the migration.'; exit 1; }
       - run: pnpm test
       - run: pnpm build
+      - name: OpenAPI contract is up to date
+        run: |
+          pnpm --filter @yutis/api openapi
+          git diff --exit-code apps/api/openapi.json || { echo 'Run pnpm build && pnpm --filter @yutis/api openapi and commit apps/api/openapi.json.'; exit 1; }

@@ -1,0 +1,52 @@
+import { z } from 'zod';
+
+const flag = z.enum(['true', 'false']).transform(v => v === 'true');
+
+const Env = z.object({
+  NODE_ENV: z.string().default('development'),
+  PORT: z.coerce.number().int().positive().default(3000),
+  /** Login role that is a member of `yutis_app` (never the table owner, or RLS would not apply). */
+  APP_DATABASE_URL: z.string().min(1),
+  /** Tenants are served at {slug}.{TENANT_BASE_DOMAIN}; locally e.g. `localhost` → demo.localhost:3000. */
+  TENANT_BASE_DOMAIN: z.string().min(1).default('care.yutis.com.tw'),
+  /** Secure cookies (`__Host-` prefix). Only turn off for plain-http local development. */
+  COOKIE_SECURE: flag.default(true),
+  /** Behind the Google Cloud load balancer: take the client IP and host from X-Forwarded-* headers. */
+  TRUST_PROXY: flag.default(false),
+  SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(15),
+  SESSION_MAX_HOURS: z.coerce.number().int().positive().default(12),
+  /** Sign in with an email address or phone number as the token, no password. Local development only. */
+  AUTH_DEV_SIGN_IN: flag.default(false),
+});
+
+export interface ApiConfig {
+  production: boolean;
+  port: number;
+  databaseUrl: string;
+  tenantBaseDomain: string;
+  cookieSecure: boolean;
+  trustProxy: boolean;
+  sessionIdleSeconds: number;
+  sessionMaxSeconds: number;
+  devSignIn: boolean;
+}
+
+export function loadConfig(env: Record<string, string | undefined> = process.env): ApiConfig {
+  const parsed = Env.safeParse(env);
+  if (!parsed.success) throw new Error(`Invalid API configuration:\n${z.prettifyError(parsed.error)}`);
+  const e = parsed.data;
+  const production = e.NODE_ENV === 'production';
+  if (production && e.AUTH_DEV_SIGN_IN) throw new Error('AUTH_DEV_SIGN_IN must not be enabled in production');
+  if (production && !e.COOKIE_SECURE) throw new Error('COOKIE_SECURE must not be disabled in production');
+  return {
+    production,
+    port: e.PORT,
+    databaseUrl: e.APP_DATABASE_URL,
+    tenantBaseDomain: e.TENANT_BASE_DOMAIN.toLowerCase(),
+    cookieSecure: e.COOKIE_SECURE,
+    trustProxy: e.TRUST_PROXY,
+    sessionIdleSeconds: e.SESSION_IDLE_MINUTES * 60,
+    sessionMaxSeconds: e.SESSION_MAX_HOURS * 3600,
+    devSignIn: e.AUTH_DEV_SIGN_IN,
+  };
+}
