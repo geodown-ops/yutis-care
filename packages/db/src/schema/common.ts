@@ -13,7 +13,7 @@ export const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType
 
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
-  /** Subdomain, e.g. `acme` → acme.yutiscare.tw. */
+  /** Subdomain under care.yutis.com.tw, e.g. `acme` → acme.care.yutis.com.tw. Reserved: admin, api, www. */
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   status: text('status', { enum: ['active', 'suspended', 'closed'] }).notNull().default('active'),

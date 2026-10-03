@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { auditLog, createDb, departments, employees, healthExams, legalEntities, runMigrations, sites, tenants, withTenant, gradingRuleSets, type Db } from '../src/index.js';
+import { auditLog, createDb, departments, employees, healthExams, legalEntities, plans, runMigrations, sites, tenants, tenantSubscriptions, usageCounters, withTenant, gradingRuleSets, type Db } from '../src/index.js';
 
 const adminUrl = process.env.DATABASE_URL;
 if (!adminUrl) throw new Error('DATABASE_URL is required for @yutis/db tests (see README: docker compose up -d db)');
@@ -140,5 +140,33 @@ describe('audit log', () => {
 
   it("is isolated per tenant like everything else", async () => {
     expect(await withTenant(app, T.b, tx => tx.select().from(auditLog))).toHaveLength(0);
+  });
+});
+
+describe('billing extension points', () => {
+  it('lets a tenant read its own subscription but not change it or see others', async () => {
+    const [plan] = await owner.insert(plans).values({ code: 'standard', name: '標準方案' }).returning();
+    await owner.insert(tenantSubscriptions).values([
+      { tenantId: T.a, planId: plan!.id, status: 'active', seatLimit: 500, startsOn: '2026-10-01' },
+      { tenantId: T.b, planId: plan!.id, startsOn: '2026-10-01' },
+    ]);
+    const own = await withTenant(app, T.a, tx => tx.select().from(tenantSubscriptions));
+    expect(own.map(r => r.tenantId)).toEqual([T.a]);
+    expect(await withTenant(app, T.a, tx => tx.select().from(plans))).toHaveLength(1);
+    expect(await pgError(withTenant(app, T.a, tx => tx.update(tenantSubscriptions).set({ seatLimit: 9999 })))).toMatch(/permission denied/);
+    expect(await pgError(withTenant(app, T.a, tx => tx.insert(plans).values({ code: 'free', name: 'free' })))).toMatch(/permission denied/);
+  });
+
+  it('counts usage per tenant and month, and never deletes it', async () => {
+    const bump = (tenantId: string) => withTenant(app, tenantId, tx => tx.insert(usageCounters)
+      .values({ tenantId, period: '2026-10-01', metric: 'sms_sent', quantity: 1 })
+      .onConflictDoUpdate({ target: [usageCounters.tenantId, usageCounters.period, usageCounters.metric], set: { quantity: sql`${usageCounters.quantity} + 1` } }));
+    await bump(T.a); await bump(T.a);
+    const [row] = await withTenant(app, T.a, tx => tx.select().from(usageCounters));
+    expect(row!.quantity).toBe(2);
+    expect(await withTenant(app, T.b, tx => tx.select().from(usageCounters))).toHaveLength(0);
+    expect(await pgError(withTenant(app, T.a, tx => tx.insert(usageCounters).values({ tenantId: T.b, period: '2026-10-01', metric: 'sms_sent' })))).toMatch(/row-level security/);
+    expect(await pgError(withTenant(app, T.a, tx => tx.delete(usageCounters)))).toMatch(/permission denied/);
+    expect(await pgError(owner.insert(usageCounters).values({ tenantId: T.a, period: '2026-10-15', metric: 'sms_sent' }))).toMatch(/usage_counters_period_is_month/);
   });
 });
