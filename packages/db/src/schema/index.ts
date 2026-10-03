@@ -10,3 +10,4 @@ export * from './audit.js';
 export * from './billing.js';
 export * from './sessions.js';
 export * from './platform.js';
+export * from './jobs.js';

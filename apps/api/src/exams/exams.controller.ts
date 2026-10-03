@@ -7,7 +7,7 @@
 import { Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { caseEvents, employees, examBatches, examImportMappings, healthExamResults, healthExams } from '@yutis/db';
-import { EXAM_EVENT_GRADE, EXAM_ITEMS, gradeReport, SPECIAL_EVENT_LEVEL, type ExamValues } from '@yutis/domain';
+import { EXAM_EVENT_GRADE, EXAM_ITEMS, examRetainUntil, gradeReport, SPECIAL_EVENT_LEVEL, type ExamValues } from '@yutis/domain';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
@@ -226,6 +226,7 @@ export class ExamsController {
         historyEnc: await encryptOptional(this.crypto, ctx.tenant.id, p.history),
         symptomsEnc: await encryptOptional(this.crypto, ctx.tenant.id, p.symptoms),
         workNoteEnc: await encryptOptional(this.crypto, ctx.tenant.id, p.workNote),
+        retainUntil: examRetainUntil(p.examDate, !!(p.specialHazard || p.specialLevel)),
         createdBy: me.userId,
       }).returning({ id: healthExams.id });
       const results = Object.entries(p.values).filter(([, value]) => value !== null);

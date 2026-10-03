@@ -16,6 +16,9 @@ await pool.query(`DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yutis_api_local') THEN
     CREATE ROLE yutis_api_local LOGIN PASSWORD 'yutis_api_local' IN ROLE yutis_app;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yutis_worker_local') THEN
+    CREATE ROLE yutis_worker_local LOGIN PASSWORD 'yutis_worker_local' IN ROLE yutis_worker;
+  END IF;
 END $$`);
 
 const [existing] = await db.select().from(tenants).where(eq(tenants.slug, 'demo'));
