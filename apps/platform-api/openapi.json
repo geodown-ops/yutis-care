@@ -1557,6 +1557,31 @@
           "message"
         ]
       },
+      "TenantAdminDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "lastSignInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "active",
+          "lastSignInAt"
+        ]
+      },
       "TenantDetailDto": {
         "type": "object",
         "properties": {
@@ -1623,6 +1648,13 @@
             "items": {
               "$ref": "#/components/schemas/SubscriptionDto"
             }
+          },
+          "admins": {
+            "description": "租戶管理員名單（由資料庫函式提供，平台讀不到帳號表）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantAdminDto"
+            }
           }
         },
         "required": [
@@ -1638,7 +1670,8 @@
           "overSeatLimit",
           "encryptionKeyReady",
           "signInTenantReady",
-          "subscriptions"
+          "subscriptions",
+          "admins"
         ]
       },
       "PlanDto": {

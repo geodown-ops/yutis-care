@@ -241,7 +241,7 @@ describe('platform role (yutis_platform)', () => {
     expect(await pgError(platform.execute(sql`select apply_default_templates(${t!.id})`))).toMatch(/no active default template/);
     await platform.insert(defaultTemplates).values([
       { kind: 'grading_rules', version: 1, active: true, content: [{ code: 'B0111', name: '收縮壓', sex: '不限', unit: 'mmHg', src: 'manual', levels: [{ lv: 1, max: 140 }] }] },
-      { kind: 'phrases', version: 1, active: true, content: [{ cat: '健康諮詢', text: '多喝水' }] },
+      { kind: 'phrases', version: 1, active: true, content: [{ cat: '健康諮詢', text: '多喝水' }, { cat: '不法侵害－措施', kind: '建議', text: '配置保全人員。' }] },
       { kind: 'sign_off_roles', version: 1, active: true, content: ['勞工健康服務醫師'] },
       { kind: 'survey_versions', version: 1, active: true, content: { nmq: 'nmq-v1' } },
     ]);
@@ -252,7 +252,7 @@ describe('platform role (yutis_platform)', () => {
     }));
     expect(copied.sets).toMatchObject([{ version: 1, status: 'published' }]);
     expect(copied.rules).toMatchObject([{ itemCode: 'B0111', valueType: 'number', source: 'manual', levels: [{ lv: 1, max: 140 }] }]);
-    expect(copied.phrases.map(p => p.text)).toEqual(['多喝水']);
+    expect(copied.phrases.map(p => [p.text, p.kind]).sort()).toEqual([['多喝水', null], ['配置保全人員。', '建議']].sort());
     expect(copied.settings.map(x => x.key).sort()).toEqual(['sign_off_roles', 'survey_versions']);
     expect(await pgError(platform.execute(sql`select apply_default_templates(${t!.id})`))).toMatch(/already has templates/);
   });
@@ -263,6 +263,16 @@ describe('platform role (yutis_platform)', () => {
     const [u] = await owner.select().from(users).where(eq(users.id, rows[0]!.id));
     expect(u).toMatchObject({ tenantId: t!.id, email: 'boss@newco.test', role: '租戶管理員' });
     expect(await pgError(platform.execute(sql`select invite_tenant_admin(${t!.id}, 'me@yutis.test', 'x')`))).toMatch(/already has a tenant admin/);
+  });
+
+  it('lists a tenant\'s admins, and only them, through tenant_admins()', async () => {
+    await owner.insert(users).values([
+      { tenantId: T.a, email: 'admin@acme.test', name: '管理員', role: '租戶管理員' },
+      { tenantId: T.a, email: 'nurse@acme.test', name: '護理師', role: '職護' },
+    ]);
+    const { rows } = await platform.execute<Record<string, unknown>>(sql`select * from tenant_admins(${T.a})`);
+    expect(rows).toEqual([{ name: '管理員', email: 'admin@acme.test', active: true, last_sign_in_at: null }]);
+    expect(await pgError(withTenant(app, T.a, tx => tx.execute(sql`select * from tenant_admins(${T.a})`)))).toMatch(/permission denied/);
   });
 
   it('is not reachable from tenant sessions', async () => {

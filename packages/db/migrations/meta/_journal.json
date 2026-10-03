@@ -57,6 +57,20 @@
       "when": 1791032891058,
       "tag": "0007_platform_access",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791033898360,
+      "tag": "0008_tenant_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791033899179,
+      "tag": "0009_tenant_admin_functions",
+      "breakpoints": true
     }
   ]
 }

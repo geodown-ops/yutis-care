@@ -8,6 +8,8 @@ export const phrases = pgTable('phrases', {
   ...base(),
   category: text('category').notNull(),
   text: text('text').notNull(),
+  /** For measures (不法侵害－措施): 改善 = should add or improve, 建議 = may adopt. */
+  kind: text('kind', { enum: ['改善', '建議'] }),
 }, t => [tenantKey(t)]);
 
 export const assistRecords = pgTable('assist_records', {

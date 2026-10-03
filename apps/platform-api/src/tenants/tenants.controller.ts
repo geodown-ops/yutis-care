@@ -35,10 +35,18 @@ export class TenantDto {
   @ApiProperty({ description: '在職員工數超過人數上限' }) overSeatLimit!: boolean;
 }
 
+export class TenantAdminDto {
+  @ApiProperty() name!: string;
+  @ApiProperty() email!: string;
+  @ApiProperty() active!: boolean;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) lastSignInAt!: Date | null;
+}
+
 export class TenantDetailDto extends TenantDto {
   @ApiProperty({ description: '已建立租戶金鑰（Cloud KMS）' }) encryptionKeyReady!: boolean;
   @ApiProperty({ description: '已建立登入租戶（Identity Platform）' }) signInTenantReady!: boolean;
   @ApiProperty({ type: [SubscriptionDto], description: '訂閱歷史，新的在前' }) subscriptions!: SubscriptionDto[];
+  @ApiProperty({ type: [TenantAdminDto], description: '租戶管理員名單（由資料庫函式提供，平台讀不到帳號表）' }) admins!: TenantAdminDto[];
 }
 
 const Suspend = z.object({ reason: z.string().trim().min(1).max(500) }).strict();
@@ -152,7 +160,12 @@ export class TenantsController {
     const [tenant] = await ctx.tx.select().from(tenants).where(eq(tenants.id, id));
     if (!tenant) throw notFound();
     const { summary, subscriptions } = await this.describe(ctx.tx, tenant);
-    return { ...summary, encryptionKeyReady: !!tenant.kmsKeyName, signInTenantReady: !!tenant.idpTenantId, subscriptions };
+    const { rows: admins } = await ctx.tx.execute<{ name: string; email: string; active: boolean; last_sign_in_at: Date | null }>(
+      sql`select name, email, active, last_sign_in_at from tenant_admins(${id})`);
+    return {
+      ...summary, encryptionKeyReady: !!tenant.kmsKeyName, signInTenantReady: !!tenant.idpTenantId, subscriptions,
+      admins: admins.map(a => ({ name: a.name, email: a.email, active: a.active, lastSignInAt: a.last_sign_in_at })),
+    };
   }
 
   private async describe(tx: Tx, t: typeof tenants.$inferSelect): Promise<{ summary: TenantDto; subscriptions: SubscriptionDto[] }> {
