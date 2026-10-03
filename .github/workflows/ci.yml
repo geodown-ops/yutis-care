@@ -40,4 +40,5 @@ jobs:
       - name: OpenAPI contract is up to date
         run: |
           pnpm --filter @yutis/api openapi
-          git diff --exit-code apps/api/openapi.json || { echo 'Run pnpm build && pnpm --filter @yutis/api openapi and commit apps/api/openapi.json.'; exit 1; }
+          pnpm --filter @yutis/platform-api openapi
+          git diff --exit-code apps/api/openapi.json apps/platform-api/openapi.json || { echo 'Run pnpm build, then pnpm --filter @yutis/api openapi and pnpm --filter @yutis/platform-api openapi, and commit the openapi.json files.'; exit 1; }
