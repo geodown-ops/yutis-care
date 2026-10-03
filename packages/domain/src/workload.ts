@@ -7,6 +7,14 @@ export type Level3 = 0 | 1 | 2;
 export const RISK_LABEL = ['低度風險', '中度風險', '高度風險'] as const;
 export const LOAD_LABEL = ['低負荷', '中負荷', '高負荷'] as const;
 export const ADVICE = ['不需面談', '建議面談', '需面談'] as const;
+/** Work patterns counted by the load evaluation (工作型態). */
+export const WORK_PATTERNS = ['不規律的工作', '經常出差的工作', '輪班或夜班工作', '作業環境（異常溫度、噪音、時差）', '伴隨精神緊張的工作'] as const;
+/** Version of the overwork rules below, stored with every evaluation. */
+export const WORKLOAD_RULE_VERSION = 'workload-v1';
+/** CBI questions: personal burnout and work-related burnout. */
+export const CBI_PERSONAL_ITEMS = 6;
+export const CBI_WORK_ITEMS = 7;
+
 /** MATRIX[10-year CVD band][workload level] → risk level. */
 export const MATRIX: readonly (readonly Level3[])[] = [[0, 0, 1], [0, 1, 2], [1, 2, 2]];
 

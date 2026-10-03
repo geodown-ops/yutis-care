@@ -8,6 +8,20 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -17,5 +31,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - name: Migrations match the schema
+        run: |
+          pnpm --filter @yutis/db db:generate
+          test -z "$(git status --porcelain packages/db/migrations)" || { git status --porcelain packages/db/migrations; echo 'Run pnpm --filter @yutis/db db:generate and commit the migration.'; exit 1; }
       - run: pnpm test
       - run: pnpm build
+      - name: OpenAPI contract is up to date
+        run: |
+          pnpm --filter @yutis/api openapi
+          pnpm --filter @yutis/platform-api openapi
+          git diff --exit-code apps/api/openapi.json apps/platform-api/openapi.json || { echo 'Run pnpm build, then pnpm --filter @yutis/api openapi and pnpm --filter @yutis/platform-api openapi, and commit the openapi.json files.'; exit 1; }

@@ -7,6 +7,9 @@
 | 路徑 | 內容 |
 |---|---|
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
+| `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
+| `apps/api` | 租戶 API（NestJS + Fastify）：租戶識別、session、權限管線、稽核、OpenAPI |
+| `apps/platform-api` | 平台 API：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員；看不到任何健康資料 |
 | `packages/ui` | 設計 token、Mantine 主題與共用元件 |
 | `packages/api-client` | 租戶 API 的呼叫函式與型別 |
 | `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
@@ -16,14 +19,21 @@
 
 ## 開發
 
-需要 Node.js 22 與 pnpm 10：
+需要 Node.js 22、pnpm 10 與 Docker（本機資料庫）：
 
 ```bash
 pnpm install
-pnpm test        # 規則測試，含與雛形一致性比對
+docker compose up -d db
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/yutis
+pnpm --filter @yutis/db db:migrate   # 建立資料表
+pnpm test        # 規則測試（含與雛形一致性比對）、資料庫租戶隔離測試、API 測試
 pnpm typecheck
 pnpm build
 ```
+
+若本機已有 PostgreSQL 佔用 5432，可改用其他埠：先設 `YUTIS_DB_PORT=5433` 再 `docker compose up -d db`，`DATABASE_URL` 也改成 `localhost:5433`。
+
+改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
 
 前端在 API 完成前使用示範資料，可直接預覽（畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)）：
 
@@ -32,6 +42,49 @@ pnpm dev:web        # 租戶後台 http://localhost:5180，右上角可切換示
 pnpm dev:portal     # 員工端 http://localhost:5181/me/
 pnpm dev:platform   # 平台後台 http://localhost:5182
 ```
+
+### 租戶 API
+
+本機以子網域 `{租戶}.localhost` 區分租戶，登入暫時用開發模式（以 Email 或手機號碼當作登入 token，不需密碼；正式環境會拒絕啟動）。
+
+```bash
+cp apps/api/.env.example apps/api/.env          # 依本機資料庫的埠調整
+pnpm --filter @yutis/api db:seed                # 建立 API 登入角色與虛構的 demo 租戶
+pnpm --filter @yutis/api jobs:install           # 建立背景工作佇列（pg-boss）
+pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.localhost:3000/api/tenant
+pnpm --filter @yutis/api worker                 # 另一個終端機：背景工作（匯出、每晚保存期限掃描）
+```
+
+- API 文件：http://localhost:3000/api/docs（非正式環境才有）。
+- 登入：`POST /api/auth/sign-in`，body `{"token": "nurse@demo.test", "as": "staff"}`；員工用 `{"token": "0900000001", "as": "employee"}`。
+- API 必須以 `yutis_app` 的成員角色連線；若用資料表擁有者或 superuser，RLS 不會生效，API 會拒絕啟動。
+- 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
+- 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
+- 健檢、協助紀錄、個案（`/api/exams`、`/api/employees/:id/exams`、`/api/records`、`/api/cases`）只給職護、職醫，而且只限負責廠區（或有效的破窗授權）的員工；每次讀取都記入稽核，人資與租戶管理員一律拿不到。健檢以租戶管理員設定的「健檢匯入對照」匯入，依目前發布的分級標準分級並保留版本。
+- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。
+- 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
+- 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號只存每個租戶各自的 HMAC。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
+- 附表八（`/api/service-records`）由職護、職醫、職安衛人員填寫，送出後依租戶設定的簽核角色寄出一次性簽核連結（`/api/sign/:token`），全部簽核後完成；整個簽核過程記入稽核。
+- 統計報表（`/api/reports`，16 種，與雛形相同）：職護、職醫看負責廠區的完整數字；職安衛人員與人資只看去識別統計，少於 5 人的格子（以及可由總數推算出的格子）不顯示。匯出（`/api/exports`）由背景工作產生 Excel／PDF，附匯出人與時間浮水印，以 5 分鐘、一次性的連結下載，申請與下載都記入稽核。
+- 保存期限：健檢匯入時依一般 7 年、特殊 10 年設定 `retain_until`（待法務確認）；背景工作每晚列出已過期的資料（`/api/retention`）供人工確認刪除，系統不會自動刪除。
+- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
+
+### 平台 API
+
+平台管理後台（`admin.care.yutis.com.tw`）的 API，以 `yutis_platform` 資料庫角色連線：只能用租戶、方案、訂閱、用量計數與平台自己的資料表，對員工、健檢與四大計畫的資料表沒有任何權限（`packages/db` 有測試鎖住）。
+
+```bash
+cp apps/platform-api/.env.example apps/platform-api/.env   # 依本機資料庫的埠調整
+pnpm --filter @yutis/platform-api db:seed                  # 建立平台登入角色、示範平台人員、方案與預設範本
+pnpm --filter @yutis/platform-api dev                      # http://localhost:3001/platform-api/docs
+```
+
+- 正式環境由 Identity-Aware Proxy 擋在前面，API 驗證 IAP 簽發的 JWT（`x-goog-iap-jwt-assertion`）再對應 `platform_users` 的角色（營運、客服、工程）。本機用 `X-Dev-Platform-User: ops@yutis.test` 代替，正式環境會拒絕啟動。
+- 每個寫入都必須在同一個交易寫 `platform_audit_log`，沒寫的請求會整筆回滾。
+- 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
+- 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。
 
 ---
 

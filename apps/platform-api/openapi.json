@@ -1,0 +1,1867 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/platform-api/health": {
+      "get": {
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "健康檢查（Cloud Run）",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/platform-api/tenants": {
+      "get": {
+        "operationId": "TenantsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "租戶列表",
+        "tags": [
+          "tenants"
+        ]
+      },
+      "post": {
+        "description": "建立租戶、租戶金鑰（Cloud KMS）、登入租戶（Identity Platform）與訂閱，複製預設範本，邀請第一位租戶管理員。任一步失敗會清除已建立的部分。",
+        "operationId": "TenantsController_onboard",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subdomain": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "planCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "subscriptionStatus": {
+                    "default": "trial",
+                    "type": "string",
+                    "enum": [
+                      "trial",
+                      "active"
+                    ]
+                  },
+                  "seatLimit": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "endsOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "admin": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "subdomain",
+                  "name",
+                  "planCode",
+                  "admin"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "子網域已被使用（subdomain_taken），或尚未建立預設範本（templates_missing）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "開通租戶",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/tenants/{id}": {
+      "get": {
+        "operationId": "TenantsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "租戶詳情",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/tenants/{id}/suspend": {
+      "post": {
+        "description": "停用後該租戶的後台與員工端立即無法使用，資料保留。",
+        "operationId": "TenantsController_suspend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "停用租戶",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/tenants/{id}/reactivate": {
+      "post": {
+        "operationId": "TenantsController_reactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "恢復停用的租戶",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/tenants/{id}/subscription": {
+      "put": {
+        "description": "更新目前的訂閱（方案、狀態、人數上限、起訖日）；沒有訂閱時新增一筆。目前不依此收費。",
+        "operationId": "TenantsController_setSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "trial",
+                      "active",
+                      "past_due",
+                      "cancelled"
+                    ]
+                  },
+                  "seatLimit": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "endsOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "planCode",
+                  "status",
+                  "seatLimit",
+                  "startsOn",
+                  "endsOn"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "設定目前的訂閱",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/plans": {
+      "get": {
+        "operationId": "PlansUsageController_listPlans",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "方案列表",
+        "tags": [
+          "billing"
+        ]
+      },
+      "post": {
+        "description": "四大計畫不拆賣：方案只差在人數與計價，不開關功能。",
+        "operationId": "PlansUsageController_createPlan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]{1,40}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "pricing": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "code",
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "新增方案",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/platform-api/usage": {
+      "get": {
+        "description": "員工與帳號數為目前值；健檢與簡訊為指定月份。平台拿不到任何一筆明細。",
+        "operationId": "PlansUsageController_usage",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "預設本月",
+            "schema": {
+              "example": "2026-10"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UsageDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "各租戶用量（只有計數）",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/platform-api/announcements": {
+      "get": {
+        "operationId": "AnnouncementsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "公告列表（新的在前）",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "post": {
+        "operationId": "AnnouncementsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tenantId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "default": "notice",
+                    "type": "string",
+                    "enum": [
+                      "maintenance",
+                      "feature",
+                      "notice"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "publishAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "expiresAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "新增公告",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/platform-api/announcements/{id}": {
+      "patch": {
+        "operationId": "AnnouncementsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tenantId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "maintenance",
+                      "feature",
+                      "notice"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  "publishAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "expiresAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "修改公告",
+        "tags": [
+          "announcements"
+        ]
+      },
+      "delete": {
+        "operationId": "AnnouncementsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "刪除公告",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/platform-api/platform-users": {
+      "get": {
+        "operationId": "PlatformUsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformUserDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "平台人員",
+        "tags": [
+          "platform-users"
+        ]
+      },
+      "post": {
+        "description": "還需要在 Identity-Aware Proxy 加入此帳號才能登入。",
+        "operationId": "PlatformUsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "營運",
+                      "客服",
+                      "工程"
+                    ]
+                  }
+                },
+                "required": [
+                  "email",
+                  "name",
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "新增平台人員",
+        "tags": [
+          "platform-users"
+        ]
+      }
+    },
+    "/platform-api/platform-users/{id}": {
+      "patch": {
+        "operationId": "PlatformUsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "營運",
+                      "客服",
+                      "工程"
+                    ]
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "修改平台人員（角色、停用）",
+        "tags": [
+          "platform-users"
+        ]
+      }
+    },
+    "/platform-api/templates": {
+      "get": {
+        "description": "新租戶開通時複製：分級規則、片語庫、簽核角色、問卷版本。",
+        "operationId": "TemplatesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateVersionDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "目前生效的預設範本版本",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/platform-api/templates/sync": {
+      "post": {
+        "description": "內容有變的類別會發布新版本；已開通的租戶不受影響。",
+        "operationId": "TemplatesController_sync",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateVersionDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          }
+        ],
+        "summary": "把預設範本更新為程式內建的版本",
+        "tags": [
+          "templates"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Yutis Care 平台 API",
+    "description": "平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "iap": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-goog-iap-jwt-assertion",
+        "description": "Identity-Aware Proxy 簽發的 JWT，由 IAP 自動帶入"
+      }
+    },
+    "schemas": {
+      "HealthDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "SubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "planCode": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "trial",
+              "active",
+              "past_due",
+              "cancelled"
+            ],
+            "description": "試用、啟用、逾期、解約"
+          },
+          "seatLimit": {
+            "type": "number",
+            "nullable": true,
+            "description": "人數上限；超過只提醒、不阻擋"
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "required": [
+          "planCode",
+          "planName",
+          "status",
+          "seatLimit",
+          "startsOn",
+          "endsOn"
+        ]
+      },
+      "TenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subdomain": {
+            "type": "string",
+            "example": "acme"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://acme.care.yutis.com.tw"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "closed"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subscription": {
+            "nullable": true,
+            "description": "目前的訂閱",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionDto"
+              }
+            ]
+          },
+          "activeEmployees": {
+            "type": "number",
+            "description": "在職員工數（資料庫函式計算，平台看不到明細）"
+          },
+          "staffAccounts": {
+            "type": "number",
+            "description": "啟用中的後台帳號數"
+          },
+          "overSeatLimit": {
+            "type": "boolean",
+            "description": "在職員工數超過人數上限"
+          }
+        },
+        "required": [
+          "id",
+          "subdomain",
+          "url",
+          "name",
+          "status",
+          "createdAt",
+          "subscription",
+          "activeEmployees",
+          "staffAccounts",
+          "overSeatLimit"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "number",
+            "example": 403
+          },
+          "code": {
+            "type": "string",
+            "description": "機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable",
+            "example": "forbidden"
+          },
+          "message": {
+            "type": "string",
+            "description": "給開發者看的說明，不直接顯示給使用者"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message"
+        ]
+      },
+      "TenantAdminDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "lastSignInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "active",
+          "lastSignInAt"
+        ]
+      },
+      "TenantDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subdomain": {
+            "type": "string",
+            "example": "acme"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://acme.care.yutis.com.tw"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "closed"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subscription": {
+            "nullable": true,
+            "description": "目前的訂閱",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubscriptionDto"
+              }
+            ]
+          },
+          "activeEmployees": {
+            "type": "number",
+            "description": "在職員工數（資料庫函式計算，平台看不到明細）"
+          },
+          "staffAccounts": {
+            "type": "number",
+            "description": "啟用中的後台帳號數"
+          },
+          "overSeatLimit": {
+            "type": "boolean",
+            "description": "在職員工數超過人數上限"
+          },
+          "encryptionKeyReady": {
+            "type": "boolean",
+            "description": "已建立租戶金鑰（Cloud KMS）"
+          },
+          "signInTenantReady": {
+            "type": "boolean",
+            "description": "已建立登入租戶（Identity Platform）"
+          },
+          "subscriptions": {
+            "description": "訂閱歷史，新的在前",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionDto"
+            }
+          },
+          "admins": {
+            "description": "租戶管理員名單（由資料庫函式提供，平台讀不到帳號表）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantAdminDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "subdomain",
+          "url",
+          "name",
+          "status",
+          "createdAt",
+          "subscription",
+          "activeEmployees",
+          "staffAccounts",
+          "overSeatLimit",
+          "encryptionKeyReady",
+          "signInTenantReady",
+          "subscriptions",
+          "admins"
+        ]
+      },
+      "PlanDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "standard"
+          },
+          "name": {
+            "type": "string",
+            "example": "標準方案"
+          },
+          "pricing": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "計價參數；計費模式定案前不解讀"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "pricing",
+          "active"
+        ]
+      },
+      "UsageDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "activeEmployees": {
+            "type": "number",
+            "description": "在職員工數（目前）"
+          },
+          "staffAccounts": {
+            "type": "number",
+            "description": "啟用中的後台帳號數（目前）"
+          },
+          "examsInMonth": {
+            "type": "number",
+            "description": "該月健檢筆數"
+          },
+          "smsSent": {
+            "type": "number",
+            "description": "該月簡訊則數（由營運商負擔，按租戶記錄）"
+          },
+          "seatLimit": {
+            "type": "number",
+            "nullable": true
+          },
+          "overSeatLimit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tenantId",
+          "subdomain",
+          "name",
+          "activeEmployees",
+          "staffAccounts",
+          "examsInMonth",
+          "smsSent",
+          "seatLimit",
+          "overSeatLimit"
+        ]
+      },
+      "AnnouncementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null 表示所有租戶"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "maintenance",
+              "feature",
+              "notice"
+            ],
+            "description": "維護、新功能、一般公告"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "publishAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "kind",
+          "title",
+          "body",
+          "publishAt",
+          "expiresAt"
+        ]
+      },
+      "PlatformUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "營運",
+              "客服",
+              "工程"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role",
+          "active"
+        ]
+      },
+      "TemplateVersionDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "grading_rules",
+              "phrases",
+              "sign_off_roles",
+              "survey_versions"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "changed": {
+            "type": "boolean",
+            "description": "這次是否發布了新版本"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "changed"
+        ]
+      }
+    }
+  }
+}

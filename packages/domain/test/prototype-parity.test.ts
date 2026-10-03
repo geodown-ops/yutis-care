@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
-  cvdScore, evaluateWorkload, gradeReport, loadEval, nmqHazardLabel, suggestMaternalLevel, toIsoDate, violenceRisk,
+  ASSIST_CATEGORIES, CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, CONSULT_TYPES, NMQ_KEYS, nmqPartLabel, cvdScore, evaluateWorkload, gradeReport, LIFESTYLE_ADVICE, loadEval, nmqHazardLabel, suggestMaternalLevel, toIsoDate, violenceRisk, WORK_PATTERNS,
 } from '../src/index.js';
 
 const dir = fileURLToPath(new URL('../../../prototype/', import.meta.url));
@@ -17,6 +17,12 @@ vm.runInContext(`${src}
 ;var S = seedState(); initEventStatus();
 globalThis.out = {
   today: TODAY,
+  consultTypes: CONSULT_TYPES,
+  lifestyle: LIFESTYLE,
+  workPatterns: WORK_PATTERNS,
+  cbi: { p: CBI.personal.length, w: CBI.work.length },
+  assistCats: ASSIST_CATS,
+  partLabels: NMQ_KEYS.map(k => partLabel(k.key)),
   employees: S.employees,
   reports: S.reports.map(r => ({ r, g: gradeReport(r) })),
   workload: S.workload.map(a => ({ a, latest: latestReport(a.empId), w: evalWorkload(a) })),
@@ -29,6 +35,15 @@ const emp = (id: string) => out.employees.find((e: any) => e.id === id);
 
 describe('parity with prototype logic.js', () => {
   it('runs against today', () => expect(out.today).toBe(toIsoDate(new Date())));
+
+  it('offers the same assistance-record choices', () => {
+    expect([...CONSULT_TYPES]).toEqual(out.consultTypes);
+    expect([...LIFESTYLE_ADVICE]).toEqual(out.lifestyle);
+    expect([...WORK_PATTERNS]).toEqual(out.workPatterns);
+    expect([CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS]).toEqual([out.cbi.p, out.cbi.w]);
+    expect([...ASSIST_CATEGORIES]).toEqual(out.assistCats);
+    expect(NMQ_KEYS.map(k => nmqPartLabel(k.key))).toEqual(out.partLabels);
+  });
 
   it('grades every seeded report the same', () => {
     expect(out.reports.length).toBeGreaterThan(20);
