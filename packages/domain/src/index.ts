@@ -5,3 +5,4 @@ export * from './workload.js';
 export * from './maternal.js';
 export * from './violence.js';
 export * from './events.js';
+export * from './tenancy.js';

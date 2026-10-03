@@ -7,7 +7,8 @@
  * Columns ending in `_enc` hold application-side envelope-encrypted bytes (per-tenant data key in Cloud KMS);
  * the database never sees their plaintext.
  */
-import { customType, date, foreignKey, pgEnum, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { check, customType, date, foreignKey, pgEnum, pgTable, text, timestamp, unique, uuid, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
@@ -19,8 +20,13 @@ export const tenants = pgTable('tenants', {
   status: text('status', { enum: ['active', 'suspended', 'closed'] }).notNull().default('active'),
   /** Cloud KMS key that wraps this tenant's data keys; destroying it makes the tenant's `_enc` columns unreadable. */
   kmsKeyName: text('kms_key_name'),
+  /** This tenant's tenant in Google Cloud Identity Platform (one per Yutis tenant, with its own SSO settings). */
+  idpTenantId: text('idp_tenant_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, t => [
+  // One DNS label, and never a name the platform itself uses (keep in sync with @yutis/domain tenancy.ts).
+  check('tenants_slug_format', sql`${t.slug} ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$' and ${t.slug} not in ('admin', 'api', 'www')`),
+]);
 
 export const base = () => ({
   id: uuid('id').primaryKey().defaultRandom(),
