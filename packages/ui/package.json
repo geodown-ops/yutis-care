@@ -1,0 +1,40 @@
+{
+  "name": "@yutis/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yutis Care 設計 token、Mantine 主題與共用元件。三個前端共用；以原始碼形式提供，由各 app 的 Vite 編譯。",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@yutis/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@mantine/charts": "^9.6.3",
+    "@mantine/core": "^9.6.3",
+    "@mantine/hooks": "^9.6.3",
+    "@tabler/icons-react": "^3.48.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  },
+  "peerDependencies": {
+    "@mantine/charts": "^9.6.3",
+    "@mantine/core": "^9.6.3",
+    "@mantine/hooks": "^9.6.3",
+    "@tabler/icons-react": "^3.48.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "recharts": ">=3.2.1"
+  }
+}

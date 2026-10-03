@@ -1,0 +1,62 @@
+{
+  "zh": {
+    "tabs": { "tasks": "待辦", "health": "我的健康", "report": "通報", "account": "我的" },
+    "tasks": { "greeting": "{{name}}，你有 {{count}} 件待辦", "service": "健康服務", "start": "開始", "view": "查看", "done": "已完成", "privacy": "填寫內容只有醫護人員看得到，主管與人資只會看到統計結果。" },
+    "flow": { "prev": "上一題", "next": "下一題", "back": "回到待辦", "progress": "填答進度", "privacy": "只有醫護人員看得到你的回答。" },
+    "pages": {
+      "health": "這裡會列出你歷年的健檢結果，並用白話說明每一項的意思，也可以下載自己的資料。",
+      "report": "遇到職場暴力、霸凌或騷擾，或是懷孕、產後需要職場保護時，可以在這裡通報。只有醫護人員和指定的處理人員看得到。",
+      "account": "語言、通知方式、告知聲明與同意紀錄、登出。",
+      "notFound": "找不到這個頁面，請回到待辦重新開始。"
+    },
+    "language": "語言"
+  },
+  "en": {
+    "tabs": { "tasks": "To do", "health": "My health", "report": "Report", "account": "Me" },
+    "tasks": { "greeting": "{{name}}, you have {{count}} things to do", "service": "Health service", "start": "Start", "view": "View", "done": "Done", "privacy": "Only the occupational health staff can see your answers. Managers and HR only see statistics." },
+    "flow": { "prev": "Back", "next": "Next", "back": "Back to to-do list", "progress": "Progress", "privacy": "Only the occupational health staff can see your answers." },
+    "pages": {
+      "health": "Your past health check results, explained in plain words. You can also download your own data here.",
+      "report": "Report workplace violence, bullying or harassment, or ask for protection during pregnancy or after giving birth. Only the health staff and assigned handlers can see it.",
+      "account": "Language, notifications, privacy notice and consent records, sign out.",
+      "notFound": "This page does not exist. Go back to your to-do list."
+    },
+    "language": "Language"
+  },
+  "ja": {
+    "tabs": { "tasks": "やること", "health": "健康データ", "report": "通報", "account": "マイページ" },
+    "tasks": { "greeting": "{{name}}さん、やることが {{count}} 件あります", "service": "健康サービス", "start": "開始", "view": "確認", "done": "完了", "privacy": "回答は産業保健スタッフだけが見られます。上司と人事は統計のみ閲覧できます。" },
+    "flow": { "prev": "戻る", "next": "次へ", "back": "やることに戻る", "progress": "回答の進み具合", "privacy": "回答は産業保健スタッフだけが見られます。" },
+    "pages": {
+      "health": "これまでの健康診断の結果をわかりやすく説明します。自分のデータをダウンロードすることもできます。",
+      "report": "職場での暴力・いじめ・ハラスメント、または妊娠・出産後の保護が必要なときに通報できます。産業保健スタッフと担当者だけが見られます。",
+      "account": "言語、通知方法、プライバシーに関するお知らせと同意記録、ログアウト。",
+      "notFound": "このページは見つかりません。やることに戻ってください。"
+    },
+    "language": "言語"
+  },
+  "vi": {
+    "tabs": { "tasks": "Việc cần làm", "health": "Sức khỏe", "report": "Báo cáo", "account": "Tôi" },
+    "tasks": { "greeting": "{{name}}, bạn có {{count}} việc cần làm", "service": "Dịch vụ sức khỏe", "start": "Bắt đầu", "view": "Xem", "done": "Đã xong", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn. Quản lý và nhân sự chỉ xem số liệu thống kê." },
+    "flow": { "prev": "Quay lại", "next": "Tiếp", "back": "Về danh sách việc cần làm", "progress": "Tiến độ", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn." },
+    "pages": {
+      "health": "Kết quả khám sức khỏe các năm của bạn, được giải thích dễ hiểu. Bạn cũng có thể tải dữ liệu của mình.",
+      "report": "Báo cáo bạo lực, bắt nạt hoặc quấy rối nơi làm việc, hoặc yêu cầu bảo vệ khi mang thai hay sau sinh. Chỉ nhân viên y tế và người được chỉ định xử lý xem được.",
+      "account": "Ngôn ngữ, cách nhận thông báo, thông báo quyền riêng tư và hồ sơ đồng ý, đăng xuất.",
+      "notFound": "Không tìm thấy trang này. Hãy quay về danh sách việc cần làm."
+    },
+    "language": "Ngôn ngữ"
+  },
+  "th": {
+    "tabs": { "tasks": "สิ่งที่ต้องทำ", "health": "สุขภาพของฉัน", "report": "แจ้งเหตุ", "account": "ฉัน" },
+    "tasks": { "greeting": "{{name}} คุณมีสิ่งที่ต้องทำ {{count}} รายการ", "service": "บริการสุขภาพ", "start": "เริ่ม", "view": "ดู", "done": "เสร็จแล้ว", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ หัวหน้างานและฝ่ายบุคคลเห็นเพียงข้อมูลสถิติ" },
+    "flow": { "prev": "ย้อนกลับ", "next": "ถัดไป", "back": "กลับไปที่สิ่งที่ต้องทำ", "progress": "ความคืบหน้า", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ" },
+    "pages": {
+      "health": "ผลการตรวจสุขภาพของคุณในแต่ละปี พร้อมคำอธิบายที่เข้าใจง่าย และดาวน์โหลดข้อมูลของคุณได้",
+      "report": "แจ้งเหตุความรุนแรง การกลั่นแกล้ง หรือการล่วงละเมิดในที่ทำงาน หรือขอความคุ้มครองระหว่างตั้งครรภ์หรือหลังคลอด เฉพาะเจ้าหน้าที่อาชีวอนามัยและผู้รับผิดชอบเท่านั้นที่เห็น",
+      "account": "ภาษา การแจ้งเตือน ประกาศความเป็นส่วนตัวและบันทึกความยินยอม ออกจากระบบ",
+      "notFound": "ไม่พบหน้านี้ กรุณากลับไปที่สิ่งที่ต้องทำ"
+    },
+    "language": "ภาษา"
+  }
+}

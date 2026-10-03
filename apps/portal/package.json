@@ -1,0 +1,41 @@
+{
+  "name": "@yutis/portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yutis Care 員工端（{租戶}.yutiscare.tw/me）：手機優先，填問卷、確認紀錄、看自己的健康資料。",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "routes": "tsr generate",
+    "build": "tsr generate && tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsr generate && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mantine/charts": "^9.6.3",
+    "@mantine/core": "^9.6.3",
+    "@mantine/hooks": "^9.6.3",
+    "@tabler/icons-react": "^3.48.0",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-router": "^1.170.41",
+    "@yutis/api-client": "workspace:*",
+    "@yutis/domain": "workspace:*",
+    "@yutis/ui": "workspace:*",
+    "i18next": "^26.4.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-i18next": "^17.0.15",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@tanstack/router-cli": "^1.167.40",
+    "@tanstack/router-plugin": "^1.168.42",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
