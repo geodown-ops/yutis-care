@@ -12,6 +12,10 @@ export interface TestDatabase {
   owner: Db;
   /** Connection string for the API's login role (member of yutis_app). */
   appUrl: string;
+  /** The table owner's connection string (installing pg-boss). */
+  ownerUrl: string;
+  /** The worker's login role (member of yutis_worker). */
+  workerUrl: string;
   drop(): Promise<void>;
 }
 
@@ -22,6 +26,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   const dbName = `yutis_api_test_${suffix}`;
   const appRole = `yutis_api_test_app_${suffix}`;
   const appPassword = randomBytes(12).toString('hex');
+  const workerRole = `yutis_api_test_worker_${suffix}`;
   const urlFor = (user?: string, password?: string) => {
     const u = new URL(adminUrl);
     u.pathname = `/${dbName}`;
@@ -35,10 +40,13 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   const owner = createDb(ownerPool);
   await runMigrations(owner);
   await admin.query(`create role ${appRole} login password '${appPassword}' in role yutis_app`);
+  await admin.query(`create role ${workerRole} login password '${appPassword}' in role yutis_worker`);
 
   return {
     owner,
     appUrl: urlFor(appRole, appPassword),
+    ownerUrl: urlFor(),
+    workerUrl: urlFor(workerRole, appPassword),
     /** Call after closing the app. Pool.end() resolves before sockets close, so wait for them before dropping. */
     async drop() {
       await ownerPool.end();
@@ -49,6 +57,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       }
       await admin.query(`drop database if exists ${dbName} with (force)`);
       await admin.query(`drop role if exists ${appRole}`);
+      await admin.query(`drop role if exists ${workerRole}`);
       await admin.end();
     },
   };

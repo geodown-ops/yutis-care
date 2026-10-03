@@ -1,4 +1,4 @@
-import { Global, Inject, Injectable, Module, type CallHandler, type DynamicModule, type ExecutionContext, type NestInterceptor, type OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Injectable, Logger, Module, type CallHandler, type DynamicModule, type ExecutionContext, type NestInterceptor, type OnApplicationShutdown } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { createDb, withTenant, type Db } from '@yutis/db';
 import type { FastifyRequest } from 'fastify';
@@ -19,19 +19,27 @@ export const DB = Symbol('DB');
  */
 @Injectable()
 export class TenantTransactionInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(TenantTransactionInterceptor.name);
+
   constructor(@Inject(DB) private readonly db: Db) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const state = context.switchToHttp().getRequest<FastifyRequest>().yutis;
     if (!state) return next.handle();
-    return from(withTenant(this.db, state.tenant.id, async tx => {
-      state.tx = tx;
-      try {
-        return await lastValueFrom(next.handle(), { defaultValue: undefined });
-      } finally {
-        delete state.tx;
+    return from((async () => {
+      const result = await withTenant(this.db, state.tenant.id, async tx => {
+        state.tx = tx;
+        try {
+          return await lastValueFrom(next.handle(), { defaultValue: undefined });
+        } finally {
+          delete state.tx;
+        }
+      });
+      for (const work of state.afterCommit ?? []) {
+        await work().catch((error: unknown) => this.logger.error(`after-commit work failed: ${error instanceof Error ? error.message : String(error)}`));
       }
-    }));
+      return result;
+    })());
   }
 }
 

@@ -16,6 +16,8 @@ export interface RequestState {
   userAgent?: string;
   /** Set by TenantTransactionInterceptor around the route handler. */
   tx?: Tx;
+  /** Work to do only once the request's transaction has committed (e.g. queueing a job that reads what it wrote). */
+  afterCommit?: (() => Promise<void>)[];
 }
 
 /** A route handler's view of the request: tenant, principal and the request's tenant-scoped transaction. */
@@ -36,6 +38,11 @@ export const Ctx = createParamDecorator((_: unknown, ec: ExecutionContext): Requ
   if (!state?.tx) throw new Error('No tenant transaction: this route does not resolve a tenant');
   return state as RequestContext;
 });
+
+/** Run `work` after the request's transaction commits; skipped if it rolls back. Failures are logged, not returned. */
+export function afterCommit(ctx: RequestContext, work: () => Promise<void>): void {
+  (ctx.afterCommit ??= []).push(work);
+}
 
 export function signedIn(ctx: RequestState): Principal {
   if (!ctx.principal) throw new Error('Route reached without a signed-in principal; check its access decorator');
