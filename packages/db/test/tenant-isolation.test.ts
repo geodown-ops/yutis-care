@@ -59,9 +59,19 @@ beforeAll(async () => {
   T.a = a.tenantId; T.b = b.tenantId; E.a = a.employeeId; E.b = b.employeeId;
 });
 
+/** Pool.end() resolves before the sockets close; dropping the database under a closing client crashes the run. */
+async function waitForDisconnect() {
+  for (let i = 0; i < 100; i++) {
+    const { rows } = await admin.query<{ n: number }>('select count(*)::int as n from pg_stat_activity where datname = $1', [dbName]);
+    if (rows[0]!.n === 0) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+}
+
 afterAll(async () => {
   await appPool?.end();
   await ownerPool?.end();
+  if (admin) await waitForDisconnect();
   await admin?.query(`drop database if exists ${dbName} with (force)`);
   await admin?.query(`drop role if exists ${appRole}`);
   await admin?.end();

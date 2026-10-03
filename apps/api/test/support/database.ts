@@ -39,8 +39,14 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   return {
     owner,
     appUrl: urlFor(appRole, appPassword),
+    /** Call after closing the app. Pool.end() resolves before sockets close, so wait for them before dropping. */
     async drop() {
       await ownerPool.end();
+      for (let i = 0; i < 100; i++) {
+        const { rows } = await admin.query<{ n: number }>('select count(*)::int as n from pg_stat_activity where datname = $1', [dbName]);
+        if (rows[0]!.n === 0) break;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
       await admin.query(`drop database if exists ${dbName} with (force)`);
       await admin.query(`drop role if exists ${appRole}`);
       await admin.end();
