@@ -126,7 +126,7 @@ export class ServiceRecordsController {
     const current = await this.inScope(ctx, id);
     if (current.status !== '草稿') throw new ConflictException({ code: 'not_draft', message: 'Already submitted' });
     await ctx.tx.update(serviceRecords).set({ status: '簽核中', updatedAt: new Date(), updatedBy: staff(ctx).userId }).where(eq(serviceRecords.id, id));
-    const pending = await ctx.tx.select().from(signatures).where(and(eq(signatures.subjectTable, 'service_records'), eq(signatures.subjectId, id), isNull(signatures.signedAt)));
+    const pending = await ctx.tx.select().from(signatures).where(and(eq(signatures.subjectTable, 'service_records'), eq(signatures.subjectId, id), isNull(signatures.signedAt))).orderBy(asc(signatures.createdAt));
     const links = await Promise.all(pending.map(s => this.issue(ctx, s)));
     await recordAudit(ctx, { action: 'update', subjectTable: 'service_records', subjectId: id, dataCategory: 'work', reason: `submitted for sign-off to ${pending.map(s => s.signerRole).join('、')}` });
     return links;
@@ -169,8 +169,11 @@ export class ServiceRecordsController {
 
   private async replaceSigners(ctx: RequestContext, id: string, signers: z.infer<typeof Signer>[]) {
     await ctx.tx.delete(signatures).where(and(eq(signatures.subjectTable, 'service_records'), eq(signatures.subjectId, id)));
-    await ctx.tx.insert(signatures).values(signers.map(s => ({
-      tenantId: ctx.tenant.id, subjectTable: 'service_records', subjectId: id, signerRole: s.role, signerName: s.name, signerEmail: s.email, createdBy: staff(ctx).userId,
+    // created_at keeps the signers in the order given (now() is the same for the whole transaction).
+    const start = Date.now();
+    await ctx.tx.insert(signatures).values(signers.map((s, i) => ({
+      tenantId: ctx.tenant.id, subjectTable: 'service_records', subjectId: id, signerRole: s.role, signerName: s.name, signerEmail: s.email,
+      createdAt: new Date(start + i), createdBy: staff(ctx).userId,
     })));
   }
 
