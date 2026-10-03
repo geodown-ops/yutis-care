@@ -1,12 +1,12 @@
 /* Organisation (組織): legal entity → site (廠／院區) → department. */
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 import { base, tenantKey, tenantRef } from './common.js';
 
 export const legalEntities = pgTable('legal_entities', {
   ...base(),
   code: text('code').notNull(),
   name: text('name').notNull(),
-}, t => [tenantKey(t)]);
+}, t => [tenantKey(t), unique().on(t.tenantId, t.code)]);
 
 export const sites = pgTable('sites', {
   ...base(),
@@ -14,7 +14,7 @@ export const sites = pgTable('sites', {
   code: text('code').notNull(),
   name: text('name').notNull(),
   address: text('address'),
-}, t => [tenantKey(t), tenantRef('sites_legal_entity_fk', t, t.legalEntityId, legalEntities)]);
+}, t => [tenantKey(t), unique().on(t.tenantId, t.code), tenantRef('sites_legal_entity_fk', t, t.legalEntityId, legalEntities)]);
 
 export const departments = pgTable('departments', {
   ...base(),
@@ -24,4 +24,4 @@ export const departments = pgTable('departments', {
   managerName: text('manager_name'),
   managerEmail: text('manager_email'),
   managerPhone: text('manager_phone'),
-}, t => [tenantKey(t), tenantRef('departments_site_fk', t, t.siteId, sites)]);
+}, t => [tenantKey(t), unique().on(t.tenantId, t.siteId, t.name), tenantRef('departments_site_fk', t, t.siteId, sites)]);

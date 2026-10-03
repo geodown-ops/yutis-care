@@ -4,6 +4,8 @@ import { Module, type DynamicModule, type LoggerService, type LogLevel } from '@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
+import { AdminModule } from './admin/admin.module.js';
+import { MAX_IMPORT_BYTES, XLSX_MIME } from './admin/excel.js';
 import { SESSION_SECURITY } from './auth/access.js';
 import { AuthModule } from './auth/auth.module.js';
 import type { ApiConfig } from './config.js';
@@ -15,7 +17,7 @@ export class AppModule {
   static forRoot(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule.register({ devSignIn: config.devSignIn })],
+      imports: [CoreModule.forRoot(config), AuthModule.register({ devSignIn: config.devSignIn }), AdminModule],
       controllers: [TenantController],
     };
   }
@@ -35,6 +37,8 @@ export async function createApp(config: ApiConfig, options: CreateAppOptions = {
   );
   app.setGlobalPrefix('api');
   await app.register(fastifyCookie);
+  // Excel imports arrive as the raw .xlsx body.
+  app.getHttpAdapter().getInstance().addContentTypeParser(XLSX_MIME, { parseAs: 'buffer', bodyLimit: MAX_IMPORT_BYTES }, (_req, body, done) => done(null, body));
   if (!config.production) SwaggerModule.setup('api/docs', app, () => openApiDocument(app));
   return app;
 }

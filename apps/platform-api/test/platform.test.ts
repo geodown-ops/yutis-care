@@ -147,6 +147,7 @@ describe('tenants', () => {
     const t = res.json();
     expect(t).toMatchObject({
       subdomain: 'newco', url: 'https://newco.care.test', status: 'active', encryptionKeyReady: true, signInTenantReady: true, staffAccounts: 1,
+      admins: [{ name: '陳管理員', email: 'admin@newco.test', active: true, lastSignInAt: null }],
       subscription: { planCode: 'standard', status: 'trial', seatLimit: 300, endsOn: null },
     });
     const [row] = await owner.select().from(tenants).where(eq(tenants.id, t.id));

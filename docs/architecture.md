@@ -20,7 +20,7 @@
 |---|---|---|
 | `packages/domain` | 健康管理規則（健檢分級、NMQ、異常工作負荷、母性、不法侵害、個案狀態），純函式、前後端共用 | 已完成，含與雛形一致性測試 |
 | `packages/db` | PostgreSQL schema（48 張表）、migration、`withTenant` 租戶範圍交易、`yutis_platform` 平台角色 | 已完成，含租戶隔離與平台角色權限測試 |
-| `apps/api` | 租戶 API（NestJS + Fastify） | 骨架完成：租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me` |
+| `apps/api` | 租戶 API（NestJS + Fastify） | 租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me`；租戶管理（組織、帳號、員工 Excel 匯入） |
 | `apps/platform-api` | 平台 API（NestJS + Fastify） | 租戶開通／停用、方案與訂閱、用量計數、公告、平台人員、預設範本；計費只有介面 |
 | `packages/ui` | 設計 token、Mantine 主題、側欄外框與狀態元件，三個前端共用 | 已建立 |
 | `packages/api-client` | 租戶 API 呼叫函式；目前是 `/api/tenant`、`/api/me` 的暫定型別，之後由 OpenAPI 產生 | 已建立 |
@@ -43,5 +43,5 @@
 - 有法定保存年限的資料表帶 `retain_until`。
 - 計費擴充點：`plans` 與 `tenant_subscriptions` 由平台寫入，`yutis_app` 只能讀（訂閱只看得到自己租戶的）；`usage_counters` 以「租戶 × 月份 × 指標」累加，`yutis_app` 可新增與累加自己租戶的，不能刪除。人數上限（`seat_limit`）超過時只提醒、不阻擋。
 - 廠區範圍（職護只能看負責廠區）目前由 API 權限層處理，之後評估是否也下放到 RLS。
-- 平台 API 以 `yutis_platform` 角色連線：可讀寫 `tenants`、`plans`、`tenant_subscriptions` 與平台資料表（`platform_users`、`announcements`、`default_templates`、`platform_audit_log`），只能讀 `usage_counters` 與 `support_access_grants`；員工、健檢、四大計畫等資料表完全沒有權限，用量由 `tenant_counts()` 只回傳計數。開通時複製預設範本與建立第一位租戶管理員，透過 `apply_default_templates()`、`invite_tenant_admin()` 兩個函式，而且只能用在還沒有範本或租戶管理員的租戶。`yutis_app` 讀不到平台資料表，只能透過 `tenant_announcements` view 看到給自己的公告。
+- 平台 API 以 `yutis_platform` 角色連線：可讀寫 `tenants`、`plans`、`tenant_subscriptions` 與平台資料表（`platform_users`、`announcements`、`default_templates`、`platform_audit_log`），只能讀 `usage_counters` 與 `support_access_grants`；員工、健檢、四大計畫等資料表完全沒有權限，用量由 `tenant_counts()` 只回傳計數。開通時複製預設範本與建立第一位租戶管理員，透過 `apply_default_templates()`、`invite_tenant_admin()` 兩個函式，而且只能用在還沒有範本或租戶管理員的租戶。`yutis_app` 讀不到平台資料表，只能透過 `tenant_announcements` view 看到給自己的公告。平台的租戶詳情要顯示租戶管理員名單，透過 `tenant_admins()` 只取得名字、Email、是否啟用與最後登入時間。
 - 登入 session 存在 `sessions`（只存 token 的 SHA-256），同樣受 RLS 隔離，所以拿 A 租戶的 cookie 到 B 租戶的子網域查不到。API 在知道租戶之前，用 `tenant_by_slug()` 依子網域查租戶；這個函式只回傳完全相符的一筆，無法列出租戶。

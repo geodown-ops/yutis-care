@@ -58,6 +58,7 @@ pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.
 - API 必須以 `yutis_app` 的成員角色連線；若用資料表擁有者或 superuser，RLS 不會生效，API 會拒絕啟動。
 - 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
+- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
 
 ### 平台 API

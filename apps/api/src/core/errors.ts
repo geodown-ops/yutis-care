@@ -35,9 +35,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
     const status = exception.getStatus();
     const response = exception.getResponse();
-    const body = typeof response === 'string' ? { message: response } : (response as { code?: unknown; message?: unknown; issues?: unknown });
+    const body = typeof response === 'string' ? { message: response } : (response as { code?: unknown; message?: unknown; issues?: unknown; report?: unknown });
     const message = typeof body.message === 'string' ? body.message : Array.isArray(body.message) ? body.message.join('; ') : exception.message;
     const code = typeof body.code === 'string' ? body.code : DEFAULT_CODES[status] ?? (status >= 500 ? 'internal_error' : 'http_error');
-    return reply.status(status).send({ status, code, message, ...(body.issues ? { issues: body.issues } : {}) });
+    return reply.status(status).send({ status, code, message, ...(body.issues ? { issues: body.issues } : {}), ...(body.report ? { report: body.report } : {}) });
   }
 }
