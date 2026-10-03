@@ -21,11 +21,17 @@ export class AppModule {
   }
 }
 
-export async function createApp(config: ApiConfig, logger?: LoggerService | LogLevel[] | false): Promise<NestFastifyApplication> {
+export interface CreateAppOptions {
+  logger?: LoggerService | LogLevel[] | false;
+  /** Root module; defaults to AppModule. Tests wrap AppModule to add probe routes. */
+  module?: DynamicModule;
+}
+
+export async function createApp(config: ApiConfig, options: CreateAppOptions = {}): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule.forRoot(config),
+    options.module ?? AppModule.forRoot(config),
     new FastifyAdapter({ trustProxy: config.trustProxy }),
-    { logger: logger ?? (config.production ? ['log', 'warn', 'error'] : undefined) },
+    { logger: options.logger ?? (config.production ? ['log', 'warn', 'error'] : undefined) },
   );
   app.setGlobalPrefix('api');
   await app.register(fastifyCookie);

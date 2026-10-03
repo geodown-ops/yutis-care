@@ -4,7 +4,7 @@ import { createApp, openApiDocument } from './app.js';
 import { loadConfig } from './config.js';
 
 // Production settings, so local-only behaviour never leaks into the contract. No database connection is made.
-const app = await createApp(loadConfig({ NODE_ENV: 'production', APP_DATABASE_URL: 'postgres://unused/unused' }), false);
+const app = await createApp(loadConfig({ NODE_ENV: 'production', APP_DATABASE_URL: 'postgres://unused/unused' }), { logger: false });
 const out = new URL('../openapi.json', import.meta.url);
 writeFileSync(out, `${JSON.stringify(openApiDocument(app), null, 2)}\n`);
 await app.close();

@@ -1,0 +1,407 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/tenant": {
+      "get": {
+        "description": "前端啟動時呼叫，登入前即可使用。",
+        "operationId": "TenantController_tenant",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用，或沒有權限"
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域"
+          }
+        },
+        "summary": "網址子網域對應的租戶",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "TenantController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "健康檢查（Cloud Run）",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "MeController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/StaffMeDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmployeeMeDto"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "staff": "#/components/schemas/StaffMeDto",
+                      "employee": "#/components/schemas/EmployeeMeDto"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時"
+          },
+          "403": {
+            "description": "租戶已停用，或沒有權限"
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "目前登入者、角色、負責廠區與可用功能",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sign-in": {
+      "post": {
+        "description": "後台人員須已被租戶管理員邀請；第一次登入時綁定登入服務的帳號。員工以 Email 或手機對應員工主檔。",
+        "operationId": "AuthController_signIn",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "as": {
+                    "type": "string",
+                    "enum": [
+                      "staff",
+                      "employee"
+                    ]
+                  }
+                },
+                "required": [
+                  "token",
+                  "as"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "已登入，回應帶 Set-Cookie"
+          },
+          "401": {
+            "description": "token 無效，或沒有對應的帳號"
+          },
+          "403": {
+            "description": "租戶已停用，或沒有權限"
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域"
+          },
+          "503": {
+            "description": "登入服務尚未設定"
+          }
+        },
+        "summary": "登入：以登入服務的 ID token 換取 session cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/sign-out": {
+      "post": {
+        "operationId": "AuthController_signOut",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時"
+          },
+          "403": {
+            "description": "租戶已停用，或沒有權限"
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "登出",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Yutis Care 租戶 API",
+    "description": "租戶後台與員工端共用。租戶由網址子網域決定（{租戶}.care.yutis.com.tw/api），登入狀態以 session cookie 維持。",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-yutis_session"
+      }
+    },
+    "schemas": {
+      "TenantDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "子網域",
+            "example": "acme"
+          },
+          "name": {
+            "type": "string",
+            "description": "公司名稱",
+            "example": "範例股份有限公司"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
+      "HealthDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "SiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "S1"
+          },
+          "name": {
+            "type": "string",
+            "example": "桃園廠"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "BreakGlassSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "S1"
+          },
+          "name": {
+            "type": "string",
+            "example": "桃園廠"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "expiresAt"
+        ]
+      },
+      "StaffMeDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "staff"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "職護",
+              "職醫",
+              "職安衛人員",
+              "人資",
+              "部門主管",
+              "租戶管理員"
+            ]
+          },
+          "sites": {
+            "description": "負責廠區",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SiteDto"
+            }
+          },
+          "breakGlassSites": {
+            "description": "有效的破窗存取授權",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BreakGlassSiteDto"
+            }
+          },
+          "dataCategories": {
+            "type": "array",
+            "description": "角色可見的資料敏感等級",
+            "items": {
+              "type": "string",
+              "enum": [
+                "identity",
+                "work",
+                "health",
+                "medical"
+              ]
+            }
+          },
+          "features": {
+            "type": "array",
+            "description": "可用功能；前端據此顯示選單，實際權限由後端檢查",
+            "items": {
+              "type": "string",
+              "enum": [
+                "nurse-home",
+                "employees",
+                "cases",
+                "programs",
+                "service-records",
+                "reports",
+                "tenant-admin"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "email",
+          "role",
+          "sites",
+          "breakGlassSites",
+          "dataCategories",
+          "features"
+        ]
+      },
+      "EmployeeMeDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "employee"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string",
+            "description": "員工端語言：zh、en、ja、vi、th"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "lang"
+        ]
+      }
+    }
+  }
+}
