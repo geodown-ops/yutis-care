@@ -7,18 +7,24 @@
 | 路徑 | 內容 |
 |---|---|
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
+| `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
 | `prototype` | 可操作的純前端雛形（需求規格） |
 
 ## 開發
 
-需要 Node.js 22 與 pnpm 10：
+需要 Node.js 22、pnpm 10 與 Docker（本機資料庫）：
 
 ```bash
 pnpm install
-pnpm test        # 規則測試，含與雛形一致性比對
+docker compose up -d db
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/yutis
+pnpm --filter @yutis/db db:migrate   # 建立資料表
+pnpm test        # 規則測試（含與雛形一致性比對）與資料庫租戶隔離測試
 pnpm typecheck
 pnpm build
 ```
+
+改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
 
 ---
 

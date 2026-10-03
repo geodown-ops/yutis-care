@@ -1,0 +1,14 @@
+# Local development database. Data is fictional only; never load production data into a dev database.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: yutis
+    ports:
+      - "5432:5432"
+    volumes:
+      - yutis-db:/var/lib/postgresql/data
+volumes:
+  yutis-db:
