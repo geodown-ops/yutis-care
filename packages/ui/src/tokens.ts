@@ -24,6 +24,8 @@ export interface ColorTokens {
   /** Text on `brand`. */
   brandFg: string;
   link: string;
+  /** The YUTIS mark. */
+  logo: string;
   nav: string;
   navFg: string;
   /** Text and icon on the active menu pill. */
@@ -58,6 +60,7 @@ export const light: ColorTokens = {
   brand: '#9994CE',
   brandFg: '#131517',
   link: '#5F58A8',
+  logo: '#102A43',
   nav: '#F6F5F8',
   navFg: '#3D3E3F',
   navStrong: '#FFFFFF',
@@ -88,6 +91,7 @@ export const dark: ColorTokens = {
   brand: '#9994CE',
   brandFg: '#131517',
   link: '#B3AEDD',
+  logo: '#EDEDF0',
   nav: '#0F1012',
   navFg: '#C9C9CF',
   navStrong: '#131517',

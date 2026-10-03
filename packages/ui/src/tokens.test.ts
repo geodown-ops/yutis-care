@@ -36,6 +36,7 @@ describe('design tokens', () => {
     ['muted on surface', t.muted, t.surface],
     ['link on surface', t.link, t.surface],
     ['brandFg on brand', t.brandFg, t.brand],
+    ['logo on nav', t.logo, t.nav],
     ['navFg on nav', t.navFg, t.nav],
     ['navMuted on nav', t.navMuted, t.nav],
     ['navStrong on navActive', t.navStrong, t.navActive],

@@ -2,6 +2,7 @@ import { AppShell, Avatar, Box, Burger, Group, ScrollArea, Stack, Text } from '@
 import { useDisclosure } from '@mantine/hooks';
 import type { ComponentType, ReactNode } from 'react';
 import { ColorSchemeToggle } from './ColorSchemeToggle';
+import { YutisMark } from './YutisMark';
 
 /**
  * Desktop console layout shared by the tenant admin and the platform admin: a light sidebar that blends
@@ -50,7 +51,7 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
       <AppShell.Navbar px="md" pt="lg" pb="md">
         <AppShell.Section mb="lg">
           <Group gap={10} wrap="nowrap" px={6}>
-            <Box aria-hidden w={32} h={32} style={{ borderRadius: 10, background: 'var(--yutis-brand)', color: 'var(--yutis-brand-fg)', display: 'grid', placeItems: 'center', fontWeight: 700, flexShrink: 0 }}>Y</Box>
+            <YutisMark height={30} />
             <div style={{ minWidth: 0 }}>
               <Text fw={700} c="var(--mantine-color-text)" lh={1.2} truncate>{product}</Text>
               <Text size="xs" c="var(--yutis-nav-muted)" truncate>{subtitle}</Text>
