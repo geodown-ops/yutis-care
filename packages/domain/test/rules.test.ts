@@ -3,6 +3,7 @@ import {
   RULES_V1, ageAt, caseStatus, cbiScores, cvdScore, evaluateWorkload, findRule, gradeReport, isAgeConcern,
   levelOf, loadEval, nmqHazardLabel, nmqSuspectedHazard, pregnancyWeeks, suggestMaternalLevel, violenceRisk,
 } from '../src/index.js';
+import { examRetainUntil } from '../src/retention.js';
 
 const rule = (code: string, sex: '男' | '女' = '男') => findRule(RULES_V1, code, sex)!;
 
@@ -99,5 +100,12 @@ describe('maternal, violence, cases, age', () => {
     expect(isAgeConcern(17)).toBe(true);
     expect(isAgeConcern(55)).toBe(true);
     expect(isAgeConcern(54)).toBe(false);
+  });
+});
+
+describe('retention', () => {
+  it('keeps general health checks 7 years and special ones 10', () => {
+    expect(examRetainUntil('2026-03-15', false)).toBe('2033-03-15');
+    expect(examRetainUntil('2026-03-15', true)).toBe('2036-03-15');
   });
 });

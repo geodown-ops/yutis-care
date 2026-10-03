@@ -18,3 +18,6 @@ export const LIFESTYLE_ADVICE = [
 ] as const;
 
 export const RECORD_RESULTS = ['追蹤', '結案'] as const;
+
+/** 協助類別 */
+export const ASSIST_CATEGORIES = ['健康面談諮詢紀錄', '一般諮詢', '電話關懷', '健康指導', '復工評估'] as const;
