@@ -20,7 +20,7 @@
 |---|---|---|
 | `packages/domain` | 健康管理規則（健檢分級、NMQ、異常工作負荷、母性、不法侵害、個案狀態），純函式、前後端共用 | 已完成，含與雛形一致性測試 |
 | `packages/db` | PostgreSQL schema（48 張表）、migration、`withTenant` 租戶範圍交易、`yutis_platform` 平台角色 | 已完成，含租戶隔離與平台角色權限測試 |
-| `apps/api` | 租戶 API（NestJS + Fastify） | 租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me`；租戶管理（組織、帳號、員工 Excel 匯入） |
+| `apps/api` | 租戶 API（NestJS + Fastify） | 租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me`；租戶管理（組織、帳號、員工匯入、健檢匯入對照、分級標準版本）；健檢匯入與分級、協助紀錄、個案 |
 | `apps/platform-api` | 平台 API（NestJS + Fastify） | 租戶開通／停用、方案與訂閱、用量計數、公告、平台人員、預設範本；計費只有介面 |
 | `packages/ui` | 設計 token、Mantine 主題、側欄外框與狀態元件，三個前端共用 | 已建立 |
 | `packages/api-client` | 租戶 API 呼叫函式；目前是 `/api/tenant`、`/api/me` 的暫定型別，之後由 OpenAPI 產生 | 已建立 |
@@ -39,7 +39,7 @@
 - 每張租戶資料表都有 `tenant_id`，並以 Row-Level Security 限制只能讀寫目前租戶（`app.tenant_id`，由 `withTenant` 在交易內設定）。沒設定租戶時什麼都讀不到。
 - 表與表之間用 `(tenant_id, x_id)` 複合外鍵連結，即使繞過 RLS 也無法讓一筆資料指向別的租戶。
 - API 以 `yutis_app` 角色連線；它不是資料表擁有者，所以 RLS 一定生效。它不能新增或修改 `tenants`，對 `audit_log` 只能新增與查詢；`audit_log` 另有 trigger 擋下任何修改、刪除與 TRUNCATE。
-- 結尾為 `_enc` 的欄位（病史、症狀、協助紀錄內容、面談紀錄、母性與不法侵害事件細節）存的是應用程式以租戶金鑰加密後的位元組，資料庫看不到明文。
+- 結尾為 `_enc` 的欄位（病史、症狀、協助紀錄內容、面談紀錄、母性與不法侵害事件細節）存的是應用程式以租戶金鑰加密後的位元組（AES-256-GCM，以租戶 id 為附加資料，換租戶無法解密），資料庫看不到明文。身分證字號不存，只存以租戶金鑰計算的 HMAC，用來比對健檢醫院的檔案。金鑰目前由本機主金鑰衍生，正式環境改由 Cloud KMS 包裝每個租戶的資料金鑰。
 - 有法定保存年限的資料表帶 `retain_until`。
 - 計費擴充點：`plans` 與 `tenant_subscriptions` 由平台寫入，`yutis_app` 只能讀（訂閱只看得到自己租戶的）；`usage_counters` 以「租戶 × 月份 × 指標」累加，`yutis_app` 可新增與累加自己租戶的，不能刪除。人數上限（`seat_limit`）超過時只提醒、不阻擋。
 - 廠區範圍（職護只能看負責廠區）目前由 API 權限層處理，之後評估是否也下放到 RLS。

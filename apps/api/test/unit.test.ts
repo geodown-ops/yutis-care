@@ -1,8 +1,10 @@
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { allows } from '../src/auth/access.guard.js';
 import { ROLE_ACCESS } from '../src/auth/permissions.js';
 import { loadConfig } from '../src/config.js';
 import type { StaffPrincipal } from '../src/core/context.js';
+import { LocalTenantCrypto } from '../src/core/crypto.js';
 import { tenantSlugFromHost } from '../src/core/host.js';
 
 describe('tenantSlugFromHost', () => {
@@ -57,5 +59,35 @@ describe('loadConfig', () => {
 
   it('requires a database URL', () => {
     expect(() => loadConfig({})).toThrow(/APP_DATABASE_URL/);
+  });
+});
+
+describe('LocalTenantCrypto', () => {
+  const crypto = new LocalTenantCrypto(randomBytes(32));
+  const a = '11111111-1111-4111-8111-111111111111', b = '22222222-2222-4222-8222-222222222222';
+
+  it('round-trips, with a fresh IV each time', async () => {
+    const one = await crypto.encrypt(a, '病史：高血壓');
+    const two = await crypto.encrypt(a, '病史：高血壓');
+    expect(one.equals(two)).toBe(false);
+    expect(await crypto.decrypt(a, one)).toBe('病史：高血壓');
+  });
+
+  it("cannot be read with another tenant's key, or after tampering", async () => {
+    const data = await crypto.encrypt(a, 'secret');
+    await expect(crypto.decrypt(b, data)).rejects.toThrow();
+    const tampered = Buffer.from(data);
+    tampered[tampered.length - 1]! ^= 1;
+    await expect(crypto.decrypt(a, tampered)).rejects.toThrow();
+  });
+
+  it('fingerprints values per tenant', async () => {
+    expect(await crypto.fingerprint(a, 'A123456789')).toBe(await crypto.fingerprint(a, 'A123456789'));
+    expect(await crypto.fingerprint(a, 'A123456789')).not.toBe(await crypto.fingerprint(b, 'A123456789'));
+  });
+
+  it('is refused in production', () => {
+    expect(() => loadConfig({ APP_DATABASE_URL: 'postgres://x/y', NODE_ENV: 'production', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') })).toThrow(/TENANT_CRYPTO_LOCAL_KEY/);
+    expect(() => loadConfig({ APP_DATABASE_URL: 'postgres://x/y', TENANT_CRYPTO_LOCAL_KEY: randomBytes(16).toString('base64') })).toThrow(/32 bytes/);
   });
 });

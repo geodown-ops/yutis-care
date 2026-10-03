@@ -33,3 +33,18 @@ export function caseStatus(current: CaseStatus | null | undefined, eventStatuses
   if (current === '結案' && eventStatuses.includes('未開單')) return '未開單';
   return current;
 }
+
+/**
+ * Allowed case status changes: a nurse opens a case (起單), works it (處理中) and closes it (結案). A closed case is
+ * reopened by opening it again, which starts a new 起單.
+ */
+export const CASE_TRANSITIONS: Readonly<Record<CaseStatus, readonly CaseStatus[]>> = {
+  未開單: ['起單'],
+  起單: ['處理中', '結案'],
+  處理中: ['結案'],
+  結案: [],
+};
+
+export function canMoveCase(from: CaseStatus, to: CaseStatus): boolean {
+  return CASE_TRANSITIONS[from].includes(to);
+}

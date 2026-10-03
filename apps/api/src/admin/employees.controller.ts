@@ -1,15 +1,17 @@
 /*
  * Employee master import (員工匯入): an Excel sheet, validated first, then created or updated by 工號 (emp_no).
  * Exceeding the subscription's seat limit only warns; it never blocks an import. After a committed import the
- * month's `active_employees` usage counter is set to the number of current employees.
+ * month's `active_employees` usage counter is set to the number of current employees. National ID numbers (身分證字號)
+ * are never stored: only a per-tenant keyed fingerprint, used to match clinic files.
  */
-import { Body, Controller, HttpCode, Post, Query } from '@nestjs/common';
+import { Body, Controller, HttpCode, Inject, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
 import { desc, eq, sql } from 'drizzle-orm';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
+import { TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
 import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
@@ -17,10 +19,12 @@ import { ImportQuery } from './org.controller.js';
 
 export const EMPLOYEE_COLUMNS = {
   required: ['工號', '姓名', '性別', '出生日期', '法人代碼', '廠區代碼', '部門'],
-  optional: ['職稱', '班別', '健檢類別', '特殊作業', '語言', '到職日', 'Email', '手機', '狀態'],
+  optional: ['身分證字號', '職稱', '班別', '健檢類別', '特殊作業', '語言', '到職日', 'Email', '手機', '狀態'],
 } as const;
 const LANGS = ['zh', 'en', 'ja', 'vi', 'th'];
 const STATUSES = ['在職', '留停', '離職'] as const;
+/** Taiwan national ID or resident certificate number: a letter, then 1/2 (or 8/9, A–D for residents), then 8 digits. */
+const NATIONAL_ID = /^[A-Z][12890ABCD]\d{8}$/;
 
 class SeatsDto {
   @ApiProperty({ description: '匯入後的在職員工數' }) activeEmployees!: number;
@@ -46,6 +50,8 @@ const COMPARED: (keyof EmployeeValues)[] = [
 @ApiTags('admin')
 @Controller('admin/employees')
 export class EmployeesController {
+  constructor(@Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto) {}
+
   @Post('import')
   @HttpCode(200)
   @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
@@ -74,7 +80,9 @@ export class EmployeesController {
     const existing = new Map((await ctx.tx.select().from(employees)).map(e => [e.empNo, e]));
 
     const seen = new Set<string>();
-    const parsed: { row: number; empNo: string; values: EmployeeValues }[] = [];
+    const seenIds = new Map<string, string>();
+    const empNoByIdHash = new Map([...existing.values()].filter(e => e.nationalIdHash).map(e => [e.nationalIdHash!, e.empNo]));
+    const parsed: { row: number; empNo: string; values: EmployeeValues; nationalIdHash?: string }[] = [];
     for (const { row, values: v } of rows) {
       const before = issues.length;
       for (const c of EMPLOYEE_COLUMNS.required) if (!v[c]) add(row, c, '必填');
@@ -85,6 +93,18 @@ export class EmployeesController {
       if (v['Email'] && !isEmail(v['Email'])) add(row, 'Email', 'Email 格式錯誤');
       if (v['語言'] && !LANGS.includes(v['語言'])) add(row, '語言', `應為 ${LANGS.join('、')} 之一`);
       if (v['狀態'] && !(STATUSES as readonly string[]).includes(v['狀態'])) add(row, '狀態', `應為 ${STATUSES.join('、')} 之一`);
+      let nationalIdHash: string | undefined;
+      const nationalId = v['身分證字號']?.toUpperCase();
+      if (nationalId) {
+        if (!NATIONAL_ID.test(nationalId)) add(row, '身分證字號', '格式錯誤');
+        else {
+          nationalIdHash = await this.crypto.fingerprint(ctx.tenant.id, nationalId);
+          if (seenIds.has(nationalIdHash)) add(row, '身分證字號', `與工號 ${seenIds.get(nationalIdHash)} 重複`);
+          const owner = empNoByIdHash.get(nationalIdHash);
+          if (owner && owner !== v['工號']) add(row, '身分證字號', `已屬於工號 ${owner}`);
+          seenIds.set(nationalIdHash, v['工號'] ?? '');
+        }
+      }
       const le = les.find(l => l.code === v['法人代碼']);
       if (v['法人代碼'] && !le) add(row, '法人代碼', `找不到法人 ${v['法人代碼']}，請先建立組織`);
       const site = ss.find(s => s.code === v['廠區代碼']);
@@ -94,7 +114,7 @@ export class EmployeesController {
       if (site && v['部門'] && !dept) add(row, '部門', `廠區 ${site.code} 沒有部門「${v['部門']}」`);
       if (issues.length > before || !le || !site || !dept) continue;
       parsed.push({
-        row, empNo: v['工號']!,
+        row, empNo: v['工號']!, ...(nationalIdHash ? { nationalIdHash } : {}),
         values: {
           name: v['姓名']!, sex: v['性別'] as '男' | '女', birthDate: v['出生日期']!, legalEntityId: le.id, siteId: site.id, departmentId: dept.id,
           title: v['職稱'] || null, shift: v['班別'] || null, examCategory: v['健檢類別'] || null,
@@ -108,7 +128,8 @@ export class EmployeesController {
     const toCreate = parsed.filter(p => !existing.has(p.empNo));
     const toUpdate = parsed.filter(p => {
       const cur = existing.get(p.empNo);
-      return cur && COMPARED.some(k => JSON.stringify(cur[k] ?? null) !== JSON.stringify(p.values[k] ?? null));
+      return cur && (COMPARED.some(k => JSON.stringify(cur[k] ?? null) !== JSON.stringify(p.values[k] ?? null))
+        || (p.nationalIdHash !== undefined && p.nationalIdHash !== cur.nationalIdHash));
     });
     const report: EmployeeImportReportDto = {
       committed: false, rows: rows.length, create: toCreate.length, update: toUpdate.length,
@@ -127,13 +148,13 @@ export class EmployeesController {
       const audits: AuditEntry[] = [];
       for (let i = 0; i < toCreate.length; i += 500) {
         const created = await ctx.tx.insert(employees)
-          .values(toCreate.slice(i, i + 500).map(p => ({ ...p.values, empNo: p.empNo, tenantId: ctx.tenant.id, createdBy: me })))
+          .values(toCreate.slice(i, i + 500).map(p => ({ ...p.values, empNo: p.empNo, nationalIdHash: p.nationalIdHash ?? null, tenantId: ctx.tenant.id, createdBy: me })))
           .returning({ id: employees.id });
         audits.push(...created.map(c => ({ action: 'create' as const, subjectTable: 'employees', subjectId: c.id, employeeId: c.id, dataCategory: 'identity' as const, reason: 'employee import' })));
       }
       for (const p of toUpdate) {
         const id = existing.get(p.empNo)!.id;
-        await ctx.tx.update(employees).set({ ...p.values, updatedAt: new Date(), updatedBy: me }).where(eq(employees.id, id));
+        await ctx.tx.update(employees).set({ ...p.values, ...(p.nationalIdHash ? { nationalIdHash: p.nationalIdHash } : {}), updatedAt: new Date(), updatedBy: me }).where(eq(employees.id, id));
         audits.push({ action: 'update', subjectTable: 'employees', subjectId: id, employeeId: id, dataCategory: 'identity', reason: 'employee import' });
       }
       if (audits.length) await recordAudit(ctx, audits);

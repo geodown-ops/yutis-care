@@ -26,6 +26,16 @@ export const gradingRules = pgTable('grading_rules', {
   source: text('source', { enum: ['manual', 'demo', 'physician'] }).notNull(),
 }, t => [tenantKey(t), tenantRef('grading_rules_rule_set_fk', t, t.ruleSetId, gradingRuleSets)]);
 
+/**
+ * How one clinic's Excel export maps to Yutis fields and exam item codes (健檢匯入對照), set up by tenant admins.
+ * `mapping` is { columns: { empNo?, nationalId?, examDate, kind?, smoker?, history?, symptoms?, workNote?, specialHazard?, specialLevel? }, items: { [itemCode]: header } }.
+ */
+export const examImportMappings = pgTable('exam_import_mappings', {
+  ...base(),
+  clinic: text('clinic').notNull(),
+  mapping: jsonb('mapping').notNull(),
+}, t => [tenantKey(t), unique().on(t.tenantId, t.clinic)]);
+
 /** One clinic file import (匯入批次). */
 export const examBatches = pgTable('exam_batches', {
   ...base(),
@@ -59,6 +69,7 @@ export const healthExams = pgTable('health_exams', {
   retainUntil: retainUntil(),
 }, t => [
   tenantKey(t),
+  unique('health_exams_one_per_day').on(t.tenantId, t.employeeId, t.examDate, t.kind),
   index('health_exams_employee_idx').on(t.tenantId, t.employeeId, t.examDate),
   tenantRef('health_exams_employee_fk', t, t.employeeId, employees),
   tenantRef('health_exams_batch_fk', t, t.batchId, examBatches),

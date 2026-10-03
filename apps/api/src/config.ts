@@ -17,6 +17,8 @@ const Env = z.object({
   SESSION_MAX_HOURS: z.coerce.number().int().positive().default(12),
   /** Sign in with an email address or phone number as the token, no password. Local development only. */
   AUTH_DEV_SIGN_IN: flag.default(false),
+  /** Base64 32-byte master key for local per-tenant encryption keys. Local development and tests only; production uses Cloud KMS. */
+  TENANT_CRYPTO_LOCAL_KEY: z.string().min(1).optional(),
 });
 
 export interface ApiConfig {
@@ -29,6 +31,8 @@ export interface ApiConfig {
   sessionIdleSeconds: number;
   sessionMaxSeconds: number;
   devSignIn: boolean;
+  /** Local master key for TenantCrypto; undefined = encryption unavailable until Cloud KMS is connected. */
+  cryptoLocalKey?: Buffer;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): ApiConfig {
@@ -38,6 +42,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const production = e.NODE_ENV === 'production';
   if (production && e.AUTH_DEV_SIGN_IN) throw new Error('AUTH_DEV_SIGN_IN must not be enabled in production');
   if (production && !e.COOKIE_SECURE) throw new Error('COOKIE_SECURE must not be disabled in production');
+  if (production && e.TENANT_CRYPTO_LOCAL_KEY) throw new Error('TENANT_CRYPTO_LOCAL_KEY must not be used in production');
+  const cryptoLocalKey = e.TENANT_CRYPTO_LOCAL_KEY ? Buffer.from(e.TENANT_CRYPTO_LOCAL_KEY, 'base64') : undefined;
+  if (cryptoLocalKey && cryptoLocalKey.length !== 32) throw new Error('TENANT_CRYPTO_LOCAL_KEY must be 32 bytes, base64-encoded');
   return {
     production,
     port: e.PORT,
@@ -48,5 +55,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     sessionIdleSeconds: e.SESSION_IDLE_MINUTES * 60,
     sessionMaxSeconds: e.SESSION_MAX_HOURS * 3600,
     devSignIn: e.AUTH_DEV_SIGN_IN,
+    cryptoLocalKey,
   };
 }

@@ -1678,7 +1678,7 @@
     },
     "/api/admin/employees/import": {
       "post": {
-        "description": "第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。",
+        "description": "第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：身分證字號、職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。",
         "operationId": "EmployeesController_import",
         "parameters": [
           {
@@ -1765,6 +1765,2283 @@
         "summary": "以 Excel 匯入員工主檔",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/admin/exam-mappings": {
+      "get": {
+        "operationId": "ExamSettingsController_listMappings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExamMappingDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "健檢匯入對照",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "ExamSettingsController_createMapping",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clinic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "columns": {
+                    "type": "object",
+                    "properties": {
+                      "empNo": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "nationalId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "examDate": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "kind": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "smoker": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "history": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "symptoms": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "workNote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "specialHazard": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "specialLevel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "required": [
+                      "examDate"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "items": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "enum": [
+                        "B0111",
+                        "B0112",
+                        "B0104",
+                        "B0107",
+                        "B0201",
+                        "B0202",
+                        "B0203",
+                        "B0204",
+                        "B0205",
+                        "B0301",
+                        "B0302",
+                        "B0401",
+                        "B0501"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": [
+                  "clinic",
+                  "columns",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamMappingDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "新增健檢醫院的欄位對照",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/exam-mappings/{id}": {
+      "put": {
+        "operationId": "ExamSettingsController_updateMapping",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clinic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "columns": {
+                    "type": "object",
+                    "properties": {
+                      "empNo": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "nationalId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "examDate": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "kind": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "smoker": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "history": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "symptoms": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "workNote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "specialHazard": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "specialLevel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "required": [
+                      "examDate"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "items": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "enum": [
+                        "B0111",
+                        "B0112",
+                        "B0104",
+                        "B0107",
+                        "B0201",
+                        "B0202",
+                        "B0203",
+                        "B0204",
+                        "B0205",
+                        "B0301",
+                        "B0302",
+                        "B0401",
+                        "B0501"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": [
+                  "clinic",
+                  "columns",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamMappingDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改欄位對照",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "operationId": "ExamSettingsController_deleteMapping",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "刪除欄位對照",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/rule-sets": {
+      "get": {
+        "operationId": "ExamSettingsController_listRuleSets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuleSetDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "分級標準版本",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "送出整套規則；發布前不影響分級。",
+        "operationId": "ExamSettingsController_createRuleSet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "rules": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "B0111",
+                            "B0112",
+                            "B0104",
+                            "B0107",
+                            "B0201",
+                            "B0202",
+                            "B0203",
+                            "B0204",
+                            "B0205",
+                            "B0301",
+                            "B0302",
+                            "B0401",
+                            "B0501"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "男",
+                            "女",
+                            "不限"
+                          ]
+                        },
+                        "unit": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "type": {
+                          "default": "number",
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "text"
+                          ]
+                        },
+                        "src": {
+                          "default": "manual",
+                          "type": "string",
+                          "enum": [
+                            "manual",
+                            "demo",
+                            "physician"
+                          ]
+                        },
+                        "levels": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lv": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4
+                                  },
+                                  "min": {
+                                    "type": "number"
+                                  },
+                                  "max": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "lv"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lv": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4
+                                  },
+                                  "values": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "lv",
+                                  "values"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name",
+                        "sex",
+                        "levels"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rules"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSetDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "建立新版分級標準（草稿）",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/rule-sets/{id}": {
+      "get": {
+        "operationId": "ExamSettingsController_ruleSet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSetDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "某一版分級標準的規則",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/rule-sets/{id}/publish": {
+      "post": {
+        "description": "之後匯入的健檢依此版本分級；先前的結果保留原版本。",
+        "operationId": "ExamSettingsController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSetDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "發布分級標準",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/exams/mappings": {
+      "get": {
+        "operationId": "ExamsController_mappings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExamMappingDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "可用的健檢匯入對照（匯入時選擇）",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/exams/import": {
+      "post": {
+        "description": "依選定醫院的欄位對照讀取第一個工作表，以工號或身分證字號對應員工（只能匯入負責廠區的員工），依目前發布的分級標準分級，最高分級 3 級以上或特殊健檢 2 級以上產生異常事件。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。",
+        "operationId": "ExamsController_import",
+        "parameters": [
+          {
+            "name": "fileName",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "commit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapping",
+            "required": true,
+            "in": "query",
+            "description": "健檢匯入對照 id",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamImportReportDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "檔案有錯誤（import_invalid），未寫入",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "匯入健檢結果",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/exams": {
+      "get": {
+        "description": "不含病史、症狀等醫療文字；每次讀取都記入稽核。",
+        "operationId": "ExamsController_history",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExamSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工的健檢歷史（新的在前）",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/exams/{id}": {
+      "get": {
+        "description": "醫療文字只解密給可見醫療資料的角色；讀取記入稽核。",
+        "operationId": "ExamsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "單次健檢（含病史、症狀等醫療文字）",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/phrases": {
+      "get": {
+        "description": "撰寫協助紀錄、措施時插入的常用片語。",
+        "operationId": "RecordsController_listPhrases",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PhraseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "片語庫",
+        "tags": [
+          "records"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/records": {
+      "get": {
+        "description": "內容解密後回傳；每次讀取記入稽核。",
+        "operationId": "RecordsController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工的協助紀錄（新的在前）",
+        "tags": [
+          "records"
+        ]
+      }
+    },
+    "/api/records/follow-ups": {
+      "get": {
+        "description": "指派給我、尚未完成的追蹤（不含紀錄內容）。",
+        "operationId": "RecordsController_followUps",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowUpDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "我的待追蹤",
+        "tags": [
+          "records"
+        ]
+      }
+    },
+    "/api/records": {
+      "post": {
+        "operationId": "RecordsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "occurredAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "consultTypes": {
+                    "default": [],
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "健康檢查／體格檢查報告異常",
+                        "特殊健檢異常：危害類別與分級",
+                        "人因性危害預防計畫",
+                        "執行職務遭受不法侵害預防計畫",
+                        "異常工作負荷促發疾病預防計畫",
+                        "工作場所母性健康保護計畫",
+                        "未滿 18 歲及中高齡員工"
+                      ]
+                    }
+                  },
+                  "lifestyleAdvice": {
+                    "default": [],
+                    "maxItems": 11,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "減重",
+                        "戒菸／酒／檳榔",
+                        "飲食建議",
+                        "充足睡眠、規律作息、紓解壓力",
+                        "建立運動習慣",
+                        "定期量血壓",
+                        "定期量腰圍",
+                        "保持正確姿勢與適當動作方式與力道",
+                        "避免久坐久站",
+                        "避免用眼過度",
+                        "定時喝水、避免憋尿"
+                      ]
+                    }
+                  },
+                  "content": {
+                    "type": "object",
+                    "properties": {
+                      "explain": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "handling": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "note": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "helpers": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "minutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1440
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "minutes"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "追蹤",
+                      "結案"
+                    ]
+                  },
+                  "followUpOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "followUpUserId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "followUpDone": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "draft": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "employeeId",
+                  "category",
+                  "occurredAt",
+                  "content",
+                  "result"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "新增協助紀錄",
+        "tags": [
+          "records"
+        ]
+      }
+    },
+    "/api/records/{id}": {
+      "patch": {
+        "operationId": "RecordsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "occurredAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "consultTypes": {
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "健康檢查／體格檢查報告異常",
+                        "特殊健檢異常：危害類別與分級",
+                        "人因性危害預防計畫",
+                        "執行職務遭受不法侵害預防計畫",
+                        "異常工作負荷促發疾病預防計畫",
+                        "工作場所母性健康保護計畫",
+                        "未滿 18 歲及中高齡員工"
+                      ]
+                    }
+                  },
+                  "lifestyleAdvice": {
+                    "maxItems": 11,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "減重",
+                        "戒菸／酒／檳榔",
+                        "飲食建議",
+                        "充足睡眠、規律作息、紓解壓力",
+                        "建立運動習慣",
+                        "定期量血壓",
+                        "定期量腰圍",
+                        "保持正確姿勢與適當動作方式與力道",
+                        "避免久坐久站",
+                        "避免用眼過度",
+                        "定時喝水、避免憋尿"
+                      ]
+                    }
+                  },
+                  "content": {
+                    "type": "object",
+                    "properties": {
+                      "explain": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "handling": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "note": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 5000
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "helpers": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "minutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1440
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "minutes"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "追蹤",
+                      "結案"
+                    ]
+                  },
+                  "followUpOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "followUpUserId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "followUpDone": {
+                    "type": "boolean"
+                  },
+                  "draft": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改協助紀錄（含完成追蹤）",
+        "tags": [
+          "records"
+        ]
+      }
+    },
+    "/api/admin/phrases": {
+      "post": {
+        "operationId": "RecordsController_createPhrase",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "kind": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "改善",
+                          "建議"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "category",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhraseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "新增片語",
+        "tags": [
+          "records",
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/phrases/{id}": {
+      "delete": {
+        "operationId": "RecordsController_deletePhrase",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "刪除片語",
+        "tags": [
+          "records",
+          "admin"
+        ]
+      }
+    },
+    "/api/cases": {
+      "get": {
+        "description": "每位列出的員工都記入稽核。",
+        "operationId": "CasesController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "未開單",
+                "起單",
+                "處理中",
+                "結案"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeCaseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "個案列表：負責廠區內有異常事件的員工",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/case": {
+      "get": {
+        "operationId": "CasesController_detail",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCaseDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工的個案服務單：事件、個案與狀態歷程",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/case/open": {
+      "post": {
+        "description": "沒有個案或個案已結案時，開一張新的個案（起單，主責為自己）；個案進行中時，把新進的未開單事件併入。",
+        "operationId": "CasesController_open",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCaseDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "開單",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/cases/{id}": {
+      "patch": {
+        "description": "狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。",
+        "operationId": "CasesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "處理中",
+                      "結案"
+                    ]
+                  },
+                  "leadUserId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "noticeOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "plannedOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "repliedOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "agreed": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCaseDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "更新個案：狀態（處理中、結案）、主責、各日期",
+        "tags": [
+          "cases"
         ]
       }
     }
@@ -2276,6 +4553,817 @@
           "unchanged",
           "issues",
           "seats"
+        ]
+      },
+      "ExamMappingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clinic": {
+            "type": "string",
+            "example": "仁安健康管理診所"
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "欄位對照：columns（工號或身分證字號、檢查日期…）與 items（項目代碼 → Excel 欄名）"
+          }
+        },
+        "required": [
+          "id",
+          "clinic",
+          "mapping"
+        ]
+      },
+      "RuleSetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "effectiveFrom",
+          "note"
+        ]
+      },
+      "RuleSetDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ]
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "與 @yutis/domain GradingRule 相同格式"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "effectiveFrom",
+          "note",
+          "rules"
+        ]
+      },
+      "ExamImportReportDto": {
+        "type": "object",
+        "properties": {
+          "committed": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "number"
+          },
+          "exams": {
+            "type": "number",
+            "description": "可匯入的健檢筆數"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportIssueDto"
+            }
+          },
+          "ruleSetVersion": {
+            "type": "number",
+            "description": "分級依據的版本"
+          },
+          "grade3Plus": {
+            "type": "number",
+            "description": "最高分級 3 級以上的人數"
+          },
+          "newEvents": {
+            "type": "number",
+            "description": "寫入後新產生的異常事件數（預覽時為預估）"
+          }
+        },
+        "required": [
+          "committed",
+          "rows",
+          "exams",
+          "issues",
+          "ruleSetVersion",
+          "grade3Plus",
+          "newEvents"
+        ]
+      },
+      "ExamItemDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "B0111"
+          },
+          "name": {
+            "type": "string",
+            "example": "血壓－收縮壓"
+          },
+          "unit": {
+            "type": "string",
+            "example": "mmHg"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "description": "數值或文字結果"
+          },
+          "grade": {
+            "type": "number",
+            "nullable": true,
+            "description": "分級 1–4；沒有對應規則時為 null"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "unit",
+          "value",
+          "grade"
+        ]
+      },
+      "ExamSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "examDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "clinic": {
+            "type": "string",
+            "nullable": true
+          },
+          "kind": {
+            "type": "string"
+          },
+          "gradeTotal": {
+            "type": "number",
+            "description": "各項分級加總"
+          },
+          "gradeMax": {
+            "type": "number",
+            "description": "最高分級"
+          },
+          "ruleSetVersion": {
+            "type": "number",
+            "description": "分級所依據的分級標準版本"
+          },
+          "specialHazard": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialLevel": {
+            "type": "number",
+            "nullable": true,
+            "description": "特殊健檢管理分級"
+          },
+          "smoker": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExamItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "examDate",
+          "clinic",
+          "kind",
+          "gradeTotal",
+          "gradeMax",
+          "ruleSetVersion",
+          "specialHazard",
+          "specialLevel",
+          "smoker",
+          "items"
+        ]
+      },
+      "ExamDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "examDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "clinic": {
+            "type": "string",
+            "nullable": true
+          },
+          "kind": {
+            "type": "string"
+          },
+          "gradeTotal": {
+            "type": "number",
+            "description": "各項分級加總"
+          },
+          "gradeMax": {
+            "type": "number",
+            "description": "最高分級"
+          },
+          "ruleSetVersion": {
+            "type": "number",
+            "description": "分級所依據的分級標準版本"
+          },
+          "specialHazard": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialLevel": {
+            "type": "number",
+            "nullable": true,
+            "description": "特殊健檢管理分級"
+          },
+          "smoker": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExamItemDto"
+            }
+          },
+          "history": {
+            "type": "string",
+            "nullable": true,
+            "description": "病史（醫療資料，只給職護、職醫）"
+          },
+          "symptoms": {
+            "type": "string",
+            "nullable": true,
+            "description": "自覺症狀"
+          },
+          "workNote": {
+            "type": "string",
+            "nullable": true,
+            "description": "作業經歷與工作描述"
+          }
+        },
+        "required": [
+          "id",
+          "examDate",
+          "clinic",
+          "kind",
+          "gradeTotal",
+          "gradeMax",
+          "ruleSetVersion",
+          "specialHazard",
+          "specialLevel",
+          "smoker",
+          "items",
+          "history",
+          "symptoms",
+          "workNote"
+        ]
+      },
+      "PhraseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "example": "不法侵害－措施"
+          },
+          "text": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "改善",
+              "建議"
+            ],
+            "nullable": true,
+            "description": "措施類片語：改善＝應增加或改善，建議＝建議可採行"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "text",
+          "kind"
+        ]
+      },
+      "RecordContentDto": {
+        "type": "object",
+        "properties": {
+          "explain": {
+            "type": "string",
+            "description": "說明"
+          },
+          "handling": {
+            "type": "string",
+            "description": "處理狀況"
+          },
+          "note": {
+            "type": "string",
+            "description": "備註"
+          }
+        },
+        "required": [
+          "explain",
+          "handling",
+          "note"
+        ]
+      },
+      "HelperDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minutes": {
+            "type": "number",
+            "description": "投入分鐘數（附表八統計用）"
+          }
+        },
+        "required": [
+          "userId",
+          "minutes"
+        ]
+      },
+      "RecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "example": "健康面談諮詢紀錄"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "consultTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "健康檢查／體格檢查報告異常",
+                "特殊健檢異常：危害類別與分級",
+                "人因性危害預防計畫",
+                "執行職務遭受不法侵害預防計畫",
+                "異常工作負荷促發疾病預防計畫",
+                "工作場所母性健康保護計畫",
+                "未滿 18 歲及中高齡員工"
+              ]
+            }
+          },
+          "lifestyleAdvice": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "減重",
+                "戒菸／酒／檳榔",
+                "飲食建議",
+                "充足睡眠、規律作息、紓解壓力",
+                "建立運動習慣",
+                "定期量血壓",
+                "定期量腰圍",
+                "保持正確姿勢與適當動作方式與力道",
+                "避免久坐久站",
+                "避免用眼過度",
+                "定時喝水、避免憋尿"
+              ]
+            }
+          },
+          "content": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecordContentDto"
+              }
+            ]
+          },
+          "helpers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HelperDto"
+            }
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "追蹤",
+              "結案"
+            ]
+          },
+          "followUpOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "followUpUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "followUpDone": {
+            "type": "boolean"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "暫存"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "category",
+          "occurredAt",
+          "consultTypes",
+          "lifestyleAdvice",
+          "content",
+          "helpers",
+          "result",
+          "followUpOn",
+          "followUpUserId",
+          "followUpDone",
+          "draft"
+        ]
+      },
+      "FollowUpDto": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "followUpOn": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "recordId",
+          "employeeId",
+          "empNo",
+          "employeeName",
+          "category",
+          "followUpOn"
+        ]
+      },
+      "CaseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ]
+          },
+          "leadUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "主責人員"
+          },
+          "leadName": {
+            "type": "string",
+            "nullable": true
+          },
+          "openedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "noticeOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "通知日"
+          },
+          "plannedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "預計處理日"
+          },
+          "repliedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "回覆日"
+          },
+          "agreed": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "員工是否同意"
+          },
+          "closedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "leadUserId",
+          "leadName",
+          "openedOn",
+          "noticeOn",
+          "plannedOn",
+          "repliedOn",
+          "agreed",
+          "closedOn"
+        ]
+      },
+      "CaseEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "hc",
+              "wl",
+              "er",
+              "mat",
+              "age",
+              "sp"
+            ],
+            "description": "hc 健檢、sp 特殊健檢、wl 異常負荷、er 人因、mat 母性、age 年齡"
+          },
+          "occurredOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "occurredOn",
+          "description",
+          "status"
+        ]
+      },
+      "EmployeeCaseDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ],
+            "description": "顯示狀態：結案後有新事件會回到未開單"
+          },
+          "case": {
+            "nullable": true,
+            "description": "目前（最新）的個案",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CaseDto"
+              }
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseEventDto"
+            }
+          }
+        },
+        "required": [
+          "employeeId",
+          "empNo",
+          "name",
+          "department",
+          "status",
+          "case",
+          "events"
+        ]
+      },
+      "StatusChangeDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ],
+            "nullable": true
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "eventId",
+          "fromStatus",
+          "toStatus",
+          "note",
+          "at"
+        ]
+      },
+      "EmployeeCaseDetailDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "未開單",
+              "起單",
+              "處理中",
+              "結案"
+            ],
+            "description": "顯示狀態：結案後有新事件會回到未開單"
+          },
+          "case": {
+            "nullable": true,
+            "description": "目前（最新）的個案",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CaseDto"
+              }
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseEventDto"
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatusChangeDto"
+            }
+          }
+        },
+        "required": [
+          "employeeId",
+          "empNo",
+          "name",
+          "department",
+          "status",
+          "case",
+          "events",
+          "history"
         ]
       }
     }

@@ -5,6 +5,7 @@ import type { FastifyRequest } from 'fastify';
 import pg from 'pg';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import type { ApiConfig } from '../config.js';
+import { LocalTenantCrypto, TENANT_CRYPTO, UnconfiguredTenantCrypto } from './crypto.js';
 import { ApiExceptionFilter } from './errors.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
@@ -56,9 +57,10 @@ export class CoreModule {
         { provide: DB, useFactory: (pool: pg.Pool) => createDb(pool), inject: [PG_POOL] },
         { provide: APP_INTERCEPTOR, useClass: TenantTransactionInterceptor },
         { provide: APP_FILTER, useClass: ApiExceptionFilter },
+        { provide: TENANT_CRYPTO, useValue: config.cryptoLocalKey ? new LocalTenantCrypto(config.cryptoLocalKey) : new UnconfiguredTenantCrypto() },
         PoolLifecycle,
       ],
-      exports: [API_CONFIG, PG_POOL, DB],
+      exports: [API_CONFIG, PG_POOL, DB, TENANT_CRYPTO],
     };
   }
 }
