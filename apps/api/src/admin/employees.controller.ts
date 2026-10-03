@@ -16,6 +16,7 @@ import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
 import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
 import { ImportQuery } from './org.controller.js';
+import { raiseAgeEvents } from '../programs/common.js';
 
 export const EMPLOYEE_COLUMNS = {
   required: ['工號', '姓名', '性別', '出生日期', '法人代碼', '廠區代碼', '部門'],
@@ -162,6 +163,7 @@ export class EmployeesController {
       await ctx.tx.insert(usageCounters)
         .values({ tenantId: ctx.tenant.id, period: sql`date_trunc('month', current_date)::date`, metric: 'active_employees', quantity: active })
         .onConflictDoUpdate({ target: [usageCounters.tenantId, usageCounters.period, usageCounters.metric], set: { quantity: active, updatedAt: new Date() } });
+      await raiseAgeEvents(ctx);
       report.committed = true;
       report.seats.activeEmployees = active;
     } else {

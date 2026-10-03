@@ -59,6 +59,8 @@ pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.
 - 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
 - 健檢、協助紀錄、個案（`/api/exams`、`/api/employees/:id/exams`、`/api/records`、`/api/cases`）只給職護、職醫，而且只限負責廠區（或有效的破窗授權）的員工；每次讀取都記入稽核，人資與租戶管理員一律拿不到。健檢以租戶管理員設定的「健檢匯入對照」匯入，依目前發布的分級標準分級並保留版本。
+- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。
+- 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
 - 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號只存每個租戶各自的 HMAC。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
 - 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
