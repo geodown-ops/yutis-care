@@ -9,6 +9,7 @@
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
 | `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
 | `apps/api` | 租戶 API（NestJS + Fastify）：租戶識別、session、權限管線、稽核、OpenAPI |
+| `apps/platform-api` | 平台 API：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員；看不到任何健康資料 |
 | `packages/ui` | 設計 token、Mantine 主題與共用元件 |
 | `packages/api-client` | 租戶 API 的呼叫函式與型別 |
 | `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
@@ -58,6 +59,22 @@ pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.
 - 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
+
+### 平台 API
+
+平台管理後台（`admin.care.yutis.com.tw`）的 API，以 `yutis_platform` 資料庫角色連線：只能用租戶、方案、訂閱、用量計數與平台自己的資料表，對員工、健檢與四大計畫的資料表沒有任何權限（`packages/db` 有測試鎖住）。
+
+```bash
+cp apps/platform-api/.env.example apps/platform-api/.env   # 依本機資料庫的埠調整
+pnpm --filter @yutis/platform-api db:seed                  # 建立平台登入角色、示範平台人員、方案與預設範本
+pnpm --filter @yutis/platform-api dev                      # http://localhost:3001/platform-api/docs
+```
+
+- 正式環境由 Identity-Aware Proxy 擋在前面，API 驗證 IAP 簽發的 JWT（`x-goog-iap-jwt-assertion`）再對應 `platform_users` 的角色（營運、客服、工程）。本機用 `X-Dev-Platform-User: ops@yutis.test` 代替，正式環境會拒絕啟動。
+- 每個寫入都必須在同一個交易寫 `platform_audit_log`，沒寫的請求會整筆回滾。
+- 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
+- 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。
 
 ---
 
