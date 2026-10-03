@@ -2,7 +2,7 @@
   "name": "@yutis/portal",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 員工端（{租戶}.yutiscare.tw/me）：手機優先，填問卷、確認紀錄、看自己的健康資料。",
+  "description": "Yutis Care 員工端（{租戶}.care.yutis.com.tw/me）：手機優先，填問卷、確認紀錄、看自己的健康資料。",
   "type": "module",
   "scripts": {
     "dev": "vite",

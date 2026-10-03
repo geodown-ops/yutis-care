@@ -23,10 +23,10 @@ function TenantsPage() {
         <StatCard label="待處理客服授權" value={1} />
       </SimpleGrid>
       <Card>
-        <Table.ScrollContainer minWidth={820}>
+        <Table.ScrollContainer minWidth={760}>
           <Table verticalSpacing="sm" highlightOnHover>
             <Table.Thead>
-              <Table.Tr><Table.Th>租戶</Table.Th><Table.Th>子網域</Table.Th><Table.Th>狀態</Table.Th><Table.Th>方案</Table.Th><Table.Th>員工數／上限</Table.Th><Table.Th>啟用模組</Table.Th><Table.Th>登入</Table.Th><Table.Th>最後活動</Table.Th></Table.Tr>
+              <Table.Tr><Table.Th>租戶</Table.Th><Table.Th>子網域</Table.Th><Table.Th>狀態</Table.Th><Table.Th>方案</Table.Th><Table.Th>員工數／上限</Table.Th><Table.Th>登入</Table.Th><Table.Th>最後活動</Table.Th></Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {TENANTS.map(t => {
@@ -34,14 +34,13 @@ function TenantsPage() {
                 return (
                   <Table.Tr key={t.id}>
                     <Table.Td><AnchorLink to="/tenants/$tenantId" params={{ tenantId: t.id }}>{t.name}</AnchorLink></Table.Td>
-                    <Table.Td ff="monospace" fz="sm">{t.subdomain}.yutiscare.tw</Table.Td>
+                    <Table.Td ff="monospace" fz="sm">{t.subdomain}.care.yutis.com.tw</Table.Td>
                     <Table.Td><Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})` } }}>{t.status}</Badge></Table.Td>
                     <Table.Td>{t.plan}</Table.Td>
                     <Table.Td>
                       <Text size="sm">{t.employees.toLocaleString('zh-TW')} / {t.seatLimit.toLocaleString('zh-TW')}</Text>
                       <Progress value={(t.employees / t.seatLimit) * 100} size="xs" mt={4} w={120} aria-label="人數用量" />
                     </Table.Td>
-                    <Table.Td>{t.modules} / 5</Table.Td>
                     <Table.Td>{t.sso}</Table.Td>
                     <Table.Td>{t.lastActive}</Table.Td>
                   </Table.Tr>

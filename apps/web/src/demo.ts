@@ -9,7 +9,7 @@ export const TODAY: IsoDate = '2026-10-03';
 
 export const TENANT: TenantInfo = {
   id: 'demo', name: '示範科技股份有限公司', subdomain: 'demo', logoUrl: null,
-  loginMethods: ['sso', 'sms'], modules: ['ergo', 'workload', 'maternal', 'violence', 'service'],
+  loginMethods: ['sso', 'sms'],
 };
 
 export const CURRENT_STAFF: Me = { id: 'u-nurse-1', name: '張雅婷', role: '職護', siteIds: ['S1'] };

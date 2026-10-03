@@ -16,8 +16,6 @@ export interface TenantInfo {
   subdomain: string;
   logoUrl: string | null;
   loginMethods: LoginMethod[];
-  /** Modules the tenant has enabled; programs can be bought separately. */
-  modules: Array<'ergo' | 'workload' | 'maternal' | 'violence' | 'service'>;
 }
 
 /** GET /api/me: the signed-in staff member. Used only to hide menus; the API enforces permissions. */

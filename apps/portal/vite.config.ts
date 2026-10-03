@@ -3,7 +3,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-/** Served at {tenant}.yutiscare.tw/me, next to the tenant admin at /. */
+/** Served at {tenant}.care.yutis.com.tw/me, next to the tenant admin at /. */
 export default defineConfig({
   base: '/me/',
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],

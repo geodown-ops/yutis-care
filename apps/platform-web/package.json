@@ -2,7 +2,7 @@
   "name": "@yutis/platform-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 平台管理後台（admin.yutiscare.tw）：Yutis 內部營運與客服管理租戶，看不到任何員工健康資料。",
+  "description": "Yutis Care 平台管理後台（admin.care.yutis.com.tw）：Yutis 內部營運與客服管理租戶，看不到任何員工健康資料。",
   "type": "module",
   "scripts": {
     "dev": "vite",
