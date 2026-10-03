@@ -63,5 +63,12 @@ export const ROLE_ACCESS: Record<StaffRole, RoleAccess> = {
   租戶管理員: { data: ['identity'], features: ['tenant-admin'] },
 };
 
+/** Occupational health staff: everything about the employees of their sites. */
+export const CLINICAL_ROLES = ['職護', '職醫'] as const satisfies readonly StaffRole[];
+/** Environment assessments and checklists (maternal environment, violence risk): clinical staff and 職安衛人員. */
+export const ENVIRONMENT_ROLES = ['職護', '職醫', '職安衛人員'] as const satisfies readonly StaffRole[];
+/** Work-arrangement advice without clinical detail: clinical staff and 人資. */
+export const ADVICE_ROLES = ['職護', '職醫', '人資'] as const satisfies readonly StaffRole[];
+
 export const canSee = (role: StaffRole, data: DataCategory) => ROLE_ACCESS[role].data.includes(data);
 export const canUse = (role: StaffRole, feature: Feature) => ROLE_ACCESS[role].features.includes(feature);

@@ -85,6 +85,20 @@
       "when": 1791034533453,
       "tag": "0011_exam_import_access",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791035255873,
+      "tag": "0012_manager_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791035256698,
+      "tag": "0013_manager_notices_access",
+      "breakpoints": true
     }
   ]
 }

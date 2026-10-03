@@ -200,3 +200,25 @@ export const violenceReviews = pgTable('violence_reviews', {
   reviewedOn: date('reviewed_on').notNull(),
   items: jsonb('items').notNull(),
 }, t => [tenantKey(t)]);
+
+/* ---------- notices to department managers ---------- */
+
+/**
+ * Work-arrangement advice sent to an employee's department manager (通知主管). A manager sees only the notices sent
+ * to them, and only the advice text: never the clinical reasons behind it.
+ */
+export const managerNotices = pgTable('manager_notices', {
+  ...base(),
+  managerUserId: uuid('manager_user_id').notNull(),
+  employeeId: uuid('employee_id').notNull(),
+  /** What the advice came from, e.g. interviews / <id>, maternal_interviews / <id>. */
+  subjectTable: text('subject_table').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  advice: text('advice').notNull(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+}, t => [
+  tenantKey(t),
+  index('manager_notices_manager_idx').on(t.tenantId, t.managerUserId),
+  tenantRef('manager_notices_manager_fk', t, t.managerUserId, users),
+  tenantRef('manager_notices_employee_fk', t, t.employeeId, employees),
+]);

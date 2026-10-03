@@ -89,6 +89,7 @@ export function allows(rule: AccessRule, principal: Principal): boolean {
     case 'staff':
       return principal.kind === 'staff'
         && (!rule.data || canSee(principal.role, rule.data))
-        && (!rule.feature || canUse(principal.role, rule.feature));
+        && (!rule.feature || canUse(principal.role, rule.feature))
+        && (!rule.roles || rule.roles.includes(principal.role));
   }
 }

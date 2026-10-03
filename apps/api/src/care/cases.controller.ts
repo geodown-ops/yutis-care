@@ -14,6 +14,7 @@ import { assertSiteAccess, siteAccess } from '../auth/site-access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { openApiSchema, parse } from '../core/validation.js';
+import { raiseAgeEvents } from '../programs/common.js';
 
 const CaseAccess = () => StaffOnly({ data: 'health', feature: 'cases' });
 
@@ -92,6 +93,17 @@ export class CasesController {
       await recordAudit(ctx, result.map((c): AuditEntry => ({ action: 'read', subjectTable: 'cases', employeeId: c.employeeId, dataCategory: 'health', reason: 'case list' })));
     }
     return result;
+  }
+
+  @Post('cases/age-events')
+  @HttpCode(200)
+  @CaseAccess()
+  @ApiOperation({ summary: '更新年齡關注事件', description: '未滿 18 歲或已達中高齡（55 歲）的在職員工各產生一個事件；已有的不重複產生。員工匯入後也會自動執行。' })
+  @ApiOkResponse({ schema: { type: 'object', properties: { raised: { type: 'number' } } } })
+  async ageEvents(@Ctx() ctx: RequestContext): Promise<{ raised: number }> {
+    const raised = await raiseAgeEvents(ctx);
+    if (raised) await recordAudit(ctx, { action: 'create', subjectTable: 'case_events', reason: `${raised} age event(s)` });
+    return { raised };
   }
 
   @Get('employees/:employeeId/case')
