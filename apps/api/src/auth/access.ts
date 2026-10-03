@@ -5,13 +5,14 @@
 import { applyDecorators, SetMetadata } from '@nestjs/common';
 import { ApiCookieAuth, ApiForbiddenResponse, ApiNotFoundResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { ApiErrorDto } from '../core/errors.js';
+import type { StaffRole } from '../core/context.js';
 import type { DataCategory, Feature } from './permissions.js';
 
 export type AccessRule =
   | { kind: 'no-tenant' }
   | { kind: 'public' }
   | { kind: 'signed-in' }
-  | { kind: 'staff'; data?: DataCategory; feature?: Feature }
+  | { kind: 'staff'; data?: DataCategory; feature?: Feature; roles?: readonly StaffRole[] }
   | { kind: 'employee' };
 
 export const ACCESS_RULE = 'yutis:access-rule';
@@ -37,10 +38,10 @@ export const SignedIn = () =>
   applyDecorators(SetMetadata(ACCESS_RULE, { kind: 'signed-in' } satisfies AccessRule), ...tenantResponses, ...signedInResponses);
 
 /**
- * Signed-in staff whose role may see `data` and use `feature`. Routes about one employee must also check the
- * employee's site with `assertSiteAccess`.
+ * Signed-in staff whose role may see `data`, use `feature` and (if given) is one of `roles`. Routes about one employee
+ * must also check the employee's site with `assertSiteAccess`.
  */
-export const StaffOnly = (need: { data?: DataCategory; feature?: Feature } = {}) =>
+export const StaffOnly = (need: { data?: DataCategory; feature?: Feature; roles?: readonly StaffRole[] } = {}) =>
   applyDecorators(SetMetadata(ACCESS_RULE, { kind: 'staff', ...need } satisfies AccessRule), ...tenantResponses, ...signedInResponses);
 
 /** A signed-in employee (employee portal); such routes only ever return the employee's own data. */
