@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useLocation } from '@tanstack/react-router';
-import { ConsoleShell, NavSection, sidebarLinkStyles } from '@yutis/ui';
+import { ConsoleShell, NavSection, SidebarIcon, sidebarLinkStyles } from '@yutis/ui';
 import { NavLinkRouter, splat } from '../links';
 import { isActivePath, NAV } from '../nav';
 
@@ -17,7 +17,7 @@ function PlatformLayout() {
         <NavSection key={g.label} label={g.label}>
           {g.items.map(it => {
             const active = isActivePath(it.path, pathname);
-            return <NavLinkRouter key={it.path} {...splat(it.path)} label={it.label} active={active} onClick={close} aria-current={active ? 'page' : undefined} styles={sidebarLinkStyles(active)} />;
+            return <NavLinkRouter key={it.path} {...splat(it.path)} label={it.label} leftSection={<SidebarIcon icon={it.icon} active={active} />} active={active} onClick={close} aria-current={active ? 'page' : undefined} styles={sidebarLinkStyles(active)} />;
           })}
         </NavSection>
       ))}

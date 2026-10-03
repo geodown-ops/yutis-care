@@ -1,4 +1,5 @@
 import { Badge, Card, Group, Progress, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { IconPlus } from '@tabler/icons-react';
 import { createFileRoute } from '@tanstack/react-router';
 import { StatCard } from '@yutis/ui';
 import { STATUS_TONE, TENANTS } from '../demo';
@@ -14,14 +15,16 @@ function TenantsPage() {
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>租戶列表</Title>
-        <ButtonLink to="/$" params={{ _splat: 'tenants/new' }}>新增租戶</ButtonLink>
+        <ButtonLink to="/$" params={{ _splat: 'tenants/new' }} leftSection={<IconPlus size={16} />}>新增租戶</ButtonLink>
       </Group>
-      <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
-        <StatCard highlight label="啟用中租戶" value={active} />
-        <StatCard label="試用中" value={trial} note="1 家 10/15 到期" />
-        <StatCard label="員工總數" value={seats.toLocaleString('zh-TW')} />
-        <StatCard label="待處理客服授權" value={1} />
-      </SimpleGrid>
+      <Card>
+        <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+          <StatCard tone="lavender" label="啟用中租戶" value={active} />
+          <StatCard tone="blue" label="試用中" value={trial} note="1 家 10/15 到期" />
+          <StatCard tone="mint" label="員工總數" value={seats.toLocaleString('zh-TW')} />
+          <StatCard tone="pink" label="待處理客服授權" value={1} />
+        </SimpleGrid>
+      </Card>
       <Card>
         <Table.ScrollContainer minWidth={760}>
           <Table verticalSpacing="sm" highlightOnHover>
@@ -33,9 +36,9 @@ function TenantsPage() {
                 const tone = STATUS_TONE[t.status];
                 return (
                   <Table.Tr key={t.id}>
-                    <Table.Td><AnchorLink to="/tenants/$tenantId" params={{ tenantId: t.id }}>{t.name}</AnchorLink></Table.Td>
+                    <Table.Td><AnchorLink to="/tenants/$tenantId" params={{ tenantId: t.id }} fw={600}>{t.name}</AnchorLink></Table.Td>
                     <Table.Td ff="monospace" fz="sm">{t.subdomain}.care.yutis.com.tw</Table.Td>
-                    <Table.Td><Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})` } }}>{t.status}</Badge></Table.Td>
+                    <Table.Td><Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none' } }}>{t.status}</Badge></Table.Td>
                     <Table.Td>{t.plan}</Table.Td>
                     <Table.Td>
                       <Text size="sm">{t.employees.toLocaleString('zh-TW')} / {t.seatLimit.toLocaleString('zh-TW')}</Text>

@@ -6,7 +6,8 @@ export function ColorSchemeToggle() {
   const scheme = useComputedColorScheme('light');
   const next = scheme === 'dark' ? 'light' : 'dark';
   return (
-    <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => setColorScheme(next)} aria-label={next === 'dark' ? '切換為深色模式' : '切換為淺色模式'}>
+    <ActionIcon variant="default" size={36} onClick={() => setColorScheme(next)} aria-label={next === 'dark' ? '切換為深色模式' : '切換為淺色模式'}
+      style={{ borderColor: 'transparent' }}>
       {scheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
     </ActionIcon>
   );

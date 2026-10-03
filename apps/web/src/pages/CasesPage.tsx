@@ -1,11 +1,12 @@
 import { Button, Card, Chip, Group, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
-import { CASE_STATUSES, EVENT_TYPES, type EventType } from '@yutis/domain';
+import { CASE_STATUSES, EVENT_TYPES, type CaseStatus, type EventType } from '@yutis/domain';
 import { useState } from 'react';
-import { CaseStatusBadge, StatCard } from '@yutis/ui';
+import { CaseStatusBadge, StatCard, type TileTone } from '@yutis/ui';
 import { CASES, countByStatus, employeeById, filterCasesByEvents } from '../demo';
 import { AnchorLink } from '../links';
 
 const TYPES = Object.keys(EVENT_TYPES) as EventType[];
+const STATUS_TILE: Record<CaseStatus, TileTone> = { 未開單: 'pink', 起單: 'blue', 處理中: 'lavender', 結案: 'mint' };
 
 export function CasesPage() {
   const [selected, setSelected] = useState<EventType[]>([]);
@@ -19,9 +20,11 @@ export function CasesPage() {
         <Group gap="sm"><Button variant="default">匯出</Button><Button>批次指派</Button></Group>
       </Group>
 
-      <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
-        {CASE_STATUSES.map(s => <StatCard key={s} label={<CaseStatusBadge status={s} />} value={counts[s]} />)}
-      </SimpleGrid>
+      <Card>
+        <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+          {CASE_STATUSES.map(s => <StatCard key={s} tone={STATUS_TILE[s]} label={s} value={counts[s]} />)}
+        </SimpleGrid>
+      </Card>
 
       <Card>
         <Group gap="sm" mb="sm" align="center">
