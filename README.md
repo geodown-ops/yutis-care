@@ -9,6 +9,11 @@
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
 | `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
 | `apps/api` | 租戶 API（NestJS + Fastify）：租戶識別、session、權限管線、稽核、OpenAPI |
+| `packages/ui` | 設計 token、Mantine 主題與共用元件 |
+| `packages/api-client` | 租戶 API 的呼叫函式與型別 |
+| `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
+| `apps/portal` | 員工端（手機優先，網址 `/me`） |
+| `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
 | `prototype` | 可操作的純前端雛形（需求規格） |
 
 ## 開發
@@ -28,6 +33,14 @@ pnpm build
 若本機已有 PostgreSQL 佔用 5432，可改用其他埠：先設 `YUTIS_DB_PORT=5433` 再 `docker compose up -d db`，`DATABASE_URL` 也改成 `localhost:5433`。
 
 改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
+
+前端在 API 完成前使用示範資料，可直接預覽（畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)）：
+
+```bash
+pnpm dev:web        # 租戶後台 http://localhost:5180，右上角可切換示範角色
+pnpm dev:portal     # 員工端 http://localhost:5181/me/
+pnpm dev:platform   # 平台後台 http://localhost:5182
+```
 
 ### 租戶 API
 

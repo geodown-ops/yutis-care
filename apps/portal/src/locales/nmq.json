@@ -1,0 +1,162 @@
+{
+  "zh": {
+    "title": "肌肉骨骼症狀調查表",
+    "q1": "過去 1 年內，身體是否有長達 2 星期以上的疲勞、酸痛、發麻、刺痛等不舒服，或關節活動受到限制？",
+    "injury": "過去 1 年內，是否曾因工作受傷或請病假？",
+    "yes": "是",
+    "no": "否",
+    "need": "請回答所有「是／否」題目。",
+    "partsTitle": "請依各部位的不適程度評分（0–5）",
+    "left": "左",
+    "right": "右",
+    "scale": [
+      "不痛",
+      "微痛",
+      "中等疼痛",
+      "劇烈疼痛",
+      "非常劇烈疼痛",
+      "極度劇烈疼痛"
+    ],
+    "parts": {
+      "neck": "頸",
+      "shoulder": "肩",
+      "upperBack": "上背",
+      "lowerBack": "下背",
+      "elbow": "手肘／前臂",
+      "wrist": "手／手腕",
+      "hip": "臀／大腿",
+      "knee": "膝",
+      "ankle": "腳踝／腳"
+    },
+    "submit": "送出",
+    "done": "已送出，謝謝您的填寫。"
+  },
+  "en": {
+    "title": "Musculoskeletal Symptom Survey (NMQ)",
+    "q1": "In the past year, have you had fatigue, aches, numbness or tingling lasting 2 weeks or more, or limited joint movement?",
+    "injury": "In the past year, have you been injured at work or taken sick leave?",
+    "yes": "Yes",
+    "no": "No",
+    "need": "Please answer every yes/no question.",
+    "partsTitle": "Rate the discomfort in each body area (0–5)",
+    "left": "Left",
+    "right": "Right",
+    "scale": [
+      "No pain",
+      "Slight",
+      "Moderate",
+      "Severe",
+      "Very severe",
+      "Unbearable"
+    ],
+    "parts": {
+      "neck": "Neck",
+      "shoulder": "Shoulder",
+      "upperBack": "Upper back",
+      "lowerBack": "Lower back",
+      "elbow": "Elbow / forearm",
+      "wrist": "Hand / wrist",
+      "hip": "Hip / thigh",
+      "knee": "Knee",
+      "ankle": "Ankle / foot"
+    },
+    "submit": "Submit",
+    "done": "Submitted. Thank you."
+  },
+  "ja": {
+    "title": "筋骨格系症状調査票",
+    "q1": "過去1年間に、2週間以上続く疲れ・痛み・しびれなどの不快感、または関節の動きの制限がありましたか？",
+    "injury": "過去1年間に、仕事中のけがや病気休暇がありましたか？",
+    "yes": "はい",
+    "no": "いいえ",
+    "need": "すべての「はい／いいえ」の質問に回答してください。",
+    "partsTitle": "各部位の不快感の程度を選んでください（0–5）",
+    "left": "左",
+    "right": "右",
+    "scale": [
+      "痛みなし",
+      "わずかな痛み",
+      "中程度の痛み",
+      "強い痛み",
+      "非常に強い痛み",
+      "耐えられない痛み"
+    ],
+    "parts": {
+      "neck": "首",
+      "shoulder": "肩",
+      "upperBack": "背中（上部）",
+      "lowerBack": "腰",
+      "elbow": "肘・前腕",
+      "wrist": "手・手首",
+      "hip": "お尻・太もも",
+      "knee": "膝",
+      "ankle": "足首・足"
+    },
+    "submit": "送信",
+    "done": "送信しました。ご協力ありがとうございます。"
+  },
+  "vi": {
+    "title": "Phiếu khảo sát triệu chứng cơ xương khớp",
+    "q1": "Trong 1 năm qua, bạn có bị mệt mỏi, đau nhức, tê hoặc châm chích kéo dài từ 2 tuần trở lên, hoặc bị hạn chế cử động khớp không?",
+    "injury": "Trong 1 năm qua, bạn có bị tai nạn lao động hoặc nghỉ ốm không?",
+    "yes": "Có",
+    "no": "Không",
+    "need": "Vui lòng trả lời tất cả câu hỏi Có/Không.",
+    "partsTitle": "Hãy chấm mức độ khó chịu ở từng bộ phận (0–5)",
+    "left": "Trái",
+    "right": "Phải",
+    "scale": [
+      "Không đau",
+      "Đau nhẹ",
+      "Đau vừa",
+      "Đau nhiều",
+      "Rất đau",
+      "Đau không chịu nổi"
+    ],
+    "parts": {
+      "neck": "Cổ",
+      "shoulder": "Vai",
+      "upperBack": "Lưng trên",
+      "lowerBack": "Lưng dưới",
+      "elbow": "Khuỷu tay / cẳng tay",
+      "wrist": "Bàn tay / cổ tay",
+      "hip": "Hông / đùi",
+      "knee": "Đầu gối",
+      "ankle": "Mắt cá / bàn chân"
+    },
+    "submit": "Gửi",
+    "done": "Đã gửi. Cảm ơn bạn."
+  },
+  "th": {
+    "title": "แบบสำรวจอาการทางระบบกระดูกและกล้ามเนื้อ",
+    "q1": "ในช่วง 1 ปีที่ผ่านมา คุณมีอาการเมื่อยล้า ปวด ชา หรือเสียวแปลบต่อเนื่องตั้งแต่ 2 สัปดาห์ขึ้นไป หรือข้อต่อเคลื่อนไหวได้จำกัดหรือไม่",
+    "injury": "ในช่วง 1 ปีที่ผ่านมา คุณเคยบาดเจ็บจากการทำงานหรือลาป่วยหรือไม่",
+    "yes": "ใช่",
+    "no": "ไม่ใช่",
+    "need": "กรุณาตอบคำถาม ใช่/ไม่ใช่ ให้ครบทุกข้อ",
+    "partsTitle": "โปรดให้คะแนนความไม่สบายของแต่ละส่วนของร่างกาย (0–5)",
+    "left": "ซ้าย",
+    "right": "ขวา",
+    "scale": [
+      "ไม่ปวด",
+      "ปวดเล็กน้อย",
+      "ปวดปานกลาง",
+      "ปวดมาก",
+      "ปวดรุนแรงมาก",
+      "ปวดจนทนไม่ได้"
+    ],
+    "parts": {
+      "neck": "คอ",
+      "shoulder": "ไหล่",
+      "upperBack": "หลังส่วนบน",
+      "lowerBack": "หลังส่วนล่าง",
+      "elbow": "ข้อศอก / แขนท่อนล่าง",
+      "wrist": "มือ / ข้อมือ",
+      "hip": "สะโพก / ต้นขา",
+      "knee": "เข่า",
+      "ankle": "ข้อเท้า / เท้า"
+    },
+    "submit": "ส่ง",
+    "done": "ส่งแล้ว ขอบคุณที่ให้ความร่วมมือ"
+  }
+}
