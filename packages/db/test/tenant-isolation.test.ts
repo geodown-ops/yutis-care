@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { auditLog, createDb, departments, employees, healthExams, legalEntities, plans, runMigrations, sites, tenants, tenantSubscriptions, usageCounters, withTenant, gradingRuleSets, type Db } from '../src/index.js';
+import { auditLog, createDb, departments, employees, healthExams, legalEntities, plans, runMigrations, sessions, sites, tenantBySlug, tenants, tenantSubscriptions, usageCounters, withTenant, gradingRuleSets, type Db } from '../src/index.js';
 
 const adminUrl = process.env.DATABASE_URL;
 if (!adminUrl) throw new Error('DATABASE_URL is required for @yutis/db tests (see README: docker compose up -d db)');
@@ -113,6 +113,20 @@ describe('tenant isolation (Row-Level Security)', () => {
 
   it('cannot create tenants from a tenant session', async () => {
     expect(await pgError(withTenant(app, T.a, tx => tx.insert(tenants).values({ slug: 'evil', name: 'evil' })))).toMatch(/permission denied/);
+  });
+
+  it('finds a tenant by exact subdomain before any tenant is set, and nothing else', async () => {
+    expect(await tenantBySlug(app, 'acme')).toEqual({ id: T.a, slug: 'acme', name: 'acme', status: 'active' });
+    expect(await tenantBySlug(app, 'nobody')).toBeUndefined();
+    expect(await tenantBySlug(app, '%')).toBeUndefined();
+  });
+
+  it("does not find another tenant's session", async () => {
+    const tokenHash = randomBytes(32);
+    await withTenant(app, T.a, tx => tx.insert(sessions).values({ tenantId: T.a, tokenHash, employeeId: E.a, expiresAt: new Date(Date.now() + 60_000) }));
+    expect(await withTenant(app, T.a, tx => tx.select().from(sessions).where(eq(sessions.tokenHash, tokenHash)))).toHaveLength(1);
+    expect(await withTenant(app, T.b, tx => tx.select().from(sessions).where(eq(sessions.tokenHash, tokenHash)))).toHaveLength(0);
+    expect(await pgError(withTenant(app, T.a, tx => tx.insert(sessions).values({ tenantId: T.a, tokenHash: randomBytes(32), employeeId: E.b, expiresAt: new Date() })))).toMatch(/foreign key/);
   });
 
   it('protects every tenant-owned table', async () => {
