@@ -7,6 +7,11 @@
 | 路徑 | 內容 |
 |---|---|
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
+| `packages/ui` | 設計 token、Mantine 主題與共用元件 |
+| `packages/api-client` | 租戶 API 的呼叫函式與型別 |
+| `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
+| `apps/portal` | 員工端（手機優先，網址 `/me`） |
+| `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
 | `prototype` | 可操作的純前端雛形（需求規格） |
 
 ## 開發
@@ -18,6 +23,14 @@ pnpm install
 pnpm test        # 規則測試，含與雛形一致性比對
 pnpm typecheck
 pnpm build
+```
+
+前端在 API 完成前使用示範資料，可直接預覽（畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)）：
+
+```bash
+pnpm dev:web        # 租戶後台 http://localhost:5180，右上角可切換示範角色
+pnpm dev:portal     # 員工端 http://localhost:5181/me/
+pnpm dev:platform   # 平台後台 http://localhost:5182
 ```
 
 ---
