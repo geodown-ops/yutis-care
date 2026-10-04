@@ -1,5 +1,5 @@
 /*
- * The tenant API on the same origin ({tenant}.care.yutis.com.tw/api; Vite proxies /api in development), and the
+ * The tenant API on the same origin ({tenant}.care.yutis.net/api; Vite proxies /api in development), and the
  * queries more than one screen reads. A flow's own calls stay in its page.
  */
 import { queryOptions, type QueryClient } from '@tanstack/react-query';

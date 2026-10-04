@@ -4,7 +4,7 @@ import type { Subscription, Tenant, Usage } from './api';
 import {
   currentPeriodIndex, dayAfter, dayBefore, latestPeriodNewEnd, newPeriodProblems, newPeriodToForm,
   emptyNewTenantForm, matchesTenant, newTenantBody, newTenantProblems, pendingSetup, seatUsage, subdomainProblem,
-  subscriptionBody, subscriptionProblems, subscriptionToForm, tenantOverview, usageTotals, type NewTenantForm,
+  subscriptionBody, subscriptionProblems, subscriptionToForm, tenantBaseDomain, tenantOverview, usageTotals, type NewTenantForm,
 } from './tenants';
 
 const subscription = (over: Partial<Subscription> = {}): Subscription => ({
@@ -12,7 +12,7 @@ const subscription = (over: Partial<Subscription> = {}): Subscription => ({
 });
 
 const tenant = (over: Partial<Tenant> = {}): Tenant => ({
-  id: crypto.randomUUID(), subdomain: 'acme', url: 'https://acme.care.yutis.com.tw', name: '示範公司', status: 'active',
+  id: crypto.randomUUID(), subdomain: 'acme', url: 'https://acme.care.yutis.net', name: '示範公司', status: 'active',
   createdAt: '2026-10-01T02:00:00.000Z', subscription: subscription(), activeEmployees: 10, staffAccounts: 2, overSeatLimit: false, ...over,
 });
 
@@ -178,5 +178,14 @@ describe('subscription periods', () => {
     expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01', endsOn: '2026-12-31' }), '2027-01-01')).toBeNull();
     expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01' }), '2026-01-01')).toBeNull();
     expect(latestPeriodNewEnd(null, '2026-11-01')).toBeNull();
+  });
+});
+
+describe('tenant domain for the address preview', () => {
+  it('comes from a listed tenant, else from the admin address', () => {
+    expect(tenantBaseDomain([tenant({ subdomain: 'acme', url: 'https://acme.care.yutis.net' })], 'localhost')).toBe('care.yutis.net');
+    expect(tenantBaseDomain([tenant({ subdomain: 'acme', url: 'not a url' })], 'admin.care.yutis.net')).toBe('care.yutis.net');
+    expect(tenantBaseDomain([], 'admin.example.test')).toBe('example.test');
+    expect(tenantBaseDomain(undefined, 'localhost')).toBeNull();
   });
 });

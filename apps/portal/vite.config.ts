@@ -11,7 +11,7 @@ function localApi(app: string, port: number) {
   return `http://localhost:${(existsSync(env) && parseEnv(readFileSync(env, 'utf8')).PORT) || port}`;
 }
 
-/** Served at {tenant}.care.yutis.com.tw/me, next to the tenant admin at /. */
+/** Served at {tenant}.care.yutis.net/me, next to the tenant admin at /. */
 export default defineConfig({
   base: '/me/',
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],

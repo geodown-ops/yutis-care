@@ -2,7 +2,7 @@
   "name": "@yutis/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 租戶後台（{租戶}.care.yutis.com.tw/）：職護、職醫、職安衛、人資、主管與租戶管理員使用。",
+  "description": "Yutis Care 租戶後台（{租戶}.care.yutis.net/）：職護、職醫、職安衛、人資、主管與租戶管理員使用。",
   "type": "module",
   "scripts": {
     "dev": "vite",

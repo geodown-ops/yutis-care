@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ApiRequestError, data } from '@yutis/api-client';
 import { useState, type ReactNode } from 'react';
-import { api, plansQuery } from '../api';
+import { api, plansQuery, tenantsQuery } from '../api';
 import { ErrorAlert, LoadError, ToneAlert } from '../components';
 import { errorMessage } from '../errors';
 import { todayInTaipei } from '../format';
@@ -11,12 +11,9 @@ import { SUBSCRIPTION_STATUS } from '../labels';
 import { ButtonLink } from '../links';
 import { useCan } from '../permissions';
 import { PlanManager, PlanSelect } from '../plans';
-import { emptyNewTenantForm, newTenantBody, newTenantProblems, normalizeSubdomain, type NewTenantForm } from '../tenants';
+import { emptyNewTenantForm, newTenantBody, newTenantProblems, normalizeSubdomain, tenantBaseDomain, type NewTenantForm } from '../tenants';
 
 export const Route = createFileRoute('/tenants/new')({ component: NewTenantPage });
-
-/** Production tenant domain, for the address preview; the API builds the real URL from its own setting. */
-const TENANT_DOMAIN = 'care.yutis.com.tw';
 
 function NewTenantPage() {
   if (useCan('tenants:write')) return <NewTenantForm />;
@@ -35,6 +32,8 @@ function NewTenantForm() {
   const [form, setForm] = useState(() => emptyNewTenantForm(todayInTaipei()));
   const [submitted, setSubmitted] = useState(false);
   const plans = useQuery(plansQuery);
+  // Only for the address preview; the API builds the real URL from its own setting.
+  const tenantDomain = tenantBaseDomain(useQuery(tenantsQuery).data, window.location.hostname);
   const activePlans = (plans.data ?? []).filter(p => p.active);
   const planCode = form.planCode || (activePlans.length === 1 ? activePlans[0]!.code : '');
 
@@ -74,7 +73,7 @@ function NewTenantForm() {
       <Section title="公司">
         <TextInput label="公司名稱" withAsterisk maxLength={100} value={form.name} onChange={e => set('name', e.currentTarget.value)} error={err('name')} />
         <TextInput label="子網域" withAsterisk maxLength={63} ff="monospace" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-          description={`租戶網址：https://${slug || 'acme'}.${TENANT_DOMAIN}`}
+          description={tenantDomain ? `租戶網址：https://${slug || 'acme'}.${tenantDomain}` : '子網域是租戶網址的第一段'}
           value={form.subdomain} onChange={e => set('subdomain', e.currentTarget.value.toLowerCase())} error={subdomainError} />
       </Section>
 

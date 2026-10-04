@@ -55,13 +55,27 @@ export function pendingSetup(t: Pick<TenantDetail, 'encryptionKeyReady' | 'signI
   ];
 }
 
+/**
+ * The domain tenants are served under, for the address preview when onboarding: taken from a tenant the API already
+ * lists (the API builds each url from its own setting), else from this site's address (admin.{domain}); null when
+ * neither tells, as on a local machine with no tenants yet.
+ */
+export function tenantBaseDomain(tenants: readonly Pick<Tenant, 'subdomain' | 'url'>[] | undefined, hostname: string): string | null {
+  for (const t of tenants ?? []) {
+    let host: string;
+    try { host = new URL(t.url).hostname; } catch { continue; }
+    if (host.startsWith(`${t.subdomain}.`)) return host.slice(t.subdomain.length + 1);
+  }
+  return hostname.startsWith('admin.') ? hostname.slice('admin.'.length) : null;
+}
+
 /** What the API does with a typed subdomain before checking it (OnboardTenant: trim, lower-case). */
 export const normalizeSubdomain = (value: string) => value.trim().toLowerCase();
 
 /**
  * Why a new tenant cannot have this subdomain, or null if onboarding accepts it: the domain's
  * `isAvailableTenantSubdomain` (one lower-case DNS label of letters, digits and inner hyphens, at most 63, not reserved
- * for the platform, and not demo.care.yutis.com.tw, the separate marketing demo site).
+ * for the platform, and not demo.{domain}, the separate marketing demo site).
  */
 export function subdomainProblem(slug: string): string | null {
   if (isAvailableTenantSubdomain(slug)) return null;

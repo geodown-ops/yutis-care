@@ -6,9 +6,9 @@ import { fill, STAFF_TEXT } from './text';
 
 describe('sign-in helpers', () => {
   it('recognises Identity Platform email links', () => {
-    expect(isEmailLink('https://acme.care.yutis.com.tw/login?apiKey=k&oobCode=abc&mode=signIn&tenantId=t1')).toBe(true);
-    expect(isEmailLink('https://acme.care.yutis.com.tw/login?redirect=%2Fcases')).toBe(false);
-    expect(isEmailLink('https://acme.care.yutis.com.tw/login?mode=resetPassword&oobCode=abc')).toBe(false);
+    expect(isEmailLink('https://acme.care.yutis.net/login?apiKey=k&oobCode=abc&mode=signIn&tenantId=t1')).toBe(true);
+    expect(isEmailLink('https://acme.care.yutis.net/login?redirect=%2Fcases')).toBe(false);
+    expect(isEmailLink('https://acme.care.yutis.net/login?mode=resetPassword&oobCode=abc')).toBe(false);
   });
 
   it('picks the provider type from its id', () => {

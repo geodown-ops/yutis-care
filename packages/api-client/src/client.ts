@@ -32,7 +32,7 @@ interface Options {
 }
 
 /**
- * The tenant API. Frontends and the API share the tenant's domain ({tenant}.care.yutis.com.tw/api), so requests carry
+ * The tenant API. Frontends and the API share the tenant's domain ({tenant}.care.yutis.net/api), so requests carry
  * the HttpOnly session cookie without CORS. Paths and bodies are typed from apps/api/openapi.json.
  */
 export function createTenantApi({ baseUrl = '', fetch: fetchImpl, headers }: Options = {}): TenantApi {
@@ -41,7 +41,7 @@ export function createTenantApi({ baseUrl = '', fetch: fetchImpl, headers }: Opt
   return client;
 }
 
-/** The platform API (admin.care.yutis.com.tw/platform-api), behind Identity-Aware Proxy in production. */
+/** The platform API (admin.care.yutis.net/platform-api), behind Identity-Aware Proxy in production. */
 export function createPlatformApi({ baseUrl = '', fetch: fetchImpl, headers }: Options = {}): PlatformApi {
   const client = createClient<PlatformPaths>({ baseUrl, credentials: 'same-origin', headers, ...(fetchImpl && { fetch: fetchImpl }) });
   client.use(throwOnError);
