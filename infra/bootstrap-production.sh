@@ -16,9 +16,12 @@ if [ "$(gcloud billing projects describe "$project" --format='value(billingEnabl
 fi
 gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com
 
-# Inside a Google Workspace organization, IAP guards the platform back office; otherwise staff sign in with Google.
+# Inside a Google Workspace organization (and signed in with a Workspace account), IAP guards the platform back office;
+# with a personal Gmail account IAP's Google-managed client would admit no one, so staff sign in with Google instead.
 sign_in=true
-[ "$(gcloud projects describe "$project" --format='value(parent.type)')" = "organization" ] && sign_in=false
+if [ "$(gcloud projects describe "$project" --format='value(parent.type)')" = "organization" ] && [[ "$me" != *@gmail.com ]]; then
+  sign_in=false
+fi
 
 bucket="$project-tfstate"
 if ! gcloud storage buckets describe "gs://$bucket" >/dev/null 2>&1; then
