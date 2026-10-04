@@ -7,7 +7,7 @@ export interface RuleSet { id: string; version: number; rules: GradingRule[] }
 
 /** A rule row as @yutis/domain expects it. */
 export function toDomainRule(r: typeof gradingRules.$inferSelect): GradingRule {
-  const base = { code: r.itemCode, name: r.name, sex: r.sex, unit: r.unit, src: r.source === 'manual' ? 'manual' : 'demo' } as const;
+  const base = { code: r.itemCode, name: r.name, sex: r.sex, unit: r.unit, src: r.source } as const;
   return r.valueType === 'text'
     ? { ...base, type: 'text', levels: r.levels as Extract<GradingRule, { type: 'text' }>['levels'] }
     : { ...base, levels: r.levels as Extract<GradingRule, { type?: 'number' }>['levels'] };

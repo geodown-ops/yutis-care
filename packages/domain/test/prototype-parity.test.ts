@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
   ASSIST_CATEGORIES, CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, CONSULT_TYPES, NMQ_KEYS, nmqPartLabel, cvdScore, evaluateWorkload, gradeReport, LIFESTYLE_ADVICE, loadEval, nmqHazardLabel, suggestMaternalLevel, toIsoDate, violenceRisk, WORK_PATTERNS,
+  ERGO_MEASURES, SPECIAL_OPERATIONS,
 } from '../src/index.js';
 
 const dir = fileURLToPath(new URL('../../../prototype/', import.meta.url));
@@ -22,6 +23,8 @@ globalThis.out = {
   workPatterns: WORK_PATTERNS,
   cbi: { p: CBI.personal.length, w: CBI.work.length },
   assistCats: ASSIST_CATS,
+  ergoMeasures: ERGO_MEASURES,
+  specialOps: SPECIAL_OPS,
   partLabels: NMQ_KEYS.map(k => partLabel(k.key)),
   employees: S.employees,
   reports: S.reports.map(r => ({ r, g: gradeReport(r) })),
@@ -43,6 +46,11 @@ describe('parity with prototype logic.js', () => {
     expect([CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS]).toEqual([out.cbi.p, out.cbi.w]);
     expect([...ASSIST_CATEGORIES]).toEqual(out.assistCats);
     expect(NMQ_KEYS.map(k => nmqPartLabel(k.key))).toEqual(out.partLabels);
+  });
+
+  it('offers the same programme form choices', () => {
+    expect([...ERGO_MEASURES]).toEqual(out.ergoMeasures);
+    expect([...SPECIAL_OPERATIONS]).toEqual(out.specialOps);
   });
 
   it('grades every seeded report the same', () => {

@@ -5,12 +5,14 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiTags, DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 import pg from 'pg';
 import { AnnouncementsController } from './announcements.controller.js';
+import { PlatformAuditController } from './audit.controller.js';
 import { IAP_SECURITY, Public } from './auth/access.js';
 import { PlatformAccessGuard } from './auth/access.guard.js';
 import { DevIdentityVerifier, IAP_HEADER, IapIdentityVerifier, PLATFORM_IDENTITY, type PlatformIdentityVerifier } from './auth/identity.js';
 import type { PlatformConfig } from './config.js';
 import { CoreModule, PG_POOL } from './core/database.js';
 import { BILLING, defaultIntegrations, IDENTITY_TENANTS, INVITATIONS, TENANT_KEYS, type Integrations } from './integrations/integrations.js';
+import { MeController } from './me.controller.js';
 import { PlansUsageController } from './plans-usage.controller.js';
 import { PlatformUsersController } from './platform-users.controller.js';
 import { TemplatesController } from './templates/templates.js';
@@ -53,7 +55,10 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [CoreModule.forRoot(config)],
-      controllers: [HealthController, TenantsController, PlansUsageController, AnnouncementsController, PlatformUsersController, TemplatesController],
+      controllers: [
+        HealthController, MeController, TenantsController, PlansUsageController, AnnouncementsController, PlatformUsersController, TemplatesController,
+        PlatformAuditController,
+      ],
       providers: [
         { provide: PLATFORM_IDENTITY, useValue: identity },
         { provide: TENANT_KEYS, useValue: integrations.keys },
@@ -88,7 +93,7 @@ export async function createApp(config: PlatformConfig, options: CreateAppOption
 export function openApiDocument(app: NestFastifyApplication): OpenAPIObject {
   const options = new DocumentBuilder()
     .setTitle('Yutis Care 平台 API')
-    .setDescription('平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。')
+    .setDescription('平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。')
     .setVersion('0.1.0')
     .addApiKey({ type: 'apiKey', in: 'header', name: IAP_HEADER, description: 'Identity-Aware Proxy 簽發的 JWT，由 IAP 自動帶入' }, IAP_SECURITY)
     .build();

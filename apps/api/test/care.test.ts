@@ -186,6 +186,43 @@ describe('exam import', () => {
     expect(await owner.select().from(healthExams)).toHaveLength(0);
   });
 
+  it('previews each importable row with its grades and the events it would raise', async () => {
+    const high = latestReports.find(x => x.g.max >= 3)!;
+    const low = latestReports.find(x => x.g.max < 3)!;
+    const file = await xlsx(COLUMNS, [examRow('NOPE', '2026-09-01', low.r.values), examRow(high.r.empId, high.r.date, high.r.values), examRow(low.r.empId, low.r.date, low.r.values)]);
+    const preview = (await call('acme', 'POST', `/api/exams/import?mapping=${ids.mapping}`, { cookie: await as('nurse@acme.test'), xlsx: file })).json();
+    expect(preview).toMatchObject({ committed: false, exams: 2, newEvents: 1 });
+    expect(preview.preview).toEqual([
+      {
+        row: 3, employeeId: await empIdOf(high.r.empId), empNo: high.r.empId, name: `員工${high.r.empId}`, examDate: high.r.date, kind: '年度健檢',
+        gradeMax: high.g.max, gradeTotal: high.g.total, specialLevel: null, events: 1,
+      },
+      expect.objectContaining({ row: 4, empNo: low.r.empId, gradeMax: low.g.max, events: 0 }),
+    ]);
+    expect(await owner.select().from(healthExams)).toHaveLength(0);
+  });
+
+  it('gives an empty file with the columns of a clinic mapping', async () => {
+    const res = await call('acme', 'GET', `/api/exams/mappings/${ids.idMapping}/template`, { cookie: await as('nurse@acme.test') });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['content-type']).toBe(XLSX_MIME);
+    expect(res.headers['content-disposition']).toContain(encodeURIComponent('康誠醫院健檢中心健檢匯入範本.xlsx'));
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(res.rawPayload as unknown as ArrayBuffer);
+    const header = workbook.getWorksheet('健檢結果')!.getRow(1);
+    expect((header.values as unknown[]).slice(1)).toEqual(['身分證號', '檢查日期', '收縮壓', '舒張壓']);
+    expect(header.getCell(1).font?.bold).toBe(true);
+    expect(header.getCell(3).font?.bold).toBeFalsy();
+    expect((await call('acme', 'GET', `/api/exams/mappings/${ids.idMapping}/template`, { cookie: await as('hr@acme.test') })).statusCode).toBe(403);
+    // Tenant admins, who set the mappings up, get the same file from the settings page.
+    const forAdmin = await call('acme', 'GET', `/api/admin/exam-mappings/${ids.idMapping}/template`, { cookie: await as('admin@acme.test') });
+    expect(forAdmin.statusCode).toBe(200);
+    const adminBook = new ExcelJS.Workbook();
+    await adminBook.xlsx.load(forAdmin.rawPayload as unknown as ArrayBuffer);
+    expect((adminBook.getWorksheet('健檢結果')!.getRow(1).values as unknown[]).slice(1)).toEqual(['身分證號', '檢查日期', '收縮壓', '舒張壓']);
+    expect((await call('acme', 'GET', `/api/admin/exam-mappings/${ids.idMapping}/template`, { cookie: await as('nurse@acme.test') })).statusCode).toBe(403);
+  });
+
   it("grades every prototype report exactly as the prototype does", async () => {
     const rows = latestReports.map(({ r }, i) => examRow(r.empId, r.date, r.values, {
       吸菸: i % 2 ? '是' : '否', 病史: `高血壓家族史 ${r.empId}`, 自覺症狀: '肩頸痠痛',
@@ -241,6 +278,15 @@ describe('exam import', () => {
     expect(preview.issues).toEqual([{ row: 2, column: '檢查日期', message: '此筆健檢已匯入過' }]);
   });
 
+  it('lists the import batches, newest first, without exam content', async () => {
+    const batches = (await call('acme', 'GET', '/api/exams/batches', { cookie: await as('nurse@acme.test') })).json();
+    expect(batches).toEqual([
+      { id: expect.any(String), clinic: '康誠醫院健檢中心', fileName: null, rowCount: 1, exams: 1, importedAt: expect.any(String), importedBy: '王護理師' },
+      { id: expect.any(String), clinic: '仁安健康管理診所', fileName: '2026.xlsx', rowCount: latestReports.length, exams: latestReports.length, importedAt: expect.any(String), importedBy: '王護理師' },
+    ]);
+    expect((await call('acme', 'GET', '/api/exams/batches', { cookie: await as('hr@acme.test') })).statusCode).toBe(403);
+  });
+
   it('grades new imports with a newly published rule set and keeps old results on their version', async () => {
     const admin = await as('admin@acme.test');
     const stricter = RULES_V1.map(rule => (rule.code === 'B0111' ? { ...rule, type: 'number', levels: [{ lv: 1, max: 120 }, { lv: 4, min: 120 }] } : rule));
@@ -254,6 +300,26 @@ describe('exam import', () => {
     expect(res.json()).toMatchObject({ committed: true, ruleSetVersion: 2 });
     const history = (await call('acme', 'GET', `/api/employees/${ids.byId}/exams`, { cookie: await as('nurse@acme.test') })).json();
     expect(history.map((e: { ruleSetVersion: number; gradeMax: number }) => [e.ruleSetVersion, e.gradeMax])).toEqual([[2, 4], [1, 2]]);
+  });
+
+  it('lets tenant admins edit and delete a rule set while it is a draft', async () => {
+    const admin = await as('admin@acme.test');
+    const [published] = (await call('acme', 'GET', '/api/admin/rule-sets', { cookie: admin })).json();
+    const draft = (await call('acme', 'POST', '/api/admin/rule-sets', { cookie: admin, body: { note: '草稿', rules: RULES_V1 } })).json();
+    expect(draft).toMatchObject({ version: 3, status: 'draft' });
+
+    const byDoctor = RULES_V1.map(rule => (rule.code === 'B0111' ? { ...rule, src: 'physician' } : rule));
+    const updated = await call('acme', 'PUT', `/api/admin/rule-sets/${draft.id}`, { cookie: admin, body: { note: '醫師調整收縮壓', rules: byDoctor } });
+    expect(updated.json(), updated.body).toMatchObject({ id: draft.id, version: 3, status: 'draft', note: '醫師調整收縮壓' });
+    const detail = (await call('acme', 'GET', `/api/admin/rule-sets/${draft.id}`, { cookie: admin })).json();
+    expect(detail.rules).toHaveLength(RULES_V1.length);
+    expect(detail.rules.find((r: { code: string }) => r.code === 'B0111')).toMatchObject({ src: 'physician' });
+
+    expect((await call('acme', 'PUT', `/api/admin/rule-sets/${draft.id}`, { cookie: await as('nurse@acme.test'), body: { rules: byDoctor } })).statusCode).toBe(403);
+    expect((await call('acme', 'PUT', `/api/admin/rule-sets/${published.id}`, { cookie: admin, body: { rules: byDoctor } })).json()).toMatchObject({ code: 'not_draft' });
+    expect((await call('acme', 'DELETE', `/api/admin/rule-sets/${published.id}`, { cookie: admin })).statusCode).toBe(409);
+    expect((await call('acme', 'DELETE', `/api/admin/rule-sets/${draft.id}`, { cookie: admin })).statusCode).toBe(204);
+    expect((await call('acme', 'GET', '/api/admin/rule-sets', { cookie: admin })).json().map((s: { version: number }) => s.version)).toEqual([2, 1]);
   });
 });
 
@@ -329,8 +395,20 @@ describe('cases', () => {
     const caseId = opened.case.id;
     expect((await call('acme', 'PATCH', `/api/cases/${caseId}`, { cookie: nurse, body: { status: '處理中', noticeOn: '2026-10-02' } })).json())
       .toMatchObject({ status: '處理中', case: { noticeOn: '2026-10-02' }, events: [{ status: '處理中' }] });
+    const [nurseUser] = await owner.select().from(users).where(eq(users.email, 'nurse@acme.test'));
+    const followUp = (await call('acme', 'POST', '/api/records', {
+      cookie: nurse,
+      body: {
+        employeeId, category: '健康面談諮詢紀錄', occurredAt: '2026-10-02T10:00:00+08:00', content: { explain: '說明複檢', handling: '', note: '' },
+        result: '追蹤', followUpOn: '2026-10-20', followUpUserId: nurseUser!.id,
+      },
+    })).json();
+    expect((await call('acme', 'GET', '/api/records/follow-ups', { cookie: nurse })).json()).toMatchObject([{ recordId: followUp.id }]);
     const closed = (await call('acme', 'PATCH', `/api/cases/${caseId}`, { cookie: nurse, body: { status: '結案', note: '已複檢正常' } })).json();
     expect(closed).toMatchObject({ status: '結案', events: [{ status: '結案' }] });
+    // Closing the case closes the employee's open follow-ups, as the prototype does.
+    expect((await call('acme', 'GET', '/api/records/follow-ups', { cookie: nurse })).json()).toEqual([]);
+    expect((await owner.select().from(assistRecords).where(eq(assistRecords.id, followUp.id)))[0]).toMatchObject({ followUpDone: true });
     expect(closed.history.map((h: { toStatus: string }) => h.toStatus)).toEqual(['起單', '處理中', '結案']);
     expect((await call('acme', 'PATCH', `/api/cases/${caseId}`, { cookie: nurse, body: { status: '處理中' } })).json()).toMatchObject({ code: 'invalid_transition' });
 

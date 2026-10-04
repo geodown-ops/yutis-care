@@ -1,5 +1,6 @@
-import { AppShell, Avatar, Box, Burger, Group, ScrollArea, Stack, Text } from '@mantine/core';
+import { AppShell, Avatar, Box, Burger, Group, Menu, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { IconLogout } from '@tabler/icons-react';
 import type { ComponentType, ReactNode } from 'react';
 import { ColorSchemeToggle } from './ColorSchemeToggle';
 import { YutisMark } from './YutisMark';
@@ -8,11 +9,13 @@ import { YutisMark } from './YutisMark';
  * Desktop console layout shared by the tenant admin and the platform admin: a light sidebar that blends
  * into the page, with the current item as an ink pill; header with search and user; cards on the grey page.
  */
-export function ConsoleShell({ title, subtitle, user, nav, navFooter, headerStart, headerEnd, children }: {
+export function ConsoleShell({ title, subtitle, user, onSignOut, nav, navFooter, headerStart, headerEnd, children }: {
   /** Shown next to the YUTIS mark: the tenant's name in the tenant admin, the product name elsewhere. */
   title: string;
   subtitle?: string;
   user: { name: string; role: string };
+  /** Adds a menu with 登出 under the user. Omitted where sign-in is outside the app (platform admin behind IAP). */
+  onSignOut?: () => void;
   /** Sidebar content; receives `close` so a nav click can close the drawer on phones. */
   nav: (close: () => void) => ReactNode;
   navFooter?: ReactNode;
@@ -36,16 +39,25 @@ export function ConsoleShell({ title, subtitle, user, nav, navFooter, headerStar
       <AppShell.Header>
         <Group h="100%" px="lg" gap="sm" wrap="nowrap">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="開啟選單" />
-          <Box style={{ flex: 1, minWidth: 0 }}>{headerStart}</Box>
+          {/* Phones hide the sidebar, so the header carries the mark and title instead. */}
+          <Group hiddenFrom="sm" gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <YutisMark height={24} />
+            <Text fw={700} truncate title={title}>{title}</Text>
+          </Group>
+          <Box visibleFrom="sm" style={{ flex: 1, minWidth: 0 }}>{headerStart}</Box>
           {headerEnd}
           <ColorSchemeToggle />
-          <Group gap={10} wrap="nowrap">
-            <Avatar color="yutis" radius="xl" size={36}>{user.name[0]}</Avatar>
-            <Box visibleFrom="md">
-              <Text size="sm" fw={600} lh={1.2}>{user.name}</Text>
-              <Text size="xs" c="dimmed">{user.role}</Text>
-            </Box>
-          </Group>
+          {onSignOut ? (
+            <Menu position="bottom-end" width={180}>
+              <Menu.Target>
+                <UnstyledButton aria-label={`${user.name}的帳號選單`} style={{ borderRadius: 999 }}><UserChip user={user} /></UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label hiddenFrom="md">{user.name}・{user.role}</Menu.Label>
+                <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>登出</Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          ) : <UserChip user={user} />}
         </Group>
       </AppShell.Header>
 
@@ -67,6 +79,18 @@ export function ConsoleShell({ title, subtitle, user, nav, navFooter, headerStar
 
       <AppShell.Main>{children}</AppShell.Main>
     </AppShell>
+  );
+}
+
+function UserChip({ user }: { user: { name: string; role: string } }) {
+  return (
+    <Group gap={10} wrap="nowrap">
+      <Avatar color="yutis" radius="xl" size={36}>{user.name[0]}</Avatar>
+      <Box visibleFrom="md">
+        <Text size="sm" fw={600} lh={1.2}>{user.name}</Text>
+        <Text size="xs" c="dimmed">{user.role}</Text>
+      </Box>
+    </Group>
   );
 }
 

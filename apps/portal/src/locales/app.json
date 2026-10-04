@@ -1,62 +1,389 @@
 {
   "zh": {
     "tabs": { "tasks": "待辦", "health": "我的健康", "report": "通報", "account": "我的" },
-    "tasks": { "greeting": "{{name}}，你有 {{count}} 件待辦", "service": "健康服務", "start": "開始", "view": "查看", "done": "已完成", "privacy": "填寫內容只有醫護人員看得到，主管與人資只會看到統計結果。" },
-    "flow": { "prev": "上一題", "next": "下一題", "back": "回到待辦", "progress": "填答進度", "privacy": "只有醫護人員看得到你的回答。" },
+    "tasks": {
+      "greeting": "{{name}}，你有 {{count}} 件待辦", "greeting_zero": "{{name}}，目前沒有待辦", "service": "健康服務", "start": "開始", "continue": "繼續", "draft": "已填一部分", "draftSaved": "{{date}} 已暫存", "view": "查看",
+      "emptyTitle": "都完成了", "empty": "有新的問卷或需要你確認的紀錄時，會出現在這裡。", "due": "{{date}} 截止", "minutes": "約 {{count}} 分鐘",
+      "kinds": { "nmq": "肌肉骨骼症狀調查", "cbi": "過勞量表", "overload": "工時與工作型態調查", "acknowledgement": "紀錄確認" },
+      "privacy": "填寫內容只有醫護人員看得到，主管與人資只會看到統計結果。"
+    },
+    "flow": {
+      "prev": "上一題", "next": "下一題", "back": "回到待辦", "exit": "離開", "progress": "填答進度", "privacy": "只有醫護人員看得到你的回答。",
+      "missing": "找不到這份問卷，可能已經送出了。", "already": "這份問卷已經送出過了。", "failed": "送出失敗，請稍後再試。",
+      "resumed": "已接續你上次填到一半的答案。", "startOver": "重新填寫", "startOverAsk": "要清除已填的答案，從第一題重新開始嗎？", "startOverYes": "清除重填", "startOverNo": "保留答案",
+      "saved": "已自動儲存", "saveFailed": "答案還沒存到，連上網路後會再試一次。", "clearFailed": "清除失敗，請稍後再試。"
+    },
     "pages": {
-      "health": "這裡會列出你歷年的健檢結果，並用白話說明每一項的意思，也可以下載自己的資料。",
-      "report": "遇到職場暴力、霸凌或騷擾，或是懷孕、產後需要職場保護時，可以在這裡通報。只有醫護人員和指定的處理人員看得到。",
-      "account": "語言、通知方式、告知聲明與同意紀錄、登出。",
+      "report": "遇到職場暴力、霸凌或騷擾，或是懷孕、產後需要職場保護時，請直接聯絡廠區的醫護人員。線上通報功能還沒開放。",
       "notFound": "找不到這個頁面，請回到待辦重新開始。"
     },
+    "signIn": {
+      "title": "登入", "subtitle": "請用公司登記的 Email 或手機號碼登入。", "sso": "使用 {provider} 登入", "or": "或", "email": "Email", "password": "密碼",
+      "signIn": "登入", "sendLink": "寄送登入連結", "linkSent": "登入連結已寄到 {email}。請在這台裝置上開啟信中的連結。",
+      "confirmEmail": "請輸入收到登入連結的 Email，以完成登入。", "completing": "正在登入…", "devLabel": "Email 或手機號碼",
+      "devHint": "示範與開發環境不需要密碼。請不要輸入任何真實的個人資料。", "demoAccounts": "示範帳號",
+      "noMethods": "這個網址目前沒有可用的登入方式。請聯絡公司的醫護人員或人資。", "expired": "你有一段時間沒有操作，已自動登出。請重新登入。",
+      "problems": {
+        "noAccount": "找不到你的員工資料。請確認 Email 或手機號碼和公司登記的相同，或聯絡人資。",
+        "notConfigured": "這個網址的登入服務還沒設定好。請聯絡公司的醫護人員或人資。",
+        "tenantInactive": "公司的健康服務目前已停用。",
+        "tooMany": "嘗試次數太多，請稍後再試。",
+        "linkInvalid": "登入連結已失效或已使用過，請重新寄送。",
+        "wrongPassword": "Email 或密碼不正確。",
+        "mfaRequired": "這個帳號需要兩步驟驗證，請改用公司帳號登入。",
+        "disabled": "這個登入帳號已被停用。",
+        "failed": "登入失敗，請稍後再試。"
+      }
+    },
+    "staff": {
+      "title": "這裡是員工端", "body": "你目前用後台帳號（{{name}}）登入。員工端是讓員工填問卷、確認紀錄和查看自己健康資料的地方。",
+      "backOffice": "前往後台", "signOut": "登出"
+    },
+    "health": {
+      "title": "我的健康", "intro": "你可以在這裡查看自己的健康資料，也可以下載一份副本。", "download": "下載我的資料", "downloadFailed": "下載失敗，請稍後再試。",
+      "exams": "健康檢查", "examsEmpty": "目前沒有健康檢查紀錄。", "highest": "最高分級", "gradeLegend": "分級說明",
+      "grades": ["正常", "輕度異常", "中度異常", "嚴重異常"],
+      "items": {
+        "B0111": "血壓－收縮壓", "B0112": "血壓－舒張壓", "B0104": "BMI", "B0107": "腰圍", "B0201": "空腹血糖", "B0202": "總膽固醇", "B0203": "三酸甘油脂",
+        "B0204": "高密度脂蛋白膽固醇", "B0205": "低密度脂蛋白膽固醇", "B0301": "血清丙胺酸轉胺酶（ALT）", "B0302": "肌酸酐", "B0401": "血色素", "B0501": "尿蛋白"
+      },
+      "surveys": "肌肉骨骼症狀調查", "surveysEmpty": "目前沒有填寫紀錄。", "maxScore": "最不舒服的部位：{{score}} 分（0–5）",
+      "suspected": "有部位的不適達 3 分以上，醫護人員會進一步了解。", "notSuspected": "各部位的不適都在 3 分以下。",
+      "workload": "過勞評估", "workloadEmpty": "目前沒有評估紀錄。", "personal": "個人相關過勞", "work": "工作相關過勞", "score": "{{score}} 分",
+      "burnout": ["輕微", "中度", "嚴重"], "risk": ["低度風險", "中度風險", "高度風險"], "advice": ["不需面談", "建議與醫師面談", "需要與醫師面談"],
+      "incomplete": "評估還沒完成。", "notFilled": "未填寫", "assessedOn": "{{date}} 評估",
+      "missing": { "cbi": "你還沒填過勞量表。", "overload": "你還沒填工時與工作型態調查。", "exam": "評估時沒有你的健康檢查資料，無法估算心血管風險。" },
+      "toTasks": "到待辦填寫"
+    },
+    "ack": {
+      "title": "紀錄確認", "intro": "請看過以下內容，沒有問題就按「確認」。",
+      "fields": { "interviewedOn": "面談日期", "fitAdvice": "工作適性建議", "limits": "工作限制", "agreedArrangement": "同意的工作安排" },
+      "none": "無", "statement": "我已看過這份紀錄，了解公司為我安排的措施。", "comment": "想補充的意見（選填）", "confirm": "確認",
+      "done": "已確認，謝謝你。", "confirmedAt": "你已在 {{date}} 確認過這份紀錄。", "notFound": "找不到這份紀錄。",
+      "linkUsed": "這個連結已經用過了。若還需要確認，請登入員工端查看待辦，或聯絡醫護人員。", "linkExpired": "這個連結已經過期。請登入員工端查看待辦，或請醫護人員重新寄送。", "linkInvalid": "這個連結不完整或無效，請確認網址是否完整。",
+      "unavailable": "這份紀錄的內容目前無法顯示，所以還不能確認。請聯絡醫護人員。"
+    },
+    "account": {
+      "empNo": "工號", "site": "廠區", "department": "部門", "language": "語言",
+      "consents": "告知聲明與同意紀錄", "consentsEmpty": "目前沒有紀錄。", "kinds": { "notice": "已閱讀告知聲明", "consent": "同意" },
+      "version": "版本 {{version}}", "withdrawnAt": "已在 {{date}} 撤回", "withdraw": "撤回同意", "withdrawTitle": "撤回這項同意？",
+      "withdrawBody": "撤回後，這項同意就不再有效。依法必須提供的健康服務不需要你的同意，不會因此停止。", "cancel": "取消",
+      "withdrawFailed": "撤回失敗，請稍後再試。", "signOut": "登出"
+    },
+    "errors": { "load": "資料載入失敗。", "retry": "重試" },
     "language": "語言"
   },
   "en": {
     "tabs": { "tasks": "To do", "health": "My health", "report": "Report", "account": "Me" },
-    "tasks": { "greeting": "{{name}}, you have {{count}} things to do", "service": "Health service", "start": "Start", "view": "View", "done": "Done", "privacy": "Only the occupational health staff can see your answers. Managers and HR only see statistics." },
-    "flow": { "prev": "Back", "next": "Next", "back": "Back to to-do list", "progress": "Progress", "privacy": "Only the occupational health staff can see your answers." },
+    "tasks": {
+      "greeting": "{{name}}, you have {{count}} things to do", "greeting_one": "{{name}}, you have 1 thing to do", "greeting_zero": "{{name}}, nothing to do right now",
+      "service": "Health service", "start": "Start", "continue": "Continue", "draft": "In progress", "draftSaved": "Saved {{date}}", "view": "View",
+      "emptyTitle": "All done", "empty": "New questionnaires and records for you to confirm will show up here.", "due": "Due {{date}}", "minutes": "About {{count}} min",
+      "kinds": { "nmq": "Musculoskeletal symptom survey", "cbi": "Burnout questionnaire", "overload": "Working hours survey", "acknowledgement": "Record to confirm" },
+      "privacy": "Only the occupational health staff can see your answers. Managers and HR only see statistics."
+    },
+    "flow": {
+      "prev": "Back", "next": "Next", "back": "Back to to-do list", "exit": "Close", "progress": "Progress", "privacy": "Only the occupational health staff can see your answers.",
+      "missing": "This questionnaire can't be found. It may have been submitted already.", "already": "This questionnaire has already been submitted.",
+      "failed": "Could not submit. Please try again later.",
+      "resumed": "We kept the answers you started last time.", "startOver": "Start over", "startOverAsk": "Clear your answers and start again from the first question?", "startOverYes": "Clear and start over", "startOverNo": "Keep my answers",
+      "saved": "Saved automatically", "saveFailed": "Your answers aren't saved yet. We'll try again when you're back online.", "clearFailed": "Could not clear your answers. Please try again later."
+    },
     "pages": {
-      "health": "Your past health check results, explained in plain words. You can also download your own data here.",
-      "report": "Report workplace violence, bullying or harassment, or ask for protection during pregnancy or after giving birth. Only the health staff and assigned handlers can see it.",
-      "account": "Language, notifications, privacy notice and consent records, sign out.",
+      "report": "If you face violence, bullying or harassment at work, or need protection at work during pregnancy or after giving birth, contact the health staff at your site directly. Online reporting is not available yet.",
       "notFound": "This page does not exist. Go back to your to-do list."
     },
+    "signIn": {
+      "title": "Sign in", "subtitle": "Sign in with the email or phone number your company has on file.", "sso": "Sign in with {provider}", "or": "or", "email": "Email",
+      "password": "Password", "signIn": "Sign in", "sendLink": "Send sign-in link", "linkSent": "We sent a sign-in link to {email}. Open the link in the email on this device.",
+      "confirmEmail": "Enter the email address that received the sign-in link to finish signing in.", "completing": "Signing in…", "devLabel": "Email or phone number",
+      "devHint": "No password is needed on the demo and development sites. Do not enter any real personal data.", "demoAccounts": "Demo accounts",
+      "noMethods": "There is no way to sign in at this address yet. Please contact your company's health staff or HR.",
+      "expired": "You were signed out after a while without activity. Please sign in again.",
+      "problems": {
+        "noAccount": "We couldn't find you in the employee records. Make sure the email or phone number is the same as the one your company registered, or contact HR.",
+        "notConfigured": "Sign-in for this address is not set up yet. Please contact your company's health staff or HR.",
+        "tenantInactive": "Your company's health service is not active at the moment.",
+        "tooMany": "Too many attempts. Please try again later.",
+        "linkInvalid": "This sign-in link has expired or was already used. Please send a new one.",
+        "wrongPassword": "Wrong email or password.",
+        "mfaRequired": "This account needs two-step verification. Please sign in with your company account.",
+        "disabled": "This sign-in account has been disabled.",
+        "failed": "Could not sign in. Please try again later."
+      }
+    },
+    "staff": {
+      "title": "This is the employee portal", "body": "You are signed in with a back-office account ({{name}}). The employee portal is where employees fill in questionnaires, confirm records and see their own health data.",
+      "backOffice": "Go to the back office", "signOut": "Sign out"
+    },
+    "health": {
+      "title": "My health", "intro": "See your own health data here, and download a copy.", "download": "Download my data", "downloadFailed": "Could not download. Please try again later.",
+      "exams": "Health checks", "examsEmpty": "No health check results yet.", "highest": "Highest grade", "gradeLegend": "What the grades mean",
+      "grades": ["Normal", "Mildly abnormal", "Moderately abnormal", "Severely abnormal"],
+      "items": {
+        "B0111": "Blood pressure (systolic)", "B0112": "Blood pressure (diastolic)", "B0104": "BMI", "B0107": "Waist", "B0201": "Fasting blood sugar",
+        "B0202": "Total cholesterol", "B0203": "Triglycerides", "B0204": "HDL cholesterol", "B0205": "LDL cholesterol", "B0301": "ALT (liver)", "B0302": "Creatinine",
+        "B0401": "Hemoglobin", "B0501": "Urine protein"
+      },
+      "surveys": "Musculoskeletal symptom survey", "surveysEmpty": "No answers yet.", "maxScore": "Most uncomfortable area: {{score}} (0–5)",
+      "suspected": "At least one area scored 3 or more. The health staff will follow up with you.", "notSuspected": "Every area scored below 3.",
+      "workload": "Overwork assessment", "workloadEmpty": "No assessments yet.", "personal": "Personal burnout", "work": "Work-related burnout", "score": "{{score}} points",
+      "burnout": ["Low", "Moderate", "High"], "risk": ["Low risk", "Medium risk", "High risk"],
+      "advice": ["No interview needed", "A talk with the doctor is recommended", "A talk with the doctor is needed"],
+      "incomplete": "The assessment is not complete yet.", "notFilled": "Not answered", "assessedOn": "Assessed {{date}}",
+      "missing": { "cbi": "You haven't filled in the burnout questionnaire yet.", "overload": "You haven't filled in the working hours survey yet.", "exam": "There was no health check result to estimate your heart and blood vessel risk." },
+      "toTasks": "Go to my to-do list"
+    },
+    "ack": {
+      "title": "Record to confirm", "intro": "Please read the record below. If it is correct, press Confirm.",
+      "fields": { "interviewedOn": "Interview date", "fitAdvice": "Advice on fitness for work", "limits": "Work limits", "agreedArrangement": "Agreed work arrangement" },
+      "none": "None", "statement": "I have read this record and understand the measures the company has arranged for me.", "comment": "Anything you want to add (optional)",
+      "confirm": "Confirm", "done": "Confirmed. Thank you.", "confirmedAt": "You confirmed this record on {{date}}.", "notFound": "This record can't be found.",
+      "linkUsed": "This link has already been used. If you still need to confirm, sign in to see your to-do list, or contact your health staff.", "linkExpired": "This link has expired. Sign in to see your to-do list, or ask your health staff to send it again.", "linkInvalid": "This link is incomplete or not valid. Please check the full address.",
+      "unavailable": "This record can't be shown right now, so it can't be confirmed yet. Please contact your health staff."
+    },
+    "account": {
+      "empNo": "Employee no.", "site": "Site", "department": "Department", "language": "Language",
+      "consents": "Privacy notices and consents", "consentsEmpty": "No records yet.", "kinds": { "notice": "Notice read", "consent": "Consent" },
+      "version": "Version {{version}}", "withdrawnAt": "Withdrawn on {{date}}", "withdraw": "Withdraw consent", "withdrawTitle": "Withdraw this consent?",
+      "withdrawBody": "Once withdrawn, this consent no longer applies. Health services required by law do not need your consent and will continue.", "cancel": "Cancel",
+      "withdrawFailed": "Could not withdraw. Please try again later.", "signOut": "Sign out"
+    },
+    "errors": { "load": "Could not load the data.", "retry": "Try again" },
     "language": "Language"
   },
   "ja": {
     "tabs": { "tasks": "やること", "health": "健康データ", "report": "通報", "account": "マイページ" },
-    "tasks": { "greeting": "{{name}}さん、やることが {{count}} 件あります", "service": "健康サービス", "start": "開始", "view": "確認", "done": "完了", "privacy": "回答は産業保健スタッフだけが見られます。上司と人事は統計のみ閲覧できます。" },
-    "flow": { "prev": "戻る", "next": "次へ", "back": "やることに戻る", "progress": "回答の進み具合", "privacy": "回答は産業保健スタッフだけが見られます。" },
+    "tasks": {
+      "greeting": "{{name}}さん、やることが {{count}} 件あります", "greeting_zero": "{{name}}さん、今やることはありません", "service": "健康サービス", "start": "開始", "continue": "続ける", "draft": "回答途中", "draftSaved": "{{date}} に一時保存", "view": "確認",
+      "emptyTitle": "すべて完了しました", "empty": "新しい質問票や確認が必要な記録があると、ここに表示されます。", "due": "{{date}} まで", "minutes": "約 {{count}} 分",
+      "kinds": { "nmq": "筋骨格系症状調査", "cbi": "燃え尽き尺度", "overload": "労働時間と勤務形態の調査", "acknowledgement": "記録の確認" },
+      "privacy": "回答は産業保健スタッフだけが見られます。上司と人事は統計のみ閲覧できます。"
+    },
+    "flow": {
+      "prev": "戻る", "next": "次へ", "back": "やることに戻る", "exit": "閉じる", "progress": "回答の進み具合", "privacy": "回答は産業保健スタッフだけが見られます。",
+      "missing": "この質問票が見つかりません。すでに送信済みの可能性があります。", "already": "この質問票はすでに送信されています。",
+      "failed": "送信できませんでした。しばらくしてからもう一度お試しください。",
+      "resumed": "前回途中まで入力した回答を引き継ぎました。", "startOver": "最初からやり直す", "startOverAsk": "入力した回答を消して、最初の質問からやり直しますか？", "startOverYes": "消してやり直す", "startOverNo": "回答を残す",
+      "saved": "自動保存しました", "saveFailed": "回答はまだ保存されていません。ネットワークにつながったら、もう一度保存します。", "clearFailed": "回答を消せませんでした。しばらくしてからもう一度お試しください。"
+    },
     "pages": {
-      "health": "これまでの健康診断の結果をわかりやすく説明します。自分のデータをダウンロードすることもできます。",
-      "report": "職場での暴力・いじめ・ハラスメント、または妊娠・出産後の保護が必要なときに通報できます。産業保健スタッフと担当者だけが見られます。",
-      "account": "言語、通知方法、プライバシーに関するお知らせと同意記録、ログアウト。",
+      "report": "職場での暴力・いじめ・ハラスメントにあったとき、または妊娠中・出産後に職場での保護が必要なときは、事業所の産業保健スタッフに直接連絡してください。オンラインでの通報はまだ利用できません。",
       "notFound": "このページは見つかりません。やることに戻ってください。"
     },
+    "signIn": {
+      "title": "ログイン", "subtitle": "会社に登録しているメールアドレスまたは電話番号でログインしてください。", "sso": "{provider} でログイン", "or": "または",
+      "email": "メールアドレス", "password": "パスワード", "signIn": "ログイン", "sendLink": "ログインリンクを送信",
+      "linkSent": "{email} にログインリンクを送りました。この端末でメール内のリンクを開いてください。",
+      "confirmEmail": "ログインを完了するため、リンクを受け取ったメールアドレスを入力してください。", "completing": "ログインしています…",
+      "devLabel": "メールアドレスまたは電話番号", "devHint": "デモ・開発環境ではパスワードは不要です。実在する個人情報は入力しないでください。", "demoAccounts": "デモアカウント",
+      "noMethods": "このアドレスでは、現在利用できるログイン方法がありません。会社の産業保健スタッフまたは人事にお問い合わせください。",
+      "expired": "しばらく操作がなかったため、ログアウトしました。もう一度ログインしてください。",
+      "problems": {
+        "noAccount": "従業員情報が見つかりません。メールアドレスまたは電話番号が会社に登録したものと同じか確認するか、人事にお問い合わせください。",
+        "notConfigured": "このアドレスのログイン設定がまだ完了していません。会社の産業保健スタッフまたは人事にお問い合わせください。",
+        "tenantInactive": "会社の健康サービスは現在停止しています。",
+        "tooMany": "試行回数が多すぎます。しばらくしてからもう一度お試しください。",
+        "linkInvalid": "ログインリンクの有効期限が切れているか、すでに使用されています。もう一度送信してください。",
+        "wrongPassword": "メールアドレスまたはパスワードが正しくありません。",
+        "mfaRequired": "このアカウントには2段階認証が必要です。会社のアカウントでログインしてください。",
+        "disabled": "このログインアカウントは無効になっています。",
+        "failed": "ログインできませんでした。しばらくしてからもう一度お試しください。"
+      }
+    },
+    "staff": {
+      "title": "ここは従業員用ページです", "body": "現在、管理画面のアカウント（{{name}}）でログインしています。従業員用ページは、従業員が質問票に回答し、記録を確認し、自分の健康データを見るためのページです。",
+      "backOffice": "管理画面へ", "signOut": "ログアウト"
+    },
+    "health": {
+      "title": "健康データ", "intro": "自分の健康データを確認でき、コピーをダウンロードすることもできます。", "download": "データをダウンロード",
+      "downloadFailed": "ダウンロードできませんでした。しばらくしてからもう一度お試しください。",
+      "exams": "健康診断", "examsEmpty": "健康診断の記録はまだありません。", "highest": "最も高い区分", "gradeLegend": "区分の説明",
+      "grades": ["正常", "軽度異常", "中等度異常", "重度異常"],
+      "items": {
+        "B0111": "収縮期血圧", "B0112": "拡張期血圧", "B0104": "BMI", "B0107": "腹囲", "B0201": "空腹時血糖", "B0202": "総コレステロール", "B0203": "中性脂肪",
+        "B0204": "HDLコレステロール", "B0205": "LDLコレステロール", "B0301": "ALT（GPT）", "B0302": "クレアチニン", "B0401": "血色素量", "B0501": "尿蛋白"
+      },
+      "surveys": "筋骨格系症状調査", "surveysEmpty": "回答の記録はまだありません。", "maxScore": "最もつらい部位：{{score}} 点（0–5）",
+      "suspected": "3 点以上の部位があるため、産業保健スタッフが詳しくお話を伺います。", "notSuspected": "どの部位も 3 点未満でした。",
+      "workload": "過重労働の評価", "workloadEmpty": "評価の記録はまだありません。", "personal": "個人的な燃え尽き", "work": "仕事に関連した燃え尽き", "score": "{{score}} 点",
+      "burnout": ["軽度", "中等度", "重度"], "risk": ["低リスク", "中リスク", "高リスク"],
+      "advice": ["面談は不要です", "医師との面談をおすすめします", "医師との面談が必要です"],
+      "incomplete": "評価はまだ完了していません。", "notFilled": "未回答", "assessedOn": "{{date}} の評価",
+      "missing": { "cbi": "燃え尽き尺度がまだ回答されていません。", "overload": "労働時間と勤務形態の調査がまだ回答されていません。", "exam": "評価の時点で健康診断の結果がなく、心血管疾患のリスクを推定できませんでした。" },
+      "toTasks": "やることで回答する"
+    },
+    "ack": {
+      "title": "記録の確認", "intro": "以下の内容を確認し、問題がなければ「確認」を押してください。",
+      "fields": { "interviewedOn": "面談日", "fitAdvice": "就業上の配慮に関する意見", "limits": "作業の制限", "agreedArrangement": "合意した就業上の措置" },
+      "none": "なし", "statement": "この記録を読み、会社が講じる措置について理解しました。", "comment": "補足したいこと（任意）", "confirm": "確認",
+      "done": "確認しました。ありがとうございました。", "confirmedAt": "{{date}} に確認済みです。", "notFound": "この記録が見つかりません。",
+      "linkUsed": "このリンクはすでに使用されています。確認が必要な場合は、ログインしてやることを確認するか、医療スタッフに連絡してください。", "linkExpired": "このリンクは有効期限が切れています。ログインしてやることを確認するか、医療スタッフに再送を依頼してください。", "linkInvalid": "このリンクは不完全か無効です。アドレス全体を確認してください。",
+      "unavailable": "この記録の内容は現在表示できないため、まだ確認できません。医療スタッフに連絡してください。"
+    },
+    "account": {
+      "empNo": "社員番号", "site": "事業所", "department": "部署", "language": "言語",
+      "consents": "プライバシーに関するお知らせと同意の記録", "consentsEmpty": "記録はまだありません。", "kinds": { "notice": "お知らせを確認済み", "consent": "同意" },
+      "version": "バージョン {{version}}", "withdrawnAt": "{{date}} に撤回済み", "withdraw": "同意を撤回", "withdrawTitle": "この同意を撤回しますか？",
+      "withdrawBody": "撤回すると、この同意は無効になります。法律で定められた健康サービスは同意を必要としないため、引き続き提供されます。", "cancel": "キャンセル",
+      "withdrawFailed": "撤回できませんでした。しばらくしてからもう一度お試しください。", "signOut": "ログアウト"
+    },
+    "errors": { "load": "データを読み込めませんでした。", "retry": "再試行" },
     "language": "言語"
   },
   "vi": {
     "tabs": { "tasks": "Việc cần làm", "health": "Sức khỏe", "report": "Báo cáo", "account": "Tôi" },
-    "tasks": { "greeting": "{{name}}, bạn có {{count}} việc cần làm", "service": "Dịch vụ sức khỏe", "start": "Bắt đầu", "view": "Xem", "done": "Đã xong", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn. Quản lý và nhân sự chỉ xem số liệu thống kê." },
-    "flow": { "prev": "Quay lại", "next": "Tiếp", "back": "Về danh sách việc cần làm", "progress": "Tiến độ", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn." },
+    "tasks": {
+      "greeting": "{{name}}, bạn có {{count}} việc cần làm", "greeting_zero": "{{name}}, hiện không có việc cần làm", "service": "Dịch vụ sức khỏe", "start": "Bắt đầu", "continue": "Tiếp tục", "draft": "Đang làm dở", "draftSaved": "Đã lưu {{date}}", "view": "Xem",
+      "emptyTitle": "Đã xong hết", "empty": "Khi có bảng câu hỏi mới hoặc hồ sơ cần bạn xác nhận, chúng sẽ hiện ở đây.", "due": "Hạn {{date}}", "minutes": "Khoảng {{count}} phút",
+      "kinds": { "nmq": "Khảo sát triệu chứng cơ xương khớp", "cbi": "Bảng câu hỏi về kiệt sức", "overload": "Khảo sát giờ làm và hình thức công việc", "acknowledgement": "Xác nhận hồ sơ" },
+      "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn. Quản lý và nhân sự chỉ xem số liệu thống kê."
+    },
+    "flow": {
+      "prev": "Quay lại", "next": "Tiếp", "back": "Về danh sách việc cần làm", "exit": "Đóng", "progress": "Tiến độ", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn.",
+      "missing": "Không tìm thấy bảng câu hỏi này. Có thể bạn đã gửi rồi.", "already": "Bảng câu hỏi này đã được gửi.", "failed": "Gửi không thành công. Hãy thử lại sau.",
+      "resumed": "Câu trả lời bạn làm dở lần trước đã được giữ lại.", "startOver": "Làm lại từ đầu", "startOverAsk": "Xóa các câu trả lời và làm lại từ câu đầu tiên?", "startOverYes": "Xóa và làm lại", "startOverNo": "Giữ câu trả lời",
+      "saved": "Đã tự động lưu", "saveFailed": "Câu trả lời chưa được lưu. Hệ thống sẽ thử lại khi có mạng.", "clearFailed": "Không xóa được câu trả lời. Hãy thử lại sau."
+    },
     "pages": {
-      "health": "Kết quả khám sức khỏe các năm của bạn, được giải thích dễ hiểu. Bạn cũng có thể tải dữ liệu của mình.",
-      "report": "Báo cáo bạo lực, bắt nạt hoặc quấy rối nơi làm việc, hoặc yêu cầu bảo vệ khi mang thai hay sau sinh. Chỉ nhân viên y tế và người được chỉ định xử lý xem được.",
-      "account": "Ngôn ngữ, cách nhận thông báo, thông báo quyền riêng tư và hồ sơ đồng ý, đăng xuất.",
+      "report": "Nếu bạn gặp bạo lực, bắt nạt hoặc quấy rối nơi làm việc, hoặc cần được bảo vệ khi mang thai hay sau sinh, hãy liên hệ trực tiếp với nhân viên y tế tại xưởng. Chức năng báo cáo trực tuyến chưa mở.",
       "notFound": "Không tìm thấy trang này. Hãy quay về danh sách việc cần làm."
     },
+    "signIn": {
+      "title": "Đăng nhập", "subtitle": "Hãy đăng nhập bằng email hoặc số điện thoại mà công ty đã đăng ký cho bạn.", "sso": "Đăng nhập bằng {provider}", "or": "hoặc",
+      "email": "Email", "password": "Mật khẩu", "signIn": "Đăng nhập", "sendLink": "Gửi liên kết đăng nhập",
+      "linkSent": "Đã gửi liên kết đăng nhập đến {email}. Hãy mở liên kết trong email trên thiết bị này.",
+      "confirmEmail": "Hãy nhập email đã nhận liên kết đăng nhập để hoàn tất.", "completing": "Đang đăng nhập…", "devLabel": "Email hoặc số điện thoại",
+      "devHint": "Trang demo và trang phát triển không cần mật khẩu. Không nhập bất kỳ dữ liệu cá nhân thật nào.", "demoAccounts": "Tài khoản demo",
+      "noMethods": "Hiện chưa có cách đăng nhập nào tại địa chỉ này. Hãy liên hệ nhân viên y tế hoặc phòng nhân sự của công ty.",
+      "expired": "Bạn đã được đăng xuất vì không thao tác một lúc. Hãy đăng nhập lại.",
+      "problems": {
+        "noAccount": "Không tìm thấy hồ sơ nhân viên của bạn. Hãy kiểm tra email hoặc số điện thoại có giống với thông tin công ty đã đăng ký không, hoặc liên hệ phòng nhân sự.",
+        "notConfigured": "Đăng nhập tại địa chỉ này chưa được thiết lập. Hãy liên hệ nhân viên y tế hoặc phòng nhân sự của công ty.",
+        "tenantInactive": "Dịch vụ sức khỏe của công ty hiện đang tạm ngừng.",
+        "tooMany": "Bạn đã thử quá nhiều lần. Hãy thử lại sau.",
+        "linkInvalid": "Liên kết đăng nhập đã hết hạn hoặc đã được dùng. Hãy gửi lại.",
+        "wrongPassword": "Email hoặc mật khẩu không đúng.",
+        "mfaRequired": "Tài khoản này cần xác minh hai bước. Hãy đăng nhập bằng tài khoản công ty.",
+        "disabled": "Tài khoản đăng nhập này đã bị vô hiệu hóa.",
+        "failed": "Đăng nhập không thành công. Hãy thử lại sau."
+      }
+    },
+    "staff": {
+      "title": "Đây là trang dành cho nhân viên", "body": "Bạn đang đăng nhập bằng tài khoản quản trị ({{name}}). Trang nhân viên dùng để nhân viên trả lời bảng câu hỏi, xác nhận hồ sơ và xem dữ liệu sức khỏe của mình.",
+      "backOffice": "Đến trang quản trị", "signOut": "Đăng xuất"
+    },
+    "health": {
+      "title": "Sức khỏe của tôi", "intro": "Bạn có thể xem dữ liệu sức khỏe của mình ở đây và tải về một bản sao.", "download": "Tải dữ liệu của tôi",
+      "downloadFailed": "Tải về không thành công. Hãy thử lại sau.",
+      "exams": "Khám sức khỏe", "examsEmpty": "Chưa có kết quả khám sức khỏe.", "highest": "Mức cao nhất", "gradeLegend": "Giải thích các mức",
+      "grades": ["Bình thường", "Bất thường nhẹ", "Bất thường vừa", "Bất thường nặng"],
+      "items": {
+        "B0111": "Huyết áp tâm thu", "B0112": "Huyết áp tâm trương", "B0104": "BMI", "B0107": "Vòng eo", "B0201": "Đường huyết lúc đói", "B0202": "Cholesterol toàn phần",
+        "B0203": "Triglyceride", "B0204": "HDL cholesterol", "B0205": "LDL cholesterol", "B0301": "ALT (men gan)", "B0302": "Creatinine", "B0401": "Huyết sắc tố", "B0501": "Đạm niệu"
+      },
+      "surveys": "Khảo sát triệu chứng cơ xương khớp", "surveysEmpty": "Chưa có lần trả lời nào.", "maxScore": "Chỗ khó chịu nhất: {{score}} điểm (0–5)",
+      "suspected": "Có chỗ khó chịu từ 3 điểm trở lên, nhân viên y tế sẽ tìm hiểu thêm.", "notSuspected": "Mọi chỗ đều dưới 3 điểm.",
+      "workload": "Đánh giá làm việc quá sức", "workloadEmpty": "Chưa có kết quả đánh giá.", "personal": "Kiệt sức cá nhân", "work": "Kiệt sức liên quan đến công việc",
+      "score": "{{score}} điểm", "burnout": ["Nhẹ", "Vừa", "Nặng"], "risk": ["Nguy cơ thấp", "Nguy cơ trung bình", "Nguy cơ cao"],
+      "advice": ["Không cần gặp bác sĩ", "Nên gặp bác sĩ để trao đổi", "Cần gặp bác sĩ để trao đổi"],
+      "incomplete": "Đánh giá chưa hoàn tất.", "notFilled": "Chưa trả lời", "assessedOn": "Đánh giá ngày {{date}}",
+      "missing": { "cbi": "Bạn chưa trả lời bảng câu hỏi về kiệt sức.", "overload": "Bạn chưa trả lời khảo sát giờ làm và hình thức công việc.", "exam": "Khi đánh giá chưa có kết quả khám sức khỏe của bạn, nên chưa ước tính được nguy cơ tim mạch." },
+      "toTasks": "Đến việc cần làm"
+    },
+    "ack": {
+      "title": "Xác nhận hồ sơ", "intro": "Hãy đọc nội dung dưới đây. Nếu không có vấn đề gì, hãy nhấn \"Xác nhận\".",
+      "fields": { "interviewedOn": "Ngày trao đổi", "fitAdvice": "Ý kiến về sự phù hợp với công việc", "limits": "Giới hạn công việc", "agreedArrangement": "Sắp xếp công việc đã đồng ý" },
+      "none": "Không có", "statement": "Tôi đã đọc hồ sơ này và hiểu các biện pháp công ty sắp xếp cho tôi.", "comment": "Ý kiến bổ sung (không bắt buộc)", "confirm": "Xác nhận",
+      "done": "Đã xác nhận. Cảm ơn bạn.", "confirmedAt": "Bạn đã xác nhận hồ sơ này ngày {{date}}.", "notFound": "Không tìm thấy hồ sơ này.",
+      "linkUsed": "Liên kết này đã được sử dụng. Nếu bạn vẫn cần xác nhận, hãy đăng nhập để xem việc cần làm hoặc liên hệ nhân viên y tế.", "linkExpired": "Liên kết này đã hết hạn. Hãy đăng nhập để xem việc cần làm hoặc nhờ nhân viên y tế gửi lại.", "linkInvalid": "Liên kết này không đầy đủ hoặc không hợp lệ. Hãy kiểm tra lại toàn bộ địa chỉ.",
+      "unavailable": "Hiện không thể hiển thị nội dung hồ sơ này nên bạn chưa thể xác nhận. Hãy liên hệ nhân viên y tế."
+    },
+    "account": {
+      "empNo": "Mã nhân viên", "site": "Xưởng", "department": "Bộ phận", "language": "Ngôn ngữ",
+      "consents": "Thông báo quyền riêng tư và hồ sơ đồng ý", "consentsEmpty": "Chưa có hồ sơ nào.", "kinds": { "notice": "Đã đọc thông báo", "consent": "Đồng ý" },
+      "version": "Phiên bản {{version}}", "withdrawnAt": "Đã rút lại ngày {{date}}", "withdraw": "Rút lại sự đồng ý", "withdrawTitle": "Rút lại sự đồng ý này?",
+      "withdrawBody": "Sau khi rút lại, sự đồng ý này không còn hiệu lực. Các dịch vụ sức khỏe bắt buộc theo luật không cần sự đồng ý của bạn nên vẫn tiếp tục.", "cancel": "Hủy",
+      "withdrawFailed": "Rút lại không thành công. Hãy thử lại sau.", "signOut": "Đăng xuất"
+    },
+    "errors": { "load": "Không tải được dữ liệu.", "retry": "Thử lại" },
     "language": "Ngôn ngữ"
   },
   "th": {
     "tabs": { "tasks": "สิ่งที่ต้องทำ", "health": "สุขภาพของฉัน", "report": "แจ้งเหตุ", "account": "ฉัน" },
-    "tasks": { "greeting": "{{name}} คุณมีสิ่งที่ต้องทำ {{count}} รายการ", "service": "บริการสุขภาพ", "start": "เริ่ม", "view": "ดู", "done": "เสร็จแล้ว", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ หัวหน้างานและฝ่ายบุคคลเห็นเพียงข้อมูลสถิติ" },
-    "flow": { "prev": "ย้อนกลับ", "next": "ถัดไป", "back": "กลับไปที่สิ่งที่ต้องทำ", "progress": "ความคืบหน้า", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ" },
+    "tasks": {
+      "greeting": "{{name}} คุณมีสิ่งที่ต้องทำ {{count}} รายการ", "greeting_zero": "{{name}} ตอนนี้ไม่มีสิ่งที่ต้องทำ", "service": "บริการสุขภาพ", "start": "เริ่ม", "continue": "ทำต่อ", "draft": "ทำค้างไว้", "draftSaved": "บันทึกไว้ {{date}}", "view": "ดู",
+      "emptyTitle": "ทำครบแล้ว", "empty": "เมื่อมีแบบสอบถามใหม่หรือบันทึกที่ต้องยืนยัน จะแสดงที่นี่", "due": "ภายใน {{date}}", "minutes": "ประมาณ {{count}} นาที",
+      "kinds": { "nmq": "แบบสำรวจอาการทางระบบกระดูกและกล้ามเนื้อ", "cbi": "แบบประเมินภาวะหมดไฟ", "overload": "แบบสำรวจชั่วโมงทำงานและลักษณะงาน", "acknowledgement": "ยืนยันบันทึก" },
+      "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ หัวหน้างานและฝ่ายบุคคลเห็นเพียงข้อมูลสถิติ"
+    },
+    "flow": {
+      "prev": "ย้อนกลับ", "next": "ถัดไป", "back": "กลับไปที่สิ่งที่ต้องทำ", "exit": "ปิด", "progress": "ความคืบหน้า", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ",
+      "missing": "ไม่พบแบบสอบถามนี้ อาจส่งไปแล้ว", "already": "แบบสอบถามนี้ส่งไปแล้ว", "failed": "ส่งไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
+      "resumed": "เก็บคำตอบที่คุณทำค้างไว้ครั้งก่อนไว้ให้แล้ว", "startOver": "เริ่มใหม่", "startOverAsk": "ล้างคำตอบทั้งหมดแล้วเริ่มใหม่ตั้งแต่ข้อแรกหรือไม่", "startOverYes": "ล้างแล้วเริ่มใหม่", "startOverNo": "เก็บคำตอบไว้",
+      "saved": "บันทึกอัตโนมัติแล้ว", "saveFailed": "ยังบันทึกคำตอบไม่ได้ ระบบจะลองอีกครั้งเมื่อเชื่อมต่ออินเทอร์เน็ตได้", "clearFailed": "ล้างคำตอบไม่สำเร็จ กรุณาลองใหม่ภายหลัง"
+    },
     "pages": {
-      "health": "ผลการตรวจสุขภาพของคุณในแต่ละปี พร้อมคำอธิบายที่เข้าใจง่าย และดาวน์โหลดข้อมูลของคุณได้",
-      "report": "แจ้งเหตุความรุนแรง การกลั่นแกล้ง หรือการล่วงละเมิดในที่ทำงาน หรือขอความคุ้มครองระหว่างตั้งครรภ์หรือหลังคลอด เฉพาะเจ้าหน้าที่อาชีวอนามัยและผู้รับผิดชอบเท่านั้นที่เห็น",
-      "account": "ภาษา การแจ้งเตือน ประกาศความเป็นส่วนตัวและบันทึกความยินยอม ออกจากระบบ",
+      "report": "หากคุณถูกใช้ความรุนแรง ถูกกลั่นแกล้ง หรือถูกล่วงละเมิดในที่ทำงาน หรือต้องการความคุ้มครองระหว่างตั้งครรภ์หรือหลังคลอด กรุณาติดต่อเจ้าหน้าที่อาชีวอนามัยประจำโรงงานโดยตรง ยังไม่เปิดให้แจ้งเหตุทางออนไลน์",
       "notFound": "ไม่พบหน้านี้ กรุณากลับไปที่สิ่งที่ต้องทำ"
     },
+    "signIn": {
+      "title": "เข้าสู่ระบบ", "subtitle": "เข้าสู่ระบบด้วยอีเมลหรือหมายเลขโทรศัพท์ที่บริษัทบันทึกไว้", "sso": "เข้าสู่ระบบด้วย {provider}", "or": "หรือ", "email": "อีเมล",
+      "password": "รหัสผ่าน", "signIn": "เข้าสู่ระบบ", "sendLink": "ส่งลิงก์เข้าสู่ระบบ", "linkSent": "ส่งลิงก์เข้าสู่ระบบไปที่ {email} แล้ว กรุณาเปิดลิงก์ในอีเมลบนอุปกรณ์เครื่องนี้",
+      "confirmEmail": "กรุณาใส่อีเมลที่ได้รับลิงก์เข้าสู่ระบบ เพื่อเข้าสู่ระบบให้เสร็จ", "completing": "กำลังเข้าสู่ระบบ…", "devLabel": "อีเมลหรือหมายเลขโทรศัพท์",
+      "devHint": "เว็บไซต์สาธิตและเว็บไซต์พัฒนาไม่ต้องใช้รหัสผ่าน กรุณาอย่าใส่ข้อมูลส่วนบุคคลจริง", "demoAccounts": "บัญชีสาธิต",
+      "noMethods": "ที่อยู่นี้ยังไม่มีวิธีเข้าสู่ระบบ กรุณาติดต่อเจ้าหน้าที่อาชีวอนามัยหรือฝ่ายบุคคลของบริษัท",
+      "expired": "คุณออกจากระบบอัตโนมัติเพราะไม่ได้ใช้งานสักพัก กรุณาเข้าสู่ระบบอีกครั้ง",
+      "problems": {
+        "noAccount": "ไม่พบข้อมูลพนักงานของคุณ กรุณาตรวจสอบว่าอีเมลหรือหมายเลขโทรศัพท์ตรงกับที่บริษัทบันทึกไว้ หรือติดต่อฝ่ายบุคคล",
+        "notConfigured": "ที่อยู่นี้ยังไม่ได้ตั้งค่าการเข้าสู่ระบบ กรุณาติดต่อเจ้าหน้าที่อาชีวอนามัยหรือฝ่ายบุคคลของบริษัท",
+        "tenantInactive": "บริการสุขภาพของบริษัทปิดใช้งานอยู่ในขณะนี้",
+        "tooMany": "ลองหลายครั้งเกินไป กรุณาลองใหม่ภายหลัง",
+        "linkInvalid": "ลิงก์เข้าสู่ระบบหมดอายุหรือถูกใช้ไปแล้ว กรุณาส่งใหม่",
+        "wrongPassword": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+        "mfaRequired": "บัญชีนี้ต้องยืนยันตัวตนสองขั้นตอน กรุณาเข้าสู่ระบบด้วยบัญชีของบริษัท",
+        "disabled": "บัญชีเข้าสู่ระบบนี้ถูกปิดใช้งานแล้ว",
+        "failed": "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่ภายหลัง"
+      }
+    },
+    "staff": {
+      "title": "หน้านี้สำหรับพนักงาน", "body": "ขณะนี้คุณเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ ({{name}}) หน้าพนักงานมีไว้ให้พนักงานตอบแบบสอบถาม ยืนยันบันทึก และดูข้อมูลสุขภาพของตนเอง",
+      "backOffice": "ไปที่ระบบหลังบ้าน", "signOut": "ออกจากระบบ"
+    },
+    "health": {
+      "title": "สุขภาพของฉัน", "intro": "คุณดูข้อมูลสุขภาพของตนเองได้ที่นี่ และดาวน์โหลดสำเนาได้", "download": "ดาวน์โหลดข้อมูลของฉัน", "downloadFailed": "ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
+      "exams": "การตรวจสุขภาพ", "examsEmpty": "ยังไม่มีผลตรวจสุขภาพ", "highest": "ระดับสูงสุด", "gradeLegend": "คำอธิบายระดับ",
+      "grades": ["ปกติ", "ผิดปกติเล็กน้อย", "ผิดปกติปานกลาง", "ผิดปกติรุนแรง"],
+      "items": {
+        "B0111": "ความดันโลหิตตัวบน", "B0112": "ความดันโลหิตตัวล่าง", "B0104": "ดัชนีมวลกาย (BMI)", "B0107": "รอบเอว", "B0201": "น้ำตาลในเลือดขณะอดอาหาร",
+        "B0202": "คอเลสเตอรอลรวม", "B0203": "ไตรกลีเซอไรด์", "B0204": "เอชดีแอลคอเลสเตอรอล", "B0205": "แอลดีแอลคอเลสเตอรอล", "B0301": "ALT (เอนไซม์ตับ)",
+        "B0302": "ครีเอตินีน", "B0401": "ฮีโมโกลบิน", "B0501": "โปรตีนในปัสสาวะ"
+      },
+      "surveys": "แบบสำรวจอาการทางระบบกระดูกและกล้ามเนื้อ", "surveysEmpty": "ยังไม่มีการตอบแบบสำรวจ", "maxScore": "ส่วนที่ไม่สบายมากที่สุด: {{score}} คะแนน (0–5)",
+      "suspected": "มีส่วนที่ไม่สบายตั้งแต่ 3 คะแนนขึ้นไป เจ้าหน้าที่อาชีวอนามัยจะสอบถามเพิ่มเติม", "notSuspected": "ทุกส่วนต่ำกว่า 3 คะแนน",
+      "workload": "การประเมินการทำงานหนักเกินไป", "workloadEmpty": "ยังไม่มีผลการประเมิน", "personal": "ความเหนื่อยล้าส่วนบุคคล", "work": "ความเหนื่อยล้าจากงาน",
+      "score": "{{score}} คะแนน", "burnout": ["เล็กน้อย", "ปานกลาง", "รุนแรง"], "risk": ["ความเสี่ยงต่ำ", "ความเสี่ยงปานกลาง", "ความเสี่ยงสูง"],
+      "advice": ["ไม่ต้องพบแพทย์", "ควรพบแพทย์เพื่อพูดคุย", "ต้องพบแพทย์เพื่อพูดคุย"],
+      "incomplete": "การประเมินยังไม่เสร็จ", "notFilled": "ยังไม่ได้ตอบ", "assessedOn": "ประเมินวันที่ {{date}}",
+      "missing": { "cbi": "คุณยังไม่ได้ตอบแบบประเมินภาวะหมดไฟ", "overload": "คุณยังไม่ได้ตอบแบบสำรวจชั่วโมงทำงานและลักษณะงาน", "exam": "ตอนประเมินยังไม่มีผลตรวจสุขภาพของคุณ จึงยังประเมินความเสี่ยงโรคหัวใจและหลอดเลือดไม่ได้" },
+      "toTasks": "ไปที่สิ่งที่ต้องทำ"
+    },
+    "ack": {
+      "title": "ยืนยันบันทึก", "intro": "กรุณาอ่านเนื้อหาด้านล่าง ถ้าไม่มีปัญหาให้กด \"ยืนยัน\"",
+      "fields": { "interviewedOn": "วันที่พูดคุย", "fitAdvice": "ความเห็นเรื่องความเหมาะสมกับงาน", "limits": "ข้อจำกัดในการทำงาน", "agreedArrangement": "การจัดงานที่ตกลงกัน" },
+      "none": "ไม่มี", "statement": "ฉันได้อ่านบันทึกนี้แล้ว และเข้าใจมาตรการที่บริษัทจัดให้", "comment": "ความเห็นเพิ่มเติม (ไม่บังคับ)", "confirm": "ยืนยัน",
+      "done": "ยืนยันแล้ว ขอบคุณ", "confirmedAt": "คุณยืนยันบันทึกนี้แล้วเมื่อ {{date}}", "notFound": "ไม่พบบันทึกนี้",
+      "linkUsed": "ลิงก์นี้ถูกใช้ไปแล้ว หากยังต้องยืนยัน กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือติดต่อเจ้าหน้าที่สุขภาพ", "linkExpired": "ลิงก์นี้หมดอายุแล้ว กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือขอให้เจ้าหน้าที่สุขภาพส่งใหม่", "linkInvalid": "ลิงก์นี้ไม่สมบูรณ์หรือไม่ถูกต้อง กรุณาตรวจสอบที่อยู่ให้ครบถ้วน",
+      "unavailable": "ขณะนี้แสดงเนื้อหาบันทึกนี้ไม่ได้ จึงยังยืนยันไม่ได้ กรุณาติดต่อเจ้าหน้าที่สุขภาพ"
+    },
+    "account": {
+      "empNo": "รหัสพนักงาน", "site": "โรงงาน", "department": "แผนก", "language": "ภาษา",
+      "consents": "ประกาศความเป็นส่วนตัวและบันทึกความยินยอม", "consentsEmpty": "ยังไม่มีบันทึก", "kinds": { "notice": "อ่านประกาศแล้ว", "consent": "ยินยอม" },
+      "version": "ฉบับ {{version}}", "withdrawnAt": "ถอนแล้วเมื่อ {{date}}", "withdraw": "ถอนความยินยอม", "withdrawTitle": "ถอนความยินยอมนี้หรือไม่",
+      "withdrawBody": "เมื่อถอนแล้ว ความยินยอมนี้จะไม่มีผลอีกต่อไป บริการสุขภาพที่กฎหมายกำหนดไม่ต้องใช้ความยินยอมของคุณ จึงยังคงดำเนินต่อไป", "cancel": "ยกเลิก",
+      "withdrawFailed": "ถอนไม่สำเร็จ กรุณาลองใหม่ภายหลัง", "signOut": "ออกจากระบบ"
+    },
+    "errors": { "load": "โหลดข้อมูลไม่สำเร็จ", "retry": "ลองอีกครั้ง" },
     "language": "ภาษา"
   }
 }

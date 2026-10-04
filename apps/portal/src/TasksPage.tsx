@@ -1,44 +1,68 @@
-import { Box, Button, Card, Group, Stack, Text } from '@mantine/core';
-import { createLink } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+import { Box, Card, EmptyState, Group, Skeleton, Stack, Text } from '@mantine/core';
+import { IconChecks } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
 import { YutisMark } from '@yutis/ui';
-import { DEMO_ME, DEMO_TENANT_NAME, MY_TASKS } from './demo';
+import { useTranslation } from 'react-i18next';
+import { profileQuery, tasksQuery, tenantQuery } from './api';
+import { formatDate } from './dates';
 import { LanguageSelect } from './LanguageSelect';
+import { ButtonLink, LoadError } from './Page';
+import { TASK_MINUTES, taskAction, taskLink, taskTitle } from './tasks';
 
-const ButtonLink = createLink(Button<'a'>);
+/** 待辦: what the API says is open for this employee, each opening its own flow. */
+export function TasksPage({ name, accountLang }: { name: string; accountLang?: string }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const tenant = useQuery(tenantQuery);
+  const profile = useQuery(profileQuery);
+  const tasks = useQuery(tasksQuery);
+  const open = tasks.data ?? [];
 
-export function TasksPage() {
-  const { t } = useTranslation();
-  const open = MY_TASKS.filter(x => !x.done);
   return (
     <>
       <Box bg="var(--yutis-brand)" c="var(--yutis-brand-fg)" px="md" pb={44}
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}>
-        <Group justify="space-between" align="flex-start" wrap="nowrap">
-          <Group gap={8} wrap="nowrap">
-            <YutisMark height={20} style={{ color: 'var(--yutis-brand-fg)' }} />
-            <Text size="xs" fw={500}>{DEMO_TENANT_NAME} · {t('tasks.service')}</Text>
+        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+          <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+            <YutisMark height={20} style={{ color: 'var(--yutis-brand-fg)', flexShrink: 0 }} />
+            <Text size="xs" fw={500} truncate>{tenant.data ? `${tenant.data.name} · ${t('tasks.service')}` : t('tasks.service')}</Text>
           </Group>
           <LanguageSelect />
         </Group>
-        <Text fz={22} fw={600} mt={4}>{t('tasks.greeting', { name: DEMO_ME.givenName, count: open.length })}</Text>
+        <Text fz={22} fw={600} mt={4} lh={1.35}>
+          {tasks.isSuccess ? t('tasks.greeting', { name: profile.data?.name ?? name, count: open.length }) : profile.data?.name ?? name}
+        </Text>
       </Box>
       <Stack gap="sm" px="md" mt={-28}>
-        {MY_TASKS.map(task => (
-          <Card key={task.id} padding="md">
-            <Group justify="space-between" wrap="nowrap">
-              <div>
-                <Text fw={600}>{task.title}</Text>
-                <Text size="sm" c="dimmed">{task.detail}</Text>
-              </div>
-              {task.done
-                ? <Button size="sm" disabled>{t('tasks.done')}</Button>
-                : task.kind === 'nmq'
-                  ? <ButtonLink to="/tasks/nmq" size="sm">{t('tasks.start')}</ButtonLink>
-                  : <Button size="sm" variant="default">{t('tasks.view')}</Button>}
-            </Group>
+        {tasks.isPending && [0, 1].map(i => <Card key={i} padding="md"><Skeleton h={18} w="60%" /><Skeleton h={14} w="40%" mt={8} /></Card>)}
+        {tasks.isError && <LoadError onRetry={() => void tasks.refetch()} />}
+        {tasks.isSuccess && open.length === 0 && (
+          <Card padding="xl">
+            <EmptyState icon={<IconChecks size={28} />} variant="light" color="yutis" title={t('tasks.emptyTitle')} description={t('tasks.empty')} />
           </Card>
-        ))}
+        )}
+        {open.map(task => {
+          const minutes = TASK_MINUTES[task.kind];
+          const action = taskAction(task);
+          // A half-filled questionnaire says when it was saved instead of how long it takes.
+          const progress = action === 'continue'
+            ? (task.draftSavedAt ? t('tasks.draftSaved', { date: formatDate(task.draftSavedAt, lang, { year: false }) }) : t('tasks.draft'))
+            : minutes && t('tasks.minutes', { count: minutes });
+          const detail = [task.dueOn && t('tasks.due', { date: formatDate(task.dueOn, lang, { year: false }) }), progress].filter(Boolean).join(' · ');
+          return (
+            <Card key={`${task.kind}:${task.id}`} padding="md">
+              <Group justify="space-between" wrap="nowrap" gap="sm">
+                <div style={{ minWidth: 0 }}>
+                  <Text fw={600} lh={1.4}>{taskTitle(task, lang, profile.data?.lang ?? accountLang, k => t(`tasks.kinds.${k}`))}</Text>
+                  {detail && <Text size="sm" c="dimmed">{detail}</Text>}
+                </div>
+                <ButtonLink {...taskLink(task)} size="sm" style={{ flexShrink: 0 }} variant={action === 'view' ? 'default' : 'filled'}>
+                  {t(`tasks.${action}`)}
+                </ButtonLink>
+              </Group>
+            </Card>
+          );
+        })}
         <Text size="xs" c="dimmed" px={4}>{t('tasks.privacy')}</Text>
       </Stack>
     </>

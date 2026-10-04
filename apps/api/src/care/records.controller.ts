@@ -95,7 +95,7 @@ export class RecordsController {
   @Get('phrases')
   @RecordAccess()
   @ApiOperation({ summary: '片語庫', description: '撰寫協助紀錄、措施時插入的常用片語。' })
-  @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'category', required: false, type: String })
   @ApiOkResponse({ type: [PhraseDto] })
   listPhrases(@Ctx() ctx: RequestContext, @Query('category') category?: string): Promise<PhraseDto[]> {
     return ctx.tx.select({ id: phrases.id, category: phrases.category, text: phrases.text, kind: phrases.kind }).from(phrases)
@@ -166,6 +166,16 @@ export class RecordsController {
     }).where(eq(assistRecords.id, id)).returning();
     await recordAudit(ctx, { action: 'update', subjectTable: 'assist_records', subjectId: id, employeeId: current.employeeId, dataCategory: 'medical' });
     return this.toDto(ctx, row!);
+  }
+
+  @Get('admin/phrases')
+  @StaffOnly({ feature: 'tenant-admin' })
+  @ApiTags('admin')
+  @ApiOperation({ summary: '片語庫（租戶管理）', description: '和 GET /api/phrases 相同的清單，給租戶管理員維護片語用。' })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  @ApiOkResponse({ type: [PhraseDto] })
+  adminPhrases(@Ctx() ctx: RequestContext, @Query('category') category?: string): Promise<PhraseDto[]> {
+    return this.listPhrases(ctx, category);
   }
 
   @Post('admin/phrases')

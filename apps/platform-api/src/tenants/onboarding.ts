@@ -6,7 +6,7 @@
  */
 import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { plans, tenants, tenantSubscriptions } from '@yutis/db';
-import { isValidTenantSlug } from '@yutis/domain';
+import { isAvailableTenantSubdomain } from '@yutis/domain';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PlatformConfig } from '../config.js';
@@ -18,9 +18,6 @@ import {
   BILLING, IDENTITY_TENANTS, INVITATIONS, TENANT_KEYS,
   type BillingProvider, type IdentityTenantService, type InvitationMailer, type TenantKeyService,
 } from '../integrations/integrations.js';
-
-/** demo.care.yutis.com.tw points at the separate marketing demo deployment, so no real tenant may take it. */
-const DEMO_SITE_SUBDOMAIN = 'demo';
 
 const isoDate = z.iso.date();
 
@@ -53,7 +50,7 @@ export class OnboardingService {
 
   async onboard(ctx: RequestContext, input: OnboardTenantInput): Promise<string> {
     const slug = input.subdomain;
-    if (!isValidTenantSlug(slug) || slug === DEMO_SITE_SUBDOMAIN) {
+    if (!isAvailableTenantSubdomain(slug)) {
       throw new BadRequestException({ code: 'invalid_subdomain', message: 'Subdomain must be one lower-case DNS label and not admin, api, www or demo' });
     }
     const [taken] = await ctx.tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, slug));

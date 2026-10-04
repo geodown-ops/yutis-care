@@ -19,8 +19,12 @@ const env = z.object({
   TENANT_CRYPTO_KMS: z.enum(['true', 'false']).default('false'),
   /** The marketing demo site (fictional data only): the local encryption key is allowed there. */
   DEMO_SITE: z.enum(['true', 'false']).default('false'),
-  /** On Cloud Run the worker must answer HTTP on PORT, or the revision is not considered started. */
+  /**
+   * Hosting platforms (Cloud Run, Railway) give the process a PORT to answer health checks on. Locally the worker shares
+   * apps/api/.env with the API, whose PORT is already taken, so it only listens there in production, or on WORKER_PORT.
+   */
   PORT: z.coerce.number().int().positive().optional(),
+  WORKER_PORT: z.coerce.number().int().positive().optional(),
 }).parse(process.env);
 if (env.NODE_ENV === 'production' && env.TENANT_CRYPTO_LOCAL_KEY && env.DEMO_SITE !== 'true') throw new Error('TENANT_CRYPTO_LOCAL_KEY must not be used in production');
 
@@ -46,7 +50,8 @@ await boss.work(RETENTION_QUEUE, async () => {
 });
 console.log('[worker] started');
 
-const health = env.PORT ? createServer((_req, res) => res.writeHead(204).end()).listen(env.PORT) : undefined;
+const healthPort = env.WORKER_PORT ?? (env.NODE_ENV === 'production' ? env.PORT : undefined);
+const health = healthPort ? createServer((_req, res) => res.writeHead(204).end()).listen(healthPort) : undefined;
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {

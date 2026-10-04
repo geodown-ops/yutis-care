@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { plans, subscriptionStatusEnum, tenants, tenantSubscriptions, type Tx } from '@yutis/db';
+import { currentSubscriptionFirst, plans, subscriptionStatusEnum, tenants, tenantSubscriptions, type Tx } from '@yutis/db';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { Requires } from '../auth/access.js';
@@ -29,7 +29,7 @@ export class TenantDto {
   @ApiProperty() name!: string;
   @ApiProperty({ enum: ['active', 'suspended', 'closed'] }) status!: 'active' | 'suspended' | 'closed';
   @ApiProperty({ type: String, format: 'date-time' }) createdAt!: Date;
-  @ApiProperty({ type: SubscriptionDto, nullable: true, description: '目前的訂閱' }) subscription!: SubscriptionDto | null;
+  @ApiProperty({ type: SubscriptionDto, nullable: true, description: '目前的訂閱：已開始的最新一期（都還沒開始時為最早的一期）' }) subscription!: SubscriptionDto | null;
   @ApiProperty({ description: '在職員工數（資料庫函式計算，平台看不到明細）' }) activeEmployees!: number;
   @ApiProperty({ description: '啟用中的後台帳號數' }) staffAccounts!: number;
   @ApiProperty({ description: '在職員工數超過人數上限' }) overSeatLimit!: boolean;
@@ -58,6 +58,16 @@ const SetSubscription = z.object({
   startsOn: z.iso.date(),
   endsOn: z.iso.date().nullable(),
 }).strict().refine(s => !s.endsOn || s.endsOn >= s.startsOn, { message: 'endsOn must not be before startsOn', path: ['endsOn'] });
+
+const NewPeriod = z.object({
+  planCode: z.string().min(1),
+  status: z.enum(subscriptionStatusEnum.enumValues).default('active'),
+  seatLimit: z.number().int().positive().nullable(),
+  startsOn: z.iso.date(),
+  endsOn: z.iso.date().nullable().default(null),
+}).strict().refine(s => !s.endsOn || s.endsOn >= s.startsOn, { message: 'endsOn must not be before startsOn', path: ['endsOn'] });
+
+const dayBefore = (isoDate: string) => new Date(Date.parse(isoDate) - 86_400_000).toISOString().slice(0, 10);
 
 const notFound = () => new NotFoundException({ code: 'tenant_not_found', message: 'No such tenant' });
 
@@ -129,7 +139,10 @@ export class TenantsController {
 
   @Put(':id/subscription')
   @Requires('subscriptions:write')
-  @ApiOperation({ summary: '設定目前的訂閱', description: '更新目前的訂閱（方案、狀態、人數上限、起訖日）；沒有訂閱時新增一筆。目前不依此收費。' })
+  @ApiOperation({
+    summary: '修改目前的訂閱',
+    description: '直接改目前這一期（方案、狀態、人數上限、起訖日），用來更正；沒有訂閱時新增一筆。續約或換方案請用 POST /tenants/{id}/subscriptions，訂閱歷史才會保留。目前不依此收費。',
+  })
   @ApiBody({ schema: openApiSchema(SetSubscription) })
   @ApiOkResponse({ type: TenantDetailDto })
   async setSubscription(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<TenantDetailDto> {
@@ -140,11 +153,49 @@ export class TenantsController {
     if (!plan) throw new BadRequestException({ code: 'unknown_plan', message: `No active plan ${input.planCode}` });
     const values = { planId: plan.id, status: input.status, seatLimit: input.seatLimit, startsOn: input.startsOn, endsOn: input.endsOn, updatedAt: new Date() };
     const [current] = await ctx.tx.select({ id: tenantSubscriptions.id }).from(tenantSubscriptions)
-      .where(eq(tenantSubscriptions.tenantId, id)).orderBy(desc(tenantSubscriptions.startsOn), desc(tenantSubscriptions.createdAt)).limit(1);
+      .where(eq(tenantSubscriptions.tenantId, id)).orderBy(...currentSubscriptionFirst()).limit(1);
     if (current) await ctx.tx.update(tenantSubscriptions).set(values).where(eq(tenantSubscriptions.id, current.id));
     else await ctx.tx.insert(tenantSubscriptions).values({ tenantId: id, ...values });
     await this.billing.subscriptionChanged({ tenantId: id, planCode: plan.code, status: input.status, seatLimit: input.seatLimit });
     await recordPlatformAudit(ctx, { action: 'subscription.set', tenantId: id, subjectTable: 'tenant_subscriptions', detail: { ...input } });
+    return this.load(ctx, id);
+  }
+
+  @Post(':id/subscriptions')
+  @Requires('subscriptions:write')
+  @ApiOperation({
+    summary: '新增訂閱期間（續約、換方案）',
+    description: '新增一期，舊的留在訂閱歷史；開始日一到就成為目前的訂閱，所以可以在這期結束前先續約。新的一期要晚於最近一期的開始日；最近一期沒有結束日、或結束日不早於新期間開始日時，結束日改為新期間開始的前一天。目前不依此收費。',
+  })
+  @ApiBody({ schema: openApiSchema(NewPeriod) })
+  @ApiCreatedResponse({ type: TenantDetailDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  @ApiConflictResponse({ description: '新期間沒有晚於最近一期的開始日（period_overlap）', type: ApiErrorDto })
+  async addPeriod(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<TenantDetailDto> {
+    const input = parse(NewPeriod, body);
+    const [tenant] = await ctx.tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, id));
+    if (!tenant) throw notFound();
+    const [plan] = await ctx.tx.select().from(plans).where(and(eq(plans.code, input.planCode), eq(plans.active, true)));
+    if (!plan) throw new BadRequestException({ code: 'unknown_plan', message: `No active plan ${input.planCode}` });
+    const [latest] = await ctx.tx.select().from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.tenantId, id)).orderBy(desc(tenantSubscriptions.startsOn), desc(tenantSubscriptions.createdAt)).limit(1);
+    let previousEndsOn: string | undefined;
+    if (latest) {
+      if (input.startsOn <= latest.startsOn) {
+        throw new ConflictException({ code: 'period_overlap', message: `A new period must start after the latest one (${latest.startsOn})` });
+      }
+      if (latest.endsOn === null || latest.endsOn >= input.startsOn) {
+        previousEndsOn = dayBefore(input.startsOn);
+        await ctx.tx.update(tenantSubscriptions).set({ endsOn: previousEndsOn, updatedAt: new Date() }).where(eq(tenantSubscriptions.id, latest.id));
+      }
+    }
+    await ctx.tx.insert(tenantSubscriptions).values({
+      tenantId: id, planId: plan.id, status: input.status, seatLimit: input.seatLimit, startsOn: input.startsOn, endsOn: input.endsOn, billingRef: latest?.billingRef ?? null,
+    });
+    await this.billing.subscriptionChanged({ tenantId: id, planCode: plan.code, status: input.status, seatLimit: input.seatLimit });
+    await recordPlatformAudit(ctx, {
+      action: 'subscription.renew', tenantId: id, subjectTable: 'tenant_subscriptions', detail: { ...input, ...(previousEndsOn ? { previousEndsOn } : {}) },
+    });
     return this.load(ctx, id);
   }
 
@@ -177,7 +228,8 @@ export class TenantsController {
     const { rows } = await tx.execute<{ active_employees: string; staff_accounts: string }>(
       sql`select active_employees, staff_accounts from tenant_counts(current_date) where tenant_id = ${t.id}`);
     const activeEmployees = Number(rows[0]?.active_employees ?? 0);
-    const subscription = subscriptions[0] ?? null;
+    const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const subscription = subscriptions.find(sub => sub.startsOn <= today) ?? subscriptions.at(-1) ?? null;
     return {
       subscriptions,
       summary: {

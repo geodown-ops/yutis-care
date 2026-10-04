@@ -2,20 +2,22 @@
  * Organisation (組織架構): legal entities → sites (廠／院區) → departments, edited one by one or imported from Excel.
  * Tenant admins only. Deleting something still in use (sites with employees, …) is refused.
  */
-import { Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiConflictResponse, ApiConsumes, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import { ApiBody, ApiConflictResponse, ApiConsumes, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { departments, legalEntities, sites } from '@yutis/db';
 import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, type RequestContext } from '../core/context.js';
+import { CreatedDto } from '../core/dto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { pgErrorCode } from '../core/pg.js';
 import { openApiSchema, parse } from '../core/validation.js';
-import { findSheet, ImportIssueDto, isEmail, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
+import type { FastifyReply } from 'fastify';
+import { findSheet, ImportIssueDto, isEmail, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue, type TemplateSheet } from './excel.js';
 
-class DepartmentDto {
+class OrgDepartmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ type: String, nullable: true }) code!: string | null;
   @ApiProperty() name!: string;
@@ -23,21 +25,18 @@ class DepartmentDto {
   @ApiProperty({ type: String, nullable: true }) managerEmail!: string | null;
   @ApiProperty({ type: String, nullable: true }) managerPhone!: string | null;
 }
-class SiteDto {
+class OrgSiteDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() code!: string;
   @ApiProperty() name!: string;
   @ApiProperty({ type: String, nullable: true }) address!: string | null;
-  @ApiProperty({ type: [DepartmentDto] }) departments!: DepartmentDto[];
+  @ApiProperty({ type: [OrgDepartmentDto] }) departments!: OrgDepartmentDto[];
 }
 class LegalEntityDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() code!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ type: [SiteDto] }) sites!: SiteDto[];
-}
-class CreatedDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ type: [OrgSiteDto] }) sites!: OrgSiteDto[];
 }
 class ImportCountsDto {
   @ApiProperty() create!: number;
@@ -66,6 +65,13 @@ const UpdateDepartment = CreateDepartment.partial().strict();
 export const ImportQuery = z.object({ commit: z.enum(['true', 'false']).default('false').transform(v => v === 'true') });
 
 const TenantAdmin = () => StaffOnly({ feature: 'tenant-admin' });
+
+/** The sheets and columns the organisation import reads. */
+export const ORG_SHEETS: TemplateSheet[] = [
+  { name: '法人', required: ['代碼', '名稱'] },
+  { name: '廠區', required: ['代碼', '名稱', '法人代碼'], optional: ['地址'] },
+  { name: '部門', required: ['廠區代碼', '名稱'], optional: ['代碼', '主管姓名', '主管Email', '主管電話'] },
+];
 const audited = (ctx: RequestContext, action: AuditEntry['action'], subjectTable: string, subjectId: string) =>
   recordAudit(ctx, { action, subjectTable, subjectId, reason: 'tenant admin' });
 
@@ -200,6 +206,13 @@ export class OrgController {
       if (!row) throw notFound();
       await audited(ctx, 'delete', 'departments', id);
     });
+  }
+
+  @Get('import-template') @TenantAdmin()
+  @ApiOperation({ summary: '組織架構匯入範本（.xlsx）', description: '法人、廠區、部門三個工作表，只有欄位名稱；粗體為必填。' })
+  @ApiProduces(XLSX_MIME) @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  async template(@Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendXlsx(reply, '組織架構匯入範本.xlsx', await templateWorkbook(ORG_SHEETS));
   }
 
   @Post('import')
