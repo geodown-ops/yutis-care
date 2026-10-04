@@ -32,6 +32,9 @@ export interface ServiceForm {
   to: string;
   executorUserId: string;
   unit: string;
+  /** The site's department the record is for (sent as departmentId); null when 部門名稱 is none of them. */
+  departmentId: string | null;
+  /** 部門名稱 as printed on the form (content.departmentName): the department's name, or text typed in. */
   departmentName: string;
   headcount: Headcount;
   special: { category: string; count: number }[];
@@ -64,23 +67,28 @@ export const EMPTY_HEADCOUNT: Headcount = { adminM: 0, adminF: 0, opM: 0, opF: 0
 /** A blank record for today at my first site, executed by me, with me as the first signer; 事業單位 is the site's company. */
 export function newForm({ today, siteId, me, unit = '' }: { today: string; siteId: string; me: { id: string; name: string; email: string }; unit?: string }): ServiceForm {
   return {
-    serviceOn: today, siteId, from: '09:00', to: '12:00', executorUserId: me.id, unit, departmentName: '',
+    serviceOn: today, siteId, from: '09:00', to: '12:00', executorUserId: me.id, unit, departmentId: null, departmentName: '',
     headcount: { ...EMPTY_HEADCOUNT }, special: [], workplace: '', services: '', findings: '', followUp: '',
     signers: [{ role: '', name: me.name, email: me.email }],
   };
 }
 
-export function formFromRecord(r: ServiceRecord): ServiceForm {
+/**
+ * A record as a form. Older records have no departmentId: once the organisation is known, one whose 部門名稱 is a
+ * department of its site is linked to it.
+ */
+export function formFromRecord(r: ServiceRecord, org?: readonly OrgEntity[]): ServiceForm {
   const { headcount, special, ...c } = readContent(r.content);
+  const departmentId = r.departmentId ?? (org ? departmentByName(siteDepartments(org, r.siteId), c.departmentName)?.id ?? null : null);
   return {
-    ...c, serviceOn: r.serviceOn, siteId: r.siteId, headcount: { ...headcount }, special: special.map(s => ({ ...s })),
+    ...c, serviceOn: r.serviceOn, siteId: r.siteId, departmentId, headcount: { ...headcount }, special: special.map(s => ({ ...s })),
     signers: r.signatures.map(s => ({ role: s.role, name: s.name, email: s.email })),
   };
 }
 
 /** The prototype's 複製: a new draft dated today with the same content and signers, executed by me. */
-export function copyForm(r: ServiceRecord, today: string, myId: string): ServiceForm {
-  return { ...formFromRecord(r), serviceOn: today, executorUserId: myId };
+export function copyForm(r: ServiceRecord, today: string, myId: string, org?: readonly OrgEntity[]): ServiceForm {
+  return { ...formFromRecord(r, org), serviceOn: today, executorUserId: myId };
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -110,7 +118,7 @@ export function formErrors(f: ServiceForm, roles?: readonly string[]): FormError
 /** The request body: trimmed text, empty special rows and blank signer rows dropped. */
 export function toBody(f: ServiceForm): ServiceRecordBody {
   return {
-    serviceOn: f.serviceOn, siteId: f.siteId,
+    serviceOn: f.serviceOn, siteId: f.siteId, departmentId: f.departmentId,
     content: {
       from: f.from, to: f.to, executorUserId: f.executorUserId, unit: f.unit.trim(), departmentName: f.departmentName.trim(),
       headcount: { ...f.headcount },
@@ -124,24 +132,62 @@ export function toBody(f: ServiceForm): ServiceRecordBody {
 
 export const signProgress = (sigs: readonly Signature[]) => ({ signed: sigs.filter(s => s.signedAt).length, total: sigs.length });
 
+/**
+ * A department to filter by: one of the organisation's (records linked to it, and older records without a department
+ * at its site under its name), or a name written on older records that is no department of their site.
+ */
+export type DepartmentMatch = { id: string; siteId: string; name: string } | { name: string };
+
 export interface RecordFilter {
   status?: ServiceStatus;
   /** A company (法人), as the ids of its sites. */
   companySites?: readonly string[];
   siteId?: string;
-  /** 部門名稱 as written on the record. */
-  department?: string;
+  department?: DepartmentMatch;
   executor?: string;
   from?: string;
   to?: string;
 }
 
+/** By departmentId when the record has one; older records without it by 部門名稱 (at the department's site). */
+export function matchesDepartment(r: ServiceRecord, m: DepartmentMatch): boolean {
+  if (r.departmentId) return 'id' in m && r.departmentId === m.id;
+  return readContent(r.content).departmentName === m.name && (!('id' in m) || r.siteId === m.siteId);
+}
+
 /** Newest service date first (the API's order), narrowed by status, company, site, department, executor and date range. */
 export function filterRecords(records: readonly ServiceRecord[], f: RecordFilter): ServiceRecord[] {
   return records.filter(r => (!f.status || r.status === f.status) && (!f.companySites || f.companySites.includes(r.siteId))
-    && (!f.siteId || r.siteId === f.siteId) && (!f.department || readContent(r.content).departmentName === f.department)
+    && (!f.siteId || r.siteId === f.siteId) && (!f.department || matchesDepartment(r, f.department))
     && (!f.executor || readContent(r.content).executorUserId === f.executor)
     && (!f.from || r.serviceOn >= f.from) && (!f.to || r.serviceOn <= f.to));
+}
+
+export interface DepartmentOption { value: string; label: string; group: string; match: DepartmentMatch }
+
+/** Group of the names written on older records that are no department of their site. */
+export const OTHER_NAMES = '紀錄上的其他名稱';
+
+/**
+ * The department filter's choices for these sites (all of mine when none are given): each site's departments, by
+ * site, then names written on older records in scope that are none of their site's departments.
+ */
+export function departmentOptions(org: readonly OrgEntity[], records: readonly ServiceRecord[], siteIds?: readonly string[]): DepartmentOption[] {
+  const sites = org.flatMap(e => e.sites).filter(s => (siteIds ? siteIds.includes(s.id) : s.mine));
+  const departments: DepartmentOption[] = sites.flatMap(s => s.departments.map(d => ({ value: d.id, label: d.name, group: s.name, match: { id: d.id, siteId: s.id, name: d.name } })));
+  const unlinked = records.filter(r => (!siteIds || siteIds.includes(r.siteId)) && !r.departmentId
+    && !departmentByName(siteDepartments(org, r.siteId), readContent(r.content).departmentName));
+  const names = usedValues(unlinked, r => [readContent(r.content).departmentName]);
+  return [...departments, ...names.map(name => ({ value: `name:${name}`, label: name, group: OTHER_NAMES, match: { name } }))];
+}
+
+type Option = { value: string; label: string };
+
+/** Select data: a flat list while there is one group, grouped by site (then other names) otherwise. */
+export function groupOptions(options: readonly DepartmentOption[]): Option[] | { group: string; items: Option[] }[] {
+  const groups = [...new Set(options.map(o => o.group))];
+  if (groups.length <= 1) return options.map(({ value, label }) => ({ value, label }));
+  return groups.map(group => ({ group, items: options.filter(o => o.group === group).map(({ value, label }) => ({ value, label })) }));
 }
 
 export interface Company { id: string; name: string; siteIds: string[] }
@@ -151,10 +197,20 @@ export function myCompanies(org: readonly OrgEntity[]): Company[] {
   return org.map(e => ({ id: e.id, name: e.name, siteIds: e.sites.filter(s => s.mine).map(s => s.id) })).filter(c => c.siteIds.length > 0);
 }
 
-/** Department names of these sites (all of mine when none are given), once each, in the organisation's order. */
-export function departmentNames(org: readonly OrgEntity[], siteIds?: readonly string[]): string[] {
-  const sites = org.flatMap(e => e.sites).filter(s => (siteIds ? siteIds.includes(s.id) : s.mine));
-  return [...new Set(sites.flatMap(s => s.departments.map(d => d.name)))];
+export interface Department { id: string; name: string }
+
+/** Departments of a site, in the organisation's order. */
+export function siteDepartments(org: readonly OrgEntity[], siteId: string): Department[] {
+  return org.flatMap(e => e.sites).find(s => s.id === siteId)?.departments.map(d => ({ id: d.id, name: d.name })) ?? [];
+}
+
+/** The department with this name (names are unique within a site). */
+export const departmentByName = (departments: readonly Department[], name: string): Department | undefined =>
+  (name.trim() ? departments.find(d => d.name === name.trim()) : undefined);
+
+/** 部門名稱 picked or typed in: linked to the site's department of that name, when there is one. */
+export function withDepartmentName(departments: readonly Department[], name: string): Pick<ServiceForm, 'departmentId' | 'departmentName'> {
+  return { departmentName: name, departmentId: departmentByName(departments, name)?.id ?? null };
 }
 
 /** The company a site belongs to (事業單位 on the record). */
@@ -164,6 +220,16 @@ export const companyOfSite = (org: readonly OrgEntity[], siteId: string) => org.
 export function unitForSite(org: readonly OrgEntity[], f: Pick<ServiceForm, 'siteId' | 'unit'>, nextSiteId: string): string {
   const before = companyOfSite(org, f.siteId)?.name ?? '';
   return !f.unit.trim() || f.unit.trim() === before ? companyOfSite(org, nextSiteId)?.name ?? f.unit : f.unit;
+}
+
+/**
+ * The form after picking another site. A department belongs to its site, so it goes, with its name; a name typed in
+ * stays (linked when the new site has a department of that name). Without the organisation only the link is dropped.
+ */
+export function forSite(org: readonly OrgEntity[] | undefined, f: ServiceForm, siteId: string): ServiceForm {
+  if (siteId === f.siteId) return f;
+  if (!org) return { ...f, siteId, departmentId: null };
+  return { ...f, siteId, unit: unitForSite(org, f, siteId), ...withDepartmentName(siteDepartments(org, siteId), f.departmentId ? '' : f.departmentName) };
 }
 
 /** Executors named on these records, by name, for the filter. */
@@ -220,6 +286,7 @@ export function serviceProblem(err: unknown): string {
       case 'unknown_sign_off_role': return '有簽核人員類別不在租戶設定的簽核角色中，請向租戶管理員確認可用的類別。';
       case 'unknown_staff': return '執行人員的帳號已停用，請改由在職的人員建立紀錄。';
       case 'outside_sites': return '這個地點不在你負責的廠區。';
+      case 'unknown_department': return '所選的部門不在這個地點，可能已被移到別的廠區，請重新選擇部門。';
       case 'not_draft': return '這筆紀錄已送出簽核，不能再修改或刪除。';
       case 'not_in_sign_off': return '這筆紀錄目前不在簽核中，不能重寄連結。';
       case 'already_signed': return '這位簽核人員已經簽核了。';

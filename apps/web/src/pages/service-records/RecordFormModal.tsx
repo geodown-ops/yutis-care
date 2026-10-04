@@ -12,7 +12,7 @@ import { createRecord, orgQuery, PHRASE_CATEGORIES, serviceRecordsQuery, service
 import { SectionTitle } from './parts';
 import { SignerNameInput } from './SignerName';
 import {
-  departmentNames, formErrors, roleOptions, SECTIONS, serviceProblem, toBody, unitForSite,
+  formErrors, forSite, roleOptions, SECTIONS, serviceProblem, siteDepartments, toBody, withDepartmentName,
   type Headcount, type ServiceForm, type ServiceRecord, type SignLink,
 } from './records';
 
@@ -51,7 +51,10 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
   const phrases = useQuery({ ...servicePhrasesQuery, enabled: clinical });
   const executors = staffOptions(staff.data, me.id, [{ id: f.executorUserId, name: executorName ?? (f.executorUserId === me.id ? me.name : null) }]);
   const signerRoles = roleOptions(roles.data ?? [], f.signers.map(s => s.role));
-  const departments = departmentNames(org.data ?? [], [f.siteId]);
+  const departments = siteDepartments(org.data ?? [], f.siteId);
+  // A name typed in that is none of the site's departments is only written on the form.
+  const departmentNote = org.isError ? '暫時無法載入部門清單，可自行輸入'
+    : f.departmentName.trim() && !f.departmentId && org.data ? '不是這個地點的部門，只會寫在表單上' : '可選擇這個地點的部門，或自行輸入';
 
   const set = <K extends keyof ServiceForm>(k: K, v: ServiceForm[K]) => setF(prev => ({ ...prev, [k]: v }));
   const setCount = (k: keyof Headcount, v: string | number) => setF(prev => ({ ...prev, headcount: { ...prev.headcount, [k]: typeof v === 'number' ? v : 0 } }));
@@ -90,7 +93,7 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
             <Select label="地點" required data={sites.map(s => ({ value: s.id, label: s.name }))} value={f.siteId || null} error={shown.siteId}
-              onChange={v => setF(prev => ({ ...prev, siteId: v ?? '', unit: v && org.data ? unitForSite(org.data, prev, v) : prev.unit }))} allowDeselect={false} />
+              onChange={v => v && setF(prev => forSite(org.data, prev, v))} allowDeselect={false} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
             <Select label="執行人員" required data={executors} value={f.executorUserId || null} allowDeselect={false} searchable {...staffSelectProps}
@@ -104,8 +107,8 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
           <Stack gap="md" mt="sm">
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <TextInput label="事業單位" description="預設為地點所屬的公司" maxLength={100} value={f.unit} onChange={e => set('unit', e.currentTarget.value)} />
-              <Autocomplete label="部門名稱" description="可選擇這個地點的部門，或自行輸入" maxLength={100} data={departments} value={f.departmentName}
-                onChange={v => set('departmentName', v)} />
+              <Autocomplete label="部門名稱" description={departmentNote} maxLength={100} data={departments.map(d => d.name)} value={f.departmentName}
+                onChange={v => setF(prev => ({ ...prev, ...(org.data ? withDepartmentName(departments, v) : { departmentName: v, departmentId: null }) }))} />
             </SimpleGrid>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
               <CountPair label="行政人員" m={f.headcount.adminM} f={f.headcount.adminF} onM={v => setCount('adminM', v)} onF={v => setCount('adminF', v)} />

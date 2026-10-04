@@ -11,12 +11,13 @@ import { StatusBadge } from './parts';
 import { RecordFormModal, type FormMode } from './RecordFormModal';
 import { RecordViewModal, SignLinksModal } from './RecordViewModal';
 import {
-  companyOfSite, copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formFromRecord, myCompanies, newForm, readContent,
+  companyOfSite, copyForm, countByStatus, departmentOptions, executorsOf, filterRecords, formFromRecord, groupOptions, myCompanies, newForm, readContent,
   serviceProblem, slashDate, signProgress, STATUSES, timeRange, usedValues, type RecordFilter, type ServiceForm, type ServiceRecord, type ServiceStatus, type SignLink,
 } from './records';
 
 interface Editing { key: number; mode: FormMode; recordId?: string; executorName?: string | null; form: ServiceForm }
-type Filter = Omit<RecordFilter, 'companySites'> & { company?: string };
+/** The filters as picked; `department` is the value of a department option. */
+type Filter = Omit<RecordFilter, 'companySites' | 'department'> & { company?: string; department?: string };
 
 /** 勞工健康服務執行紀錄表（附表八）: on-site service records of my sites and their sign-off. */
 export function ServiceRecordsPage() {
@@ -33,15 +34,13 @@ export function ServiceRecordsPage() {
   const companies = myCompanies(org.data ?? []);
   const company = companies.find(c => c.id === filter.company);
   const companySites = sites.filter(s => !company || company.siteIds.includes(s.id));
-  // The organisation's departments in scope, then any other name written on the records.
+  // The organisation's departments in scope, by site, then other names written on older records.
   const scope = filter.siteId ? [filter.siteId] : company?.siteIds;
-  const departments = [...new Set([
-    ...departmentNames(org.data ?? [], scope),
-    ...usedValues(records.filter(r => !scope || scope.includes(r.siteId)), r => [readContent(r.content).departmentName]),
-  ])];
+  const departments = departmentOptions(org.data ?? [], records, scope);
+  const department = departments.find(d => d.value === filter.department)?.match;
   const executors = executorsOf(records);
   const counts = countByStatus(records);
-  const rows = filterRecords(records, { ...filter, companySites: company?.siteIds });
+  const rows = filterRecords(records, { ...filter, companySites: company?.siteIds, department });
   const viewing = viewingId ? records.find(r => r.id === viewingId) : undefined;
   const filtered = !!(filter.status || filter.company || filter.siteId || filter.department || filter.executor || filter.from || filter.to);
   const waiting = records.filter(r => r.status === '簽核中').reduce((n, r) => n + r.signatures.filter(s => !s.signedAt).length, 0);
@@ -51,8 +50,8 @@ export function ServiceRecordsPage() {
     setViewingId(null);
     setEditing({ key: Date.now(), mode, form, recordId, executorName });
   };
-  const open = (r: ServiceRecord) => (r.status === '草稿' ? edit('edit', formFromRecord(r), r.id, r.executorName) : setViewingId(r.id));
-  const copy = (r: ServiceRecord) => edit('copy', copyForm(r, todayIso(), me.id));
+  const open = (r: ServiceRecord) => (r.status === '草稿' ? edit('edit', formFromRecord(r, org.data), r.id, r.executorName) : setViewingId(r.id));
+  const copy = (r: ServiceRecord) => edit('copy', copyForm(r, todayIso(), me.id, org.data));
   const create = () => {
     const siteId = sites[0]?.id ?? '';
     edit('new', newForm({ today: todayIso(), siteId, me, unit: org.data ? companyOfSite(org.data, siteId)?.name : undefined }));
@@ -90,8 +89,8 @@ export function ServiceRecordsPage() {
                 data={companySites.map(s => ({ value: s.id, label: s.name }))} onChange={v => patch({ siteId: v ?? undefined, department: undefined })} />
             )}
             {departments.length > 0 && (
-              <Select aria-label="部門" placeholder="全部部門" clearable searchable size="xs" w={150} value={filter.department ?? null}
-                data={departments} onChange={v => patch({ department: v ?? undefined })} />
+              <Select aria-label="部門" placeholder="全部部門" clearable searchable size="xs" w={150} value={department ? filter.department! : null}
+                data={groupOptions(departments)} onChange={v => patch({ department: v ?? undefined })} comboboxProps={{ width: 220, position: 'bottom-start' }} />
             )}
             {executors.length > 1 && (
               <Select aria-label="執行人員" placeholder="全部執行人員" clearable size="xs" w={150} value={filter.executor ?? null}
