@@ -16,6 +16,9 @@ import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCasesRouteImport } from './routes/_app/cases'
 import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
 import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
+import { Route as AppProgramsMaternalRouteImport } from './routes/_app/programs.maternal'
+import { Route as AppProgramsNoticesRouteImport } from './routes/_app/programs.notices'
+import { Route as AppProgramsViolenceRouteImport } from './routes/_app/programs.violence'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -51,6 +54,21 @@ const AppEmployeesEmployeeIdRoute = AppEmployeesEmployeeIdRouteImport.update({
   path: '/employees/$employeeId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProgramsMaternalRoute = AppProgramsMaternalRouteImport.update({
+  id: '/programs/maternal',
+  path: '/programs/maternal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsNoticesRoute = AppProgramsNoticesRouteImport.update({
+  id: '/programs/notices',
+  path: '/programs/notices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsViolenceRoute = AppProgramsViolenceRouteImport.update({
+  id: '/programs/violence',
+  path: '/programs/violence',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -58,6 +76,9 @@ export interface FileRoutesByFullPath {
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/programs/maternal': typeof AppProgramsMaternalRoute
+  '/programs/notices': typeof AppProgramsNoticesRoute
+  '/programs/violence': typeof AppProgramsViolenceRoute
   '/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -66,6 +87,9 @@ export interface FileRoutesByTo {
   '/cases': typeof AppCasesRoute
   '/': typeof AppIndexRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/programs/maternal': typeof AppProgramsMaternalRoute
+  '/programs/notices': typeof AppProgramsNoticesRoute
+  '/programs/violence': typeof AppProgramsViolenceRoute
   '/employees': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesById {
@@ -76,14 +100,34 @@ export interface FileRoutesById {
   '/_app/cases': typeof AppCasesRoute
   '/_app/': typeof AppIndexRoute
   '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/_app/programs/maternal': typeof AppProgramsMaternalRoute
+  '/_app/programs/notices': typeof AppProgramsNoticesRoute
+  '/_app/programs/violence': typeof AppProgramsViolenceRoute
   '/_app/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
+    | '/'
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/employees/$employeeId'
+    | '/programs/maternal'
+    | '/programs/notices'
+    | '/programs/violence'
+    | '/employees/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/$' | '/cases' | '/' | '/employees/$employeeId' | '/employees'
+  to:
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/'
+    | '/employees/$employeeId'
+    | '/programs/maternal'
+    | '/programs/notices'
+    | '/programs/violence'
+    | '/employees'
   id:
     | '__root__'
     | '/_app'
@@ -92,6 +136,9 @@ export interface FileRouteTypes {
     | '/_app/cases'
     | '/_app/'
     | '/_app/employees/$employeeId'
+    | '/_app/programs/maternal'
+    | '/_app/programs/notices'
+    | '/_app/programs/violence'
     | '/_app/employees/'
   fileRoutesById: FileRoutesById
 }
@@ -151,6 +198,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmployeesEmployeeIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/programs/maternal': {
+      id: '/_app/programs/maternal'
+      path: '/programs/maternal'
+      fullPath: '/programs/maternal'
+      preLoaderRoute: typeof AppProgramsMaternalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/notices': {
+      id: '/_app/programs/notices'
+      path: '/programs/notices'
+      fullPath: '/programs/notices'
+      preLoaderRoute: typeof AppProgramsNoticesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/violence': {
+      id: '/_app/programs/violence'
+      path: '/programs/violence'
+      fullPath: '/programs/violence'
+      preLoaderRoute: typeof AppProgramsViolenceRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -159,6 +227,9 @@ interface AppRouteChildren {
   AppCasesRoute: typeof AppCasesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
+  AppProgramsMaternalRoute: typeof AppProgramsMaternalRoute
+  AppProgramsNoticesRoute: typeof AppProgramsNoticesRoute
+  AppProgramsViolenceRoute: typeof AppProgramsViolenceRoute
   AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
 }
 
@@ -167,6 +238,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppCasesRoute: AppCasesRoute,
   AppIndexRoute: AppIndexRoute,
   AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
+  AppProgramsMaternalRoute: AppProgramsMaternalRoute,
+  AppProgramsNoticesRoute: AppProgramsNoticesRoute,
+  AppProgramsViolenceRoute: AppProgramsViolenceRoute,
   AppEmployeesIndexRoute: AppEmployeesIndexRoute,
 }
 
