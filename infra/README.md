@@ -90,13 +90,17 @@ terraform apply
 - 每晚 04:00 由 Cloud Scheduler 執行 `release` 工作並帶 `RESET_DEMO_DATABASE=true`，清空後重新載入虛構資料。這個重置只在 `DEMO_SITE=true` 而且資料庫裡沒有其他租戶時才會執行，正式站不可能被重置。
 - 示範站可以不用密碼登入（例如 `nurse@demo.test`），請不要在示範站輸入任何真實個人資料。
 
+## 登入與加密（正式站）
+
+- **登入**：每個租戶在 Identity Platform 有自己的登入租戶，平台後台開通時自動建立，並把 `{租戶}.care.yutis.com.tw` 加入授權網域。第一位租戶管理員會收到 Identity Platform 寄出的登入連結信（開到 `{租戶}.care.yutis.com.tw/login`）。客戶要用公司帳號登入（Entra ID、Google Workspace、其他 SAML／OIDC）時，在 GCP 主控台 → Identity Platform → 租戶 → 該租戶 → 新增提供者；登入頁會自動出現那個按鈕。租戶 API 會確認 ID token 來自這個子網域自己的登入租戶。
+- 邀請信的寄件名稱與內容在 Identity Platform → 設定 → 範本（建議改成中文、寄件者名稱 Yutis Care）。
+- **加密**：每個租戶一把 Cloud KMS 金鑰（開通時建立，每 90 天自動輪替）。租戶第一次寫入加密欄位時，租戶 API 產生資料金鑰並用 KMS 包裝存在 `tenant_keys`；之後每個程式只向 KMS 解開一次。銷毀租戶的 KMS 金鑰，該租戶的加密資料就再也無法讀取。
+
 ## 正式營運前還沒完成的
 
-部署設定完成不代表可以開始放客戶資料。以下是程式本身還缺的部分：
+部署設定完成不代表可以開始放客戶資料。以下是還缺的部分：
 
-1. **前端畫面串接 API**：三個前端目前只有骨架與示範資料（租戶後台的首頁、員工、個案頁，員工端與平台後台也是示範資料）。正式站以 `live` 模式建置，但大部分功能畫面還沒做。
-2. **登入**：租戶 API 的 Identity Platform token 驗證（`IdentityVerifier`）與前端登入頁還沒實作；正式站目前任何人都無法登入（會回 503，這是刻意的安全預設）。
-3. **Cloud KMS**：租戶 API 的 `TenantCrypto` 與平台 API 的 `TenantKeyService` 還沒接上 Cloud KMS；在那之前正式站讀寫加密欄位、開通租戶都會回 503。
-4. **平台開通流程的外部服務**：Identity Platform 建立租戶、邀請信寄送（需要選定寄信服務）。
-5. **職醫校正**：健檢分級門檻與心血管風險的示意數值，需職醫依指引校正。
-6. **法務確認**：保存年限（一般 7 年、特殊 10 年）、隱私權政策與客戶的個資委託處理約定。
+1. **前端畫面串接 API 與登入頁**（「前端 UX 設計」討論串進行中）：三個前端目前還是骨架與示範資料；登入頁要用 Firebase Auth SDK 完成 SSO 與 Email 連結登入，再把 ID token 交給 `POST /api/auth/sign-in`。`GET /api/tenant` 會提供登入頁需要的 `identityPlatform` 設定。
+2. **職醫校正**：健檢分級門檻與心血管風險的示意數值，需職醫依指引校正。
+3. **法務確認**：保存年限（一般 7 年、特殊 10 年）、隱私權政策與客戶的個資委託處理約定。
+4. **第一次部署後的實際驗證**：在正式站建立一個測試租戶，走一次開通、收邀請信、登入、匯入員工、寫入加密欄位，確認 KMS 與 Identity Platform 權限都正確，再開通真正的客戶。

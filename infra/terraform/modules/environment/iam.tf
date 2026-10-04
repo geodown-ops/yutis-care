@@ -72,6 +72,14 @@ resource "google_kms_key_ring_iam_member" "manage_keys" {
   member      = google_service_account.run["platform"].member
 }
 
+# The tenant API reads each tenant's sign-in providers for its sign-in page.
+resource "google_project_iam_member" "api_identity" {
+  count   = var.identity_platform ? 1 : 0
+  project = var.project_id
+  role    = "roles/identityplatform.viewer"
+  member  = google_service_account.run["api"].member
+}
+
 resource "google_project_iam_member" "platform_identity" {
   count   = local.platform && var.identity_platform ? 1 : 0
   project = var.project_id

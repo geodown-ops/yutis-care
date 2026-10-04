@@ -156,7 +156,7 @@ describe('tenants', () => {
     expect(await owner.select().from(phrases).where(eq(phrases.tenantId, t.id))).toHaveLength(DEFAULT_PHRASES.length);
     expect((await owner.select().from(tenantSettings).where(eq(tenantSettings.tenantId, t.id))).map(s => s.key).sort()).toEqual(['sign_off_roles', 'survey_versions']);
     expect(await owner.select({ email: users.email, role: users.role }).from(users).where(eq(users.tenantId, t.id))).toEqual([{ email: 'admin@newco.test', role: '租戶管理員' }]);
-    expect(mailer.sent.at(-1)).toEqual({ email: 'admin@newco.test', name: '陳管理員', tenantName: 'newco 股份有限公司', tenantUrl: 'https://newco.care.test' });
+    expect(mailer.sent.at(-1)).toEqual({ email: 'admin@newco.test', name: '陳管理員', tenantName: 'newco 股份有限公司', tenantUrl: 'https://newco.care.test', idpTenantId: 'idp-newco' });
     const [audit] = await owner.select().from(platformAuditLog).where(eq(platformAuditLog.action, 'tenant.onboard'));
     expect(audit).toMatchObject({ tenantId: t.id, actorEmail: OPS, detail: expect.objectContaining({ subdomain: 'newco', plan: 'standard' }) });
   });

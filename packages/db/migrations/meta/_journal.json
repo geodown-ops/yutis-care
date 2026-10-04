@@ -113,6 +113,27 @@
       "when": 1791036178755,
       "tag": "0015_jobs_access",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791072141691,
+      "tag": "0016_tenant_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791072142934,
+      "tag": "0017_tenant_keys_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791072279767,
+      "tag": "0018_tenant_sign_in",
+      "breakpoints": true
     }
   ]
 }

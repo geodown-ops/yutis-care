@@ -7,8 +7,7 @@ import { createDb } from '@yutis/db';
 import { PgBoss } from 'pg-boss';
 import pg from 'pg';
 import { z } from 'zod';
-import { LocalTenantCrypto, UnconfiguredTenantCrypto } from '../core/crypto.js';
-import { assertAppRole } from '../core/database.js';
+import { assertAppRole, tenantCrypto } from '../core/database.js';
 import { EXPORT_QUEUE, JOB_SCHEMA, RETENTION_CRON, RETENTION_QUEUE, type ExportJob } from './jobs.js';
 import { runExport, runRetentionScan } from './work.js';
 
@@ -16,6 +15,8 @@ const env = z.object({
   NODE_ENV: z.string().default('development'),
   WORKER_DATABASE_URL: z.string().min(1),
   TENANT_CRYPTO_LOCAL_KEY: z.string().optional(),
+  /** Per-tenant data keys wrapped by Cloud KMS (production). */
+  TENANT_CRYPTO_KMS: z.enum(['true', 'false']).default('false'),
   /** The marketing demo site (fictional data only): the local encryption key is allowed there. */
   DEMO_SITE: z.enum(['true', 'false']).default('false'),
   /** On Cloud Run the worker must answer HTTP on PORT, or the revision is not considered started. */
@@ -26,7 +27,11 @@ if (env.NODE_ENV === 'production' && env.TENANT_CRYPTO_LOCAL_KEY && env.DEMO_SIT
 const pool = new pg.Pool({ connectionString: env.WORKER_DATABASE_URL, max: 4 });
 await assertAppRole(pool);
 const db = createDb(pool);
-const crypto = env.TENANT_CRYPTO_LOCAL_KEY ? new LocalTenantCrypto(Buffer.from(env.TENANT_CRYPTO_LOCAL_KEY, 'base64')) : new UnconfiguredTenantCrypto();
+const crypto = tenantCrypto({
+  databaseUrl: env.WORKER_DATABASE_URL,
+  cryptoKms: env.TENANT_CRYPTO_KMS === 'true',
+  cryptoLocalKey: env.TENANT_CRYPTO_LOCAL_KEY ? Buffer.from(env.TENANT_CRYPTO_LOCAL_KEY, 'base64') : undefined,
+});
 
 const boss = new PgBoss({ connectionString: env.WORKER_DATABASE_URL, schema: JOB_SCHEMA, migrate: false });
 boss.on('error', error => console.error('[worker]', error.message));

@@ -20,7 +20,7 @@ export class AppModule {
   static forRoot(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule.register({ devSignIn: config.devSignIn }), AdminModule, CareModule, ProgramsModule, ReportsModule],
+      imports: [CoreModule.forRoot(config), AuthModule.register(config), AdminModule, CareModule, ProgramsModule, ReportsModule],
       controllers: [TenantController],
     };
   }

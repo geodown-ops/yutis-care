@@ -19,6 +19,13 @@ const Env = z.object({
   AUTH_DEV_SIGN_IN: flag.default(false),
   /** Base64 32-byte master key for local per-tenant encryption keys. Local development and tests only; production uses Cloud KMS. */
   TENANT_CRYPTO_LOCAL_KEY: z.string().min(1).optional(),
+  /** Encrypt with per-tenant data keys wrapped by Cloud KMS (production). */
+  TENANT_CRYPTO_KMS: flag.default(false),
+  /** Verify sign-in tokens issued by Google Cloud Identity Platform in this project (production). */
+  IDENTITY_PLATFORM_PROJECT_ID: z.string().min(1).optional(),
+  /** The project's browser API key and auth domain, handed to the sign-in page (not secret). */
+  IDENTITY_PLATFORM_API_KEY: z.string().min(1).optional(),
+  IDENTITY_PLATFORM_AUTH_DOMAIN: z.string().min(1).optional(),
   /**
    * The marketing demo site (demo.care.yutis.com.tw), a separate deployment whose database holds only fictional data.
    * There, dev sign-in and the local encryption key are allowed even with NODE_ENV=production. Never set on the
@@ -39,8 +46,12 @@ export interface ApiConfig {
   sessionIdleSeconds: number;
   sessionMaxSeconds: number;
   devSignIn: boolean;
-  /** Local master key for TenantCrypto; undefined = encryption unavailable until Cloud KMS is connected. */
+  /** Local master key for TenantCrypto (local development, tests, demo site). */
   cryptoLocalKey?: Buffer;
+  /** Per-tenant data keys wrapped by Cloud KMS. With neither this nor a local key, encryption answers 503. */
+  cryptoKms: boolean;
+  /** Identity Platform whose ID tokens sign people in; undefined = sign-in unavailable (unless dev sign-in). */
+  identityPlatform?: { projectId: string; apiKey: string; authDomain: string };
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): ApiConfig {
@@ -53,6 +64,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (production && e.TENANT_CRYPTO_LOCAL_KEY && !e.DEMO_SITE) throw new Error('TENANT_CRYPTO_LOCAL_KEY must not be used in production');
   const cryptoLocalKey = e.TENANT_CRYPTO_LOCAL_KEY ? Buffer.from(e.TENANT_CRYPTO_LOCAL_KEY, 'base64') : undefined;
   if (cryptoLocalKey && cryptoLocalKey.length !== 32) throw new Error('TENANT_CRYPTO_LOCAL_KEY must be 32 bytes, base64-encoded');
+  const identityPlatform = e.IDENTITY_PLATFORM_PROJECT_ID
+    ? { projectId: e.IDENTITY_PLATFORM_PROJECT_ID, apiKey: e.IDENTITY_PLATFORM_API_KEY ?? '', authDomain: e.IDENTITY_PLATFORM_AUTH_DOMAIN ?? '' }
+    : undefined;
+  if (identityPlatform && (!identityPlatform.apiKey || !identityPlatform.authDomain)) {
+    throw new Error('IDENTITY_PLATFORM_PROJECT_ID needs IDENTITY_PLATFORM_API_KEY and IDENTITY_PLATFORM_AUTH_DOMAIN');
+  }
+  if (identityPlatform && e.AUTH_DEV_SIGN_IN) throw new Error('Use either AUTH_DEV_SIGN_IN or Identity Platform, not both');
+  if (cryptoLocalKey && e.TENANT_CRYPTO_KMS) throw new Error('Use either TENANT_CRYPTO_LOCAL_KEY or TENANT_CRYPTO_KMS, not both');
   return {
     production,
     demoSite: e.DEMO_SITE,
@@ -65,5 +84,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     sessionMaxSeconds: e.SESSION_MAX_HOURS * 3600,
     devSignIn: e.AUTH_DEV_SIGN_IN,
     cryptoLocalKey,
+    cryptoKms: e.TENANT_CRYPTO_KMS,
+    identityPlatform,
   };
 }

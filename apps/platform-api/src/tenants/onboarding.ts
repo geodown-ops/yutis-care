@@ -97,7 +97,9 @@ export class OnboardingService {
       detail: { subdomain: slug, name: input.name, plan: plan.code, subscriptionStatus: input.subscriptionStatus, seatLimit: input.seatLimit },
     });
     // Last, so a failure here still undoes everything above.
-    await this.invitations.sendTenantAdminInvitation({ email: input.admin.email, name: input.admin.name, tenantName: input.name, tenantUrl: this.tenantUrl(slug) });
+    await this.invitations.sendTenantAdminInvitation({
+      email: input.admin.email, name: input.admin.name, tenantName: input.name, tenantUrl: this.tenantUrl(slug), idpTenantId,
+    });
     return tenantId;
   }
 }

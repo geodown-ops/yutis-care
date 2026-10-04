@@ -17,6 +17,9 @@ const Env = z.object({
   PLATFORM_DEV_AUTH: flag.default(false),
   /** Fake Cloud KMS, Identity Platform and email that only log. Local development and tests only. */
   PLATFORM_FAKE_INTEGRATIONS: flag.default(false),
+  /** Production: this project's Identity Platform, and the KMS key ring for tenant keys (projects/…/keyRings/tenants). */
+  GCP_PROJECT_ID: z.string().min(1).optional(),
+  KMS_KEY_RING: z.string().regex(/^projects\/[^/]+\/locations\/[^/]+\/keyRings\/[^/]+$/).optional(),
 });
 
 export interface PlatformConfig {
@@ -28,6 +31,8 @@ export interface PlatformConfig {
   trustProxy: boolean;
   devAuth: boolean;
   fakeIntegrations: boolean;
+  /** Cloud KMS and Identity Platform for onboarding; undefined = those steps answer 503 (unless faked). */
+  gcp?: { projectId: string; kmsKeyRing: string };
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): PlatformConfig {
@@ -37,6 +42,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const production = e.NODE_ENV === 'production';
   if (production && e.PLATFORM_DEV_AUTH) throw new Error('PLATFORM_DEV_AUTH must not be enabled in production');
   if (production && e.PLATFORM_FAKE_INTEGRATIONS) throw new Error('PLATFORM_FAKE_INTEGRATIONS must not be enabled in production');
+  if (!!e.GCP_PROJECT_ID !== !!e.KMS_KEY_RING) throw new Error('GCP_PROJECT_ID and KMS_KEY_RING go together');
+  if (e.GCP_PROJECT_ID && e.PLATFORM_FAKE_INTEGRATIONS) throw new Error('Use either PLATFORM_FAKE_INTEGRATIONS or GCP_PROJECT_ID, not both');
   if (!e.PLATFORM_DEV_AUTH && !e.IAP_AUDIENCE) throw new Error('IAP_AUDIENCE is required unless PLATFORM_DEV_AUTH is on');
   return {
     production,
@@ -47,5 +54,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     trustProxy: e.TRUST_PROXY,
     devAuth: e.PLATFORM_DEV_AUTH,
     fakeIntegrations: e.PLATFORM_FAKE_INTEGRATIONS,
+    gcp: e.GCP_PROJECT_ID && e.KMS_KEY_RING ? { projectId: e.GCP_PROJECT_ID, kmsKeyRing: e.KMS_KEY_RING } : undefined,
   };
 }

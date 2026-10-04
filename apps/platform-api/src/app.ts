@@ -48,7 +48,7 @@ export interface AppOverrides {
 @Module({})
 export class AppModule {
   static forRoot(config: PlatformConfig, overrides: AppOverrides = {}): DynamicModule {
-    const integrations = { ...defaultIntegrations(config.fakeIntegrations), ...overrides.integrations };
+    const integrations = { ...defaultIntegrations(config), ...overrides.integrations };
     const identity = overrides.identity ?? (config.devAuth ? new DevIdentityVerifier() : new IapIdentityVerifier(config.iapAudience!));
     return {
       module: AppModule,

@@ -8,12 +8,19 @@ locals {
   registry          = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.images.repository_id}"
 
   demo_env = var.demo_site ? { DEMO_SITE = "true" } : {}
+  # Production: per-tenant keys wrapped by Cloud KMS, sign-in through Identity Platform. Demo: local key, dev sign-in.
+  kms_env = var.demo_site ? {} : { TENANT_CRYPTO_KMS = "true" }
+  sign_in_env = var.demo_site ? { AUTH_DEV_SIGN_IN = "true" } : var.identity_platform ? {
+    IDENTITY_PLATFORM_PROJECT_ID  = var.project_id
+    IDENTITY_PLATFORM_API_KEY     = nonsensitive(google_apikeys_key.browser[0].key_string) # a public browser key
+    IDENTITY_PLATFORM_AUTH_DOMAIN = "${var.project_id}.firebaseapp.com"
+  } : {}
   api_env = merge({
     NODE_ENV           = "production"
     TRUST_PROXY        = "true"
     TENANT_BASE_DOMAIN = var.tenant_base_domain
-  }, local.demo_env, var.demo_site ? { AUTH_DEV_SIGN_IN = "true" } : {})
-  worker_env   = merge({ NODE_ENV = "production" }, local.demo_env)
+  }, local.demo_env, local.kms_env, local.sign_in_env)
+  worker_env   = merge({ NODE_ENV = "production" }, local.demo_env, local.kms_env)
   demo_secrets = var.demo_site ? { TENANT_CRYPTO_LOCAL_KEY = "tenant-crypto-local-key" } : {}
 }
 
@@ -193,6 +200,14 @@ resource "google_cloud_run_v2_service" "platform_api" {
       env {
         name  = "TENANT_BASE_DOMAIN"
         value = var.tenant_base_domain
+      }
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "KMS_KEY_RING"
+        value = google_kms_key_ring.tenants.id
       }
       env {
         name  = "IAP_AUDIENCE"

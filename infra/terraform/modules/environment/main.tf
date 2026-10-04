@@ -8,6 +8,7 @@ locals {
   prefix   = "yutis"
   platform = var.platform_host != null
   services = [
+    "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "certificatemanager.googleapis.com",
     "cloudkms.googleapis.com",
@@ -20,6 +21,7 @@ locals {
     "monitoring.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "securetoken.googleapis.com",
     "servicenetworking.googleapis.com",
     "sqladmin.googleapis.com",
     "sts.googleapis.com",
@@ -209,8 +211,33 @@ resource "google_identity_platform_config" "this" {
   multi_tenant {
     allow_tenants = true
   }
-  authorized_domains = distinct(concat([var.certificate_domain], [for h in var.tenant_hosts : trimprefix(h, "*.")]))
+  authorized_domains = distinct(concat([var.certificate_domain, "${var.project_id}.firebaseapp.com"], [for h in var.tenant_hosts : trimprefix(h, "*.")]))
   depends_on         = [google_project_service.apis]
+  lifecycle {
+    # The platform API adds each tenant's own domain ({slug}.care.yutis.com.tw) when it onboards the tenant.
+    ignore_changes = [authorized_domains]
+  }
+}
+
+# The browser API key the sign-in page uses with Identity Platform (public by design, limited to Identity Toolkit and
+# our own pages).
+resource "google_apikeys_key" "browser" {
+  count        = var.identity_platform ? 1 : 0
+  project      = var.project_id
+  name         = "sign-in-browser"
+  display_name = "Sign-in page (Identity Platform)"
+  restrictions {
+    api_targets {
+      service = "identitytoolkit.googleapis.com"
+    }
+    api_targets {
+      service = "securetoken.googleapis.com"
+    }
+    browser_key_restrictions {
+      allowed_referrers = distinct(concat([for h in var.tenant_hosts : "https://${h}/*"], ["https://${var.project_id}.firebaseapp.com/*"]))
+    }
+  }
+  depends_on = [google_project_service.apis]
 }
 
 # ---------------------------------------------------------------- container images
