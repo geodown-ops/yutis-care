@@ -1,6 +1,7 @@
 /*
- * Grading standards (分級標準). A version is immutable once saved: changing the standard means saving the edited rules
- * as a new draft and publishing it. Numeric bands are [min, max), as in @yutis/domain levelOf.
+ * Grading standards (分級標準). Published and retired versions never change: changing the standard means saving the
+ * edited rules as a new draft (which can still be replaced or deleted) and publishing it. Numeric bands are [min, max),
+ * as in @yutis/domain levelOf.
  */
 import type { TenantPaths } from '@yutis/api-client';
 
@@ -8,6 +9,10 @@ type NewRuleSet = TenantPaths['/api/admin/rule-sets']['post']['requestBody']['co
 export type Rule = NewRuleSet['rules'][number];
 export type RuleLevel = Rule['levels'][number];
 export type RuleSetStatus = 'draft' | 'published' | 'retired';
+
+/** The tabs of the 分級標準、片語、簽核角色 page (?tab= in the URL; grading is the default). */
+export const RULES_TABS = ['grading', 'phrases', 'sign-off'] as const;
+export type RulesTab = (typeof RULES_TABS)[number];
 
 export const STATUS_LABEL: Record<RuleSetStatus, string> = { draft: '草稿', published: '使用中', retired: '已停用' };
 export const SRC_LABEL: Record<NonNullable<Rule['src']>, string> = { manual: '手冊', demo: '示意', physician: '職醫確認' };

@@ -45,7 +45,7 @@ export const NAV: NavGroup[] = [
     { path: '/admin/org', label: '組織架構', icon: IconSitemap, access: ADMIN },
     { path: '/admin/employee-import', label: '員工匯入', icon: IconUserPlus, access: ADMIN },
     { path: '/admin/accounts', label: '帳號與權限', icon: IconUserShield, access: ADMIN },
-    { path: '/admin/rules', label: '分級標準與片語', icon: IconAdjustmentsHorizontal, access: ADMIN },
+    { path: '/admin/rules', label: '分級標準、片語、簽核角色', icon: IconAdjustmentsHorizontal, access: ADMIN },
     { path: '/admin/exam-mapping', label: '健檢匯入對照', icon: IconArrowsExchange, access: ADMIN },
     // 客服授權 (/admin/support-access) and 稽核查詢 (/admin/audit) come back once the tenant API has endpoints for them.
   ] },

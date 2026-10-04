@@ -9,8 +9,8 @@ import { CardNote } from '../states';
 import { changes, type OrgImportReport } from './imports';
 import { ImportFlow } from './ImportFlow';
 import { flattenDepartments, flattenSites, siteOptions, type DepartmentRow, type LegalEntity, type SiteRow } from './org';
-import { importOrg, orgQuery } from './queries';
-import { AdminTitle, ConfirmModal, ErrorNote, FormActions, ToneBadge } from './ui';
+import { downloadOrgTemplate, importOrg, orgQuery } from './queries';
+import { AdminTitle, ConfirmModal, DownloadButton, ErrorNote, FormActions, ToneBadge } from './ui';
 
 type Editing =
   | { kind: 'legal-entity'; row?: LegalEntity }
@@ -272,12 +272,13 @@ function OrgImport() {
   return (
     <Stack gap="md">
       <Text size="sm">
-        工作表名稱與第一列欄位名稱需如下。依代碼新增或更新（部門依廠區代碼＋名稱），檔案裡沒有的資料不會被刪除。可以只放其中幾張工作表。
+        工作表名稱與第一列欄位名稱需如下（可下載範本填寫，粗體為必填）。依代碼新增或更新（部門依廠區代碼＋名稱），檔案裡沒有的資料不會被刪除。可以只放其中幾張工作表。
       </Text>
       <Table withTableBorder verticalSpacing={6}>
         <Table.Thead><Table.Tr><Table.Th w={90}>工作表</Table.Th><Table.Th>欄位</Table.Th></Table.Tr></Table.Thead>
         <Table.Tbody>{SHEETS.map(s => <Table.Tr key={s.sheet}><Table.Td fw={600}>{s.sheet}</Table.Td><Table.Td fz="sm">{s.columns}</Table.Td></Table.Tr>)}</Table.Tbody>
       </Table>
+      <DownloadButton download={downloadOrgTemplate} size="xs">下載匯入範本</DownloadButton>
       <ImportFlow<OrgImportReport>
         upload={importOrg}
         hasChanges={r => changes(r.legalEntities) + changes(r.sites) + changes(r.departments) > 0}

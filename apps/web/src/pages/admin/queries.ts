@@ -2,10 +2,9 @@
 import { data } from '@yutis/api-client';
 import { queryOptions } from '@tanstack/react-query';
 import { api } from '../../api';
-import type { LegalEntity } from './org';
+import { downloadFile } from './download';
 
-// The generated type lacks sites' address and departments (see org.ts).
-export const orgQuery = queryOptions({ queryKey: ['admin', 'org'], queryFn: async () => (await data(api.GET('/api/admin/org'))) as unknown as LegalEntity[] });
+export const orgQuery = queryOptions({ queryKey: ['admin', 'org'], queryFn: () => data(api.GET('/api/admin/org')) });
 
 export const staffAccountsQuery = queryOptions({ queryKey: ['admin', 'users'], queryFn: () => data(api.GET('/api/admin/users')) });
 
@@ -15,6 +14,14 @@ export const ruleSetsQuery = queryOptions({ queryKey: ['admin', 'rule-sets'], qu
 
 export const ruleSetQuery = (id: string) =>
   queryOptions({ queryKey: ['admin', 'rule-sets', id], queryFn: () => data(api.GET('/api/admin/rule-sets/{id}', { params: { path: { id } } })), staleTime: Infinity });
+
+export const phrasesQuery = queryOptions({ queryKey: ['admin', 'phrases'], queryFn: () => data(api.GET('/api/admin/phrases')) });
+
+export const signOffRolesQuery = queryOptions({ queryKey: ['admin', 'sign-off-roles'], queryFn: () => data(api.GET('/api/admin/sign-off-roles')) });
+
+/** Blank import files with the header row the import reads (bold = required). */
+export const downloadOrgTemplate = () => downloadFile(api.GET('/api/admin/org/import-template', { parseAs: 'blob' }), '組織架構匯入範本.xlsx');
+export const downloadEmployeeTemplate = () => downloadFile(api.GET('/api/admin/employees/import-template', { parseAs: 'blob' }), '員工主檔匯入範本.xlsx');
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
