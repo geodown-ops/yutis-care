@@ -7715,6 +7715,18 @@
                     "format": "date",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                   },
+                  "occurredTime": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "siteId": {
                     "type": "string",
                     "format": "uuid",
@@ -7733,6 +7745,18 @@
                       }
                     ]
                   },
+                  "place": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "type": {
                     "type": "string",
                     "minLength": 1,
@@ -7745,6 +7769,36 @@
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "victimKind": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "內部人員",
+                          "外部人員"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "perpetratorKind": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "內部人員",
+                          "外部人員"
+                        ]
                       },
                       {
                         "type": "null"
@@ -7921,6 +7975,17 @@
                     "format": "date",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                   },
+                  "occurredTime": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "siteId": {
                     "type": "string",
                     "format": "uuid",
@@ -7938,6 +8003,17 @@
                       }
                     ]
                   },
+                  "place": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "type": {
                     "type": "string",
                     "minLength": 1,
@@ -7949,6 +8025,34 @@
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "victimKind": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "內部人員",
+                          "外部人員"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "perpetratorKind": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "內部人員",
+                          "外部人員"
+                        ]
                       },
                       {
                         "type": "null"
@@ -13179,12 +13283,22 @@
           },
           "name": {
             "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "在職",
+              "留停",
+              "離職"
+            ],
+            "description": "目前的在職狀態"
           }
         },
         "required": [
           "id",
           "empNo",
-          "name"
+          "name",
+          "status"
         ]
       },
       "AuditEntryDto": {
@@ -15509,6 +15623,12 @@
             "type": "string",
             "format": "date"
           },
+          "occurredTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "14:35",
+            "description": "發生時間（HH:MM）"
+          },
           "siteId": {
             "type": "string",
             "format": "uuid"
@@ -15522,6 +15642,12 @@
             "type": "string",
             "nullable": true
           },
+          "place": {
+            "type": "string",
+            "nullable": true,
+            "example": "客服中心 1F 服務櫃台",
+            "description": "發生地點"
+          },
           "type": {
             "type": "string",
             "example": "語言暴力"
@@ -15531,6 +15657,24 @@
             "format": "uuid",
             "nullable": true,
             "description": "受害者是本公司員工時"
+          },
+          "victimKind": {
+            "type": "string",
+            "enum": [
+              "內部人員",
+              "外部人員"
+            ],
+            "nullable": true,
+            "description": "受害者人員類別"
+          },
+          "perpetratorKind": {
+            "type": "string",
+            "enum": [
+              "內部人員",
+              "外部人員"
+            ],
+            "nullable": true,
+            "description": "加害者人員類別"
           },
           "followUps": {
             "description": "後續協助",
@@ -15549,20 +15693,36 @@
           "detail": {
             "type": "string",
             "nullable": true,
-            "description": "事件經過與處理（加密儲存）"
+            "description": "雙方姓名或特徵、關係、事件經過與處理（加密儲存）"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "受理時間（通報建立時）"
+          },
+          "receiverName": {
+            "type": "string",
+            "nullable": true,
+            "description": "受理人（建立通報的人員）"
           }
         },
         "required": [
           "id",
           "occurredOn",
+          "occurredTime",
           "siteId",
           "departmentId",
           "departmentName",
+          "place",
           "type",
           "victimEmployeeId",
+          "victimKind",
+          "perpetratorKind",
           "followUps",
           "status",
-          "detail"
+          "detail",
+          "receivedAt",
+          "receiverName"
         ]
       },
       "ViolenceReviewItemDto": {

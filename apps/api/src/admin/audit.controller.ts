@@ -26,6 +26,7 @@ class AuditEmployeeDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ enum: employees.status.enumValues, description: '目前的在職狀態' }) status!: (typeof employees.status.enumValues)[number];
 }
 
 class AuditEntryDto {
@@ -96,7 +97,7 @@ export class AuditController {
     const [{ total }] = await ctx.tx.select({ total: count() }).from(auditLog).where(and(...where)) as [{ total: number }];
     const rows = await ctx.tx.select({
       log: auditLog, actorName: users.name, actorRole: users.role, actorEmployeeName: actorEmployees.name,
-      employeeEmpNo: employees.empNo, employeeName: employees.name,
+      employeeEmpNo: employees.empNo, employeeName: employees.name, employeeStatus: employees.status,
     }).from(auditLog)
       .leftJoin(users, eq(users.id, auditLog.actorUserId))
       .leftJoin(actorEmployees, eq(actorEmployees.id, auditLog.actorEmployeeId))
@@ -117,7 +118,7 @@ export class AuditController {
           : log.actorEmployeeId ? { kind: 'employee', id: log.actorEmployeeId, name: r.actorEmployeeName, role: null }
           : { kind: 'system', id: null, name: null, role: null },
         action: log.action, subjectTable: log.subjectTable, subjectId: log.subjectId,
-        employee: log.employeeId && r.employeeName ? { id: log.employeeId, empNo: r.employeeEmpNo!, name: r.employeeName } : null,
+        employee: log.employeeId && r.employeeName ? { id: log.employeeId, empNo: r.employeeEmpNo!, name: r.employeeName, status: r.employeeStatus! } : null,
         dataCategory: log.dataCategory, reason: log.reason, ip: log.ip,
       })),
     };
