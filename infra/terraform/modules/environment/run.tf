@@ -2,6 +2,7 @@
 #
 # Terraform owns the configuration; the deploy workflow only changes the image (hence ignore_changes on it). The first
 # apply starts them on Google's placeholder image until the first deploy.
+# Commands go in `args` (not `command`) so the placeholder keeps its own entrypoint; the server image has only a CMD.
 
 locals {
   placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -56,8 +57,8 @@ resource "google_cloud_run_v2_service" "api" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/api/dist/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/api/dist/main.js"]
       resources {
         limits = { cpu = "1", memory = "1Gi" }
       }
@@ -133,8 +134,8 @@ resource "google_cloud_run_v2_service" "worker" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/api/dist/worker/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/api/dist/worker/main.js"]
       resources {
         cpu_idle = false
         limits   = { cpu = "1", memory = "1Gi" }
@@ -199,8 +200,8 @@ resource "google_cloud_run_v2_service" "platform_api" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/platform-api/dist/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/platform-api/dist/main.js"]
       resources {
         limits = { cpu = "1", memory = "512Mi" }
       }
@@ -314,8 +315,8 @@ resource "google_cloud_run_v2_job" "release" {
         }
       }
       containers {
-        image   = local.placeholder_image
-        command = ["sh", "deploy/release.sh"]
+        image = local.placeholder_image
+        args  = ["sh", "deploy/release.sh"]
         env {
           name  = "NODE_ENV"
           value = "production"
