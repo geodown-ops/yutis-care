@@ -44,6 +44,7 @@
 - 計費擴充點：`plans` 與 `tenant_subscriptions` 由平台寫入，`yutis_app` 只能讀（訂閱只看得到自己租戶的）；`usage_counters` 以「租戶 × 月份 × 指標」累加，`yutis_app` 可新增與累加自己租戶的，不能刪除。人數上限（`seat_limit`）超過時只提醒、不阻擋。目前的訂閱是已開始的最新一期（`currentSubscriptionFirst()`），所以續約可以在到期前先建好。
 - 廠區範圍（職護只能看負責廠區）目前由 API 權限層處理，之後評估是否也下放到 RLS。
 - 背景工作（pg-boss，`apps/api` 的 worker 程式）以 `yutis_worker` 角色連線：它是 `yutis_app` 的成員，另外只多了 `worker_tenant_ids()` 可列出租戶 id，每個工作仍以 `withTenant()` 一次處理一個租戶。匯出檔以租戶金鑰加密存在 `exports`，一天後失效；`retention_findings` 只記錄已過保存期限的資料，不刪除。
+- 寄信（後台人員邀請、附表八與不法侵害查核的簽核連結、員工確認連結、問卷提醒）在同一個交易寫一列 `notifications`，交易確定後才透過 `Mailer` 寄出，再把該列標成 sent 或 failed（含服務商的錯誤訊息）；請求回滾就不會寄。`EMAIL_PROVIDER=log` 只記 log（本機與示範站，該列維持 queued），`resend` 以 Resend HTTPS API 寄出。信件只寫誰請你做什麼與連結，不含任何健康資料。
 - 統計報表給非醫護角色時，少於 5 人的格子不顯示，若某欄只隱藏一格，會再隱藏該欄次小的一格，避免以總數相減推算。
 - 四大計畫的可見範圍：職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表（母性環境評估、不法侵害風險評估與檢點表）；人資只看面談後的工作安排建議；部門主管只看 `manager_notices` 中通知給自己的建議；不法侵害事件只有職護、職醫可見。
 - 平台 API 以 `yutis_platform` 角色連線：可讀寫 `tenants`、`plans`、`tenant_subscriptions` 與平台資料表（`platform_users`、`announcements`、`default_templates`、`platform_audit_log`），只能讀 `usage_counters` 與 `support_access_grants`；員工、健檢、四大計畫等資料表完全沒有權限，用量由 `tenant_counts()` 只回傳計數。開通時複製預設範本與建立第一位租戶管理員，透過 `apply_default_templates()`、`invite_tenant_admin()` 兩個函式，而且只能用在還沒有範本或租戶管理員的租戶。`yutis_app` 讀不到平台資料表，只能透過 `tenant_announcements` view 看到給自己的公告。平台的租戶詳情要顯示租戶管理員名單，透過 `tenant_admins()` 只取得名字、Email、是否啟用與最後登入時間。

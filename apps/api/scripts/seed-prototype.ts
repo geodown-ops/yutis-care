@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import {
-  assistRecords, caseEvents, cases, createDb, departments, employees, ergoDispatches, ergoSurveys, gradingRuleSets, healthExamResults, healthExams,
+  assistRecords, caseEvents, cases, createDb, departments, employeeAcknowledgements, employees, ergoDispatches, ergoSurveys, gradingRuleSets, healthExamResults, healthExams,
   interviews, legalEntities, maternalCases, sites, tenants, users, userSiteScopes, workloadAssessments,
 } from '@yutis/db';
 import { EXAM_ITEMS, examRetainUntil } from '@yutis/domain';
@@ -131,11 +131,21 @@ await db.transaction(async tx => {
     assessmentId.set(a.id, row!.id);
     const iv = a.interview;
     if (iv && iv.status) {
-      await tx.insert(interviews).values({
+      const [saved] = await tx.insert(interviews).values({
         tenantId, assessmentId: row!.id, status: iv.status, interviewedOn: iv.date || null, doctorUserId: staffId[iv.doctor] ?? null,
-        workAdvice: { fitness: iv.work ?? '', restrictions: [iv.adjustHours, iv.changeWork].filter(Boolean), suggestion: [iv.period && `期間 ${iv.period}`, iv.seeDoctor && `轉介${iv.seeDoctor}`].filter(Boolean).join('；') },
-        notesEnc: await enc(iv.special), nextOn: iv.nextDate || null,
-      });
+        workAdvice: { fitness: iv.work ?? '', restrictions: [], suggestion: iv.note ?? '', adjustHours: iv.adjustHours ?? '', changeWork: iv.changeWork ?? '', period: iv.period ?? '' },
+        guidanceEnc: iv.status === '已面談' ? await enc(JSON.stringify({
+          fatigue: iv.fatigue || null, mentalConcern: iv.mind || null, diagnosis: iv.diag || null, guidance: iv.guide || null,
+          needMeasure: iv.needMeasure ? iv.needMeasure === '是' : null, seeDoctor: iv.seeDoctor ?? '', special: iv.special ?? '',
+        })) : null,
+        nextOn: iv.nextDate || null,
+      }).returning({ id: interviews.id });
+      if (iv.status === '已面談') {
+        await tx.insert(employeeAcknowledgements).values({
+          tenantId, employeeId: empId.get(a.empId)!, subjectTable: 'interviews', subjectId: saved!.id,
+          sentAt: iv.signSent ? new Date(`${iv.signSent}T09:00:00+08:00`) : null,
+        });
+      }
     }
   }
 
@@ -168,7 +178,7 @@ await db.transaction(async tx => {
   const maternalId = new Map<string, string>();
   for (const m of P.matCases) {
     const [row] = await tx.insert(maternalCases).values({
-      tenantId, employeeId: empId.get(m.empId)!, type: m.type, notifiedOn: m.notifyDate, dueDate: m.due || null, birthDate: m.birthDate || null,
+      tenantId, employeeId: empId.get(m.empId)!, type: m.type === '產後一年內' ? '產後' : m.type, notifiedOn: m.notifyDate, dueDate: m.due || null, birthDate: m.birthDate || null,
       level: m.env?.level ?? null, detailEnc: await enc([...(m.self?.items ?? []), m.self?.note].filter(Boolean).join('；')),
     }).returning();
     maternalId.set(m.id, row!.id);

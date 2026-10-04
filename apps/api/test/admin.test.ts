@@ -3,14 +3,15 @@
  * Each area checks: other tenants cannot reach it, other roles are refused, writes are audited, imports validate first.
  */
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { auditLog, departments, employees, legalEntities, plans, sessions, sites, tenants, tenantSubscriptions, usageCounters, users, type Db } from '@yutis/db';
+import { auditLog, departments, employees, legalEntities, notifications, plans, sessions, sites, tenants, tenantSubscriptions, usageCounters, users, type Db } from '@yutis/db';
 import { randomBytes } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { and, eq, isNull } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { XLSX_MIME } from '../src/admin/excel.js';
 import { loadConfig } from '../src/config.js';
+import { RESEND_ENDPOINT } from '../src/core/mail.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 let db: TestDatabase;
@@ -42,6 +43,10 @@ async function xlsx(sheets: Record<string, (string | number | Date | null)[][]>)
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+/** Requests to Resend (EMAIL_PROVIDER=resend here, with fetch stubbed); `resendAnswer` is what it answers. */
+const resendCalls: { url: string; init: RequestInit }[] = [];
+let resendAnswer = () => new Response(JSON.stringify({ id: 'email-1' }), { status: 200 });
+
 const audits = (subjectTable: string) => owner.select().from(auditLog).where(and(eq(auditLog.tenantId, ids.acme), eq(auditLog.subjectTable, subjectTable)));
 
 beforeAll(async () => {
@@ -62,13 +67,18 @@ beforeAll(async () => {
   const [plan] = await owner.insert(plans).values({ code: 'standard', name: '標準方案' }).returning();
   await owner.insert(tenantSubscriptions).values({ tenantId: ids.acme, planId: plan!.id, status: 'active', seatLimit: 2, startsOn: '2026-01-01' });
 
-  const config = loadConfig({ NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') });
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => { resendCalls.push({ url, init }); return resendAnswer(); });
+  const config = loadConfig({
+    NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64'),
+    EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Yutis Care <noreply@care.test>',
+  });
   app = await createApp(config, { logger: false });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 });
 
 afterAll(async () => {
+  vi.unstubAllGlobals();
   await app?.close();
   await db?.drop();
 });
@@ -162,6 +172,32 @@ describe('staff accounts', () => {
     const doctor = await signIn('acme', 'doctor@acme.test');
     expect((await call('acme', 'GET', '/api/me', { cookie: doctor })).json()).toMatchObject({ role: '職醫', sites: [{ id: ids.s1 }] });
     expect((await audits('users')).map(a => a.action)).toContain('create');
+  });
+
+  it('emails the invitation through Resend once the account is saved, and records whether it went out', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [mail] = resendCalls.splice(0);
+    const [row] = await owner.select().from(notifications).where(eq(notifications.recipientEmail, 'doctor@acme.test'));
+    expect(row).toMatchObject({ template: 'staff_invitation', status: 'sent', sentAt: expect.any(Date), error: null });
+    expect(mail!.url).toBe(RESEND_ENDPOINT);
+    expect(mail!.init.headers).toMatchObject({ authorization: 'Bearer re_test', 'idempotency-key': row!.id });
+    const body = JSON.parse(String(mail!.init.body));
+    expect(body).toMatchObject({ from: 'Yutis Care <noreply@care.test>', to: ['doctor@acme.test'], subject: 'Acme 邀請您使用 Yutis Care 員工健康管理系統' });
+    expect(body.text).toContain('張醫師 您好');
+    expect(body.text).toContain('http://acme.care.test/');
+
+    // A refused email does not undo the account; the notification keeps the provider's answer.
+    resendAnswer = () => new Response('{"message":"The from address is not verified"}', { status: 403 });
+    const res = await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'hr@acme.test', name: '李人資', role: '人資' } });
+    resendAnswer = () => new Response(JSON.stringify({ id: 'email-2' }), { status: 200 });
+    expect(res.statusCode).toBe(201);
+    const [failed] = await owner.select().from(notifications).where(eq(notifications.recipientEmail, 'hr@acme.test'));
+    expect(failed).toMatchObject({ status: 'failed', error: expect.stringContaining('Resend answered 403: {"message":"The from address is not verified"}') });
+
+    // Nothing goes out for a request that fails.
+    resendCalls.splice(0);
+    expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'y@acme.test', name: 'y', role: '職護', siteIds: ['00000000-0000-4000-8000-000000000000'] } })).statusCode).toBe(400);
+    expect(resendCalls).toEqual([]);
   });
 
   it('changes role and sites, and deactivating signs the person out', async () => {
@@ -317,5 +353,47 @@ describe('phrases and audit search', () => {
     expect((await call('acme', 'GET', '/api/admin/audit', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
     const globex = (await call('globex', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie: await signIn('globex', 'admin@globex.test') })).json();
     expect(globex).toEqual({ total: 0, items: [] });
+  });
+});
+
+describe('import templates', () => {
+  const headers = async (file: Buffer) => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file as unknown as ArrayBuffer);
+    return Object.fromEntries(workbook.worksheets.map(w => [w.name, (w.getRow(1).values as unknown[]).slice(1)]));
+  };
+
+  it('gives tenant admins empty organisation and employee files with the columns the imports read', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const org = await call('acme', 'GET', '/api/admin/org/import-template', { cookie });
+    expect(org.headers['content-type']).toBe(XLSX_MIME);
+    expect(org.headers['content-disposition']).toContain(encodeURIComponent('組織架構匯入範本.xlsx'));
+    expect(await headers(org.rawPayload)).toEqual({
+      法人: ['代碼', '名稱'], 廠區: ['代碼', '名稱', '法人代碼', '地址'], 部門: ['廠區代碼', '名稱', '代碼', '主管姓名', '主管Email', '主管電話'],
+    });
+    const people = await call('acme', 'GET', '/api/admin/employees/import-template', { cookie });
+    expect((await headers(people.rawPayload)).員工).toEqual([
+      '工號', '姓名', '性別', '出生日期', '法人代碼', '廠區代碼', '部門', '身分證字號', '職稱', '班別', '健檢類別', '特殊作業', '語言', '到職日', 'Email', '手機', '狀態',
+    ]);
+    // The empty template is a valid (empty) import.
+    expect((await call('acme', 'POST', '/api/admin/org/import', { cookie, xlsx: org.rawPayload })).json()).toMatchObject({ issues: [] });
+    expect((await call('acme', 'GET', '/api/admin/org/import-template', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+  });
+});
+
+describe('staff and organisation directory', () => {
+  it('lets any staff list active staff by role and the organisation names, without contact details', async () => {
+    const nurse = await signIn('acme', 'nurse@acme.test');
+    const staff = (await call('acme', 'GET', '/api/staff?roles=職護,職醫', { cookie: nurse })).json();
+    expect(staff).toEqual(expect.arrayContaining([{ id: expect.any(String), name: '王護理師', role: '職護' }]));
+    expect(staff.every((u: { role: string }) => ['職護', '職醫'].includes(u.role))).toBe(true);
+    expect((await call('acme', 'GET', '/api/staff', { cookie: nurse })).json().map((u: { name: string }) => u.name)).toContain('陳管理員');
+    expect((await call('acme', 'GET', '/api/staff?roles=老闆', { cookie: nurse })).statusCode).toBe(400);
+    const org = (await call('acme', 'GET', '/api/org', { cookie: nurse })).json();
+    const site = org.find((e: { code: string }) => e.code === 'L1').sites.find((x: { code: string }) => x.code === 'S1');
+    expect(site).toMatchObject({ id: ids.s1, name: '桃園廠', mine: false, departments: expect.arrayContaining([{ id: expect.any(String), code: null, name: '製造一課' }]) });
+    expect(JSON.stringify(org)).not.toContain('manager');
+    expect((await call('acme', 'GET', '/api/staff', {})).statusCode).toBe(401);
+    expect((await call('globex', 'GET', '/api/org', { cookie: await signIn('globex', 'admin@globex.test') })).json()).toEqual([]);
   });
 });

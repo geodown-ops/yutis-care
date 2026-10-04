@@ -2,30 +2,21 @@
  * Staff accounts (帳號與權限): tenant admins invite staff with a role and the sites they are responsible for, change
  * them, or deactivate them. Only invited people can sign in (see AuthController); deactivating ends their sessions.
  */
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, Logger, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { sessions, sites, staffRoleEnum, users, userSiteScopes } from '@yutis/db';
 import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
+import { tenantOrigin, type ApiConfig } from '../config.js';
 import { recordAudit } from '../core/audit.js';
 import { Ctx, staff, type RequestContext, type StaffRole } from '../core/context.js';
+import { API_CONFIG } from '../core/database.js';
+import { staffInvitationEmail } from '../core/emails.js';
 import { ApiErrorDto } from '../core/errors.js';
+import { Notifier } from '../core/mail.js';
 import { pgErrorCode } from '../core/pg.js';
 import { openApiSchema, parse } from '../core/validation.js';
-
-/** Sends the invitation email to a new staff member. The default only logs; the email provider comes later. */
-export interface StaffInvitations {
-  invite(invitation: { tenantSlug: string; tenantName: string; email: string; name: string }): Promise<void>;
-}
-export const STAFF_INVITATIONS = Symbol('STAFF_INVITATIONS');
-
-export class LoggingStaffInvitations implements StaffInvitations {
-  private readonly logger = new Logger('StaffInvitations');
-  async invite(i: { tenantSlug: string }): Promise<void> {
-    this.logger.log(`Invitation email for a new staff member of ${i.tenantSlug} (email provider not configured; not sent)`);
-  }
-}
 
 class StaffAccountDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -60,7 +51,7 @@ const UpdateStaff = z.object({
 @ApiTags('admin')
 @Controller('admin/users')
 export class UsersController {
-  constructor(@Inject(STAFF_INVITATIONS) private readonly invitations: StaffInvitations) {}
+  constructor(@Inject(API_CONFIG) private readonly config: ApiConfig, private readonly notifier: Notifier) {}
 
   @Get()
   @StaffOnly({ feature: 'tenant-admin' })
@@ -74,7 +65,10 @@ export class UsersController {
 
   @Post()
   @StaffOnly({ feature: 'tenant-admin' })
-  @ApiOperation({ summary: '邀請後台人員', description: '指定角色與負責廠區；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。' })
+  @ApiOperation({
+    summary: '邀請後台人員',
+    description: '指定角色與負責廠區，並寄邀請信（含登入網址）給對方；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。',
+  })
   @ApiBody({ schema: openApiSchema(InviteStaff) })
   @ApiCreatedResponse({ type: StaffAccountDto })
   @ApiConflictResponse({ description: '此 Email 已有帳號（account_exists）', type: ApiErrorDto })
@@ -95,7 +89,9 @@ export class UsersController {
     }
     if (input.siteIds.length) await ctx.tx.insert(userSiteScopes).values(input.siteIds.map(siteId => ({ tenantId: ctx.tenant.id, userId: created.id, siteId })));
     await recordAudit(ctx, { action: 'create', subjectTable: 'users', subjectId: created.id, dataCategory: 'identity', reason: `invite ${input.role}` });
-    await this.invitations.invite({ tenantSlug: ctx.tenant.slug, tenantName: ctx.tenant.name, email: input.email, name: input.name });
+    await this.notifier.email(ctx, staffInvitationEmail({
+      to: input.email, userId: created.id, name: input.name, tenantName: ctx.tenant.name, url: `${tenantOrigin(this.config, ctx.tenant.slug)}/`,
+    }));
     return toDto(created, input.siteIds);
   }
 

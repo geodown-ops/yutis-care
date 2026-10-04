@@ -4,18 +4,19 @@
  * month's `active_employees` usage counter is set to the number of current employees. National ID numbers (身分證字號)
  * are never stored in full: only a per-tenant keyed fingerprint, used to match clinic files, and a masked form for display.
  */
-import { Body, Controller, HttpCode, Inject, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Inject, Post, Query, Res } from '@nestjs/common';
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { currentSubscriptionFirst, departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
 import { EMPLOYEE_LANGS, isEmployeeLang } from '@yutis/domain';
 import { eq, sql } from 'drizzle-orm';
+import type { FastifyReply } from 'fastify';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
-import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
+import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue } from './excel.js';
 import { ImportQuery } from './org.controller.js';
 import { raiseAgeEvents } from '../programs/common.js';
 
@@ -55,6 +56,15 @@ const COMPARED: (keyof EmployeeValues)[] = [
 @Controller('admin/employees')
 export class EmployeesController {
   constructor(@Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto) {}
+
+  @Get('import-template')
+  @StaffOnly({ feature: 'tenant-admin' })
+  @ApiOperation({ summary: '員工主檔匯入範本（.xlsx）', description: '只有欄位名稱；粗體為必填。' })
+  @ApiProduces(XLSX_MIME)
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  async template(@Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendXlsx(reply, '員工主檔匯入範本.xlsx', await templateWorkbook([{ name: '員工', ...EMPLOYEE_COLUMNS }]));
+  }
 
   @Post('import')
   @HttpCode(200)

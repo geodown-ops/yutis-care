@@ -9,6 +9,7 @@ import { ROLE_ACCESS } from '../src/auth/permissions.js';
 import { loadConfig } from '../src/config.js';
 import type { StaffPrincipal } from '../src/core/context.js';
 import { LocalTenantCrypto } from '../src/core/crypto.js';
+import { createMailer, maskEmail } from '../src/core/mail.js';
 import { tenantSlugFromHost } from '../src/core/host.js';
 
 describe('tenantSlugFromHost', () => {
@@ -82,6 +83,24 @@ describe('loadConfig', () => {
 
   it('requires a database URL', () => {
     expect(() => loadConfig({})).toThrow(/APP_DATABASE_URL/);
+  });
+
+  it('only logs email unless Resend is configured with a key and a sender', () => {
+    expect(loadConfig(env).email).toEqual({ provider: 'log' });
+    const resend = { ...env, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Yutis Care <noreply@care.yutis.com.tw>' };
+    expect(loadConfig(resend).email).toEqual({ provider: 'resend', apiKey: 're_test', from: 'Yutis Care <noreply@care.yutis.com.tw>' });
+    expect(createMailer(loadConfig(resend).email).delivers).toBe(true);
+    expect(createMailer(loadConfig(env).email).delivers).toBe(false);
+    expect(() => loadConfig({ ...resend, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY and EMAIL_FROM/);
+    expect(() => loadConfig({ ...resend, EMAIL_FROM: undefined })).toThrow(/RESEND_API_KEY and EMAIL_FROM/);
+    expect(() => loadConfig({ ...env, EMAIL_PROVIDER: 'smtp' })).toThrow(/EMAIL_PROVIDER/);
+  });
+});
+
+describe('maskEmail', () => {
+  it('keeps the first letter and the domain only', () => {
+    expect(maskEmail('wang.xiaoming@acme.test')).toBe('w***@acme.test');
+    expect(maskEmail('not-an-address')).toBe('***');
   });
 });
 

@@ -76,6 +76,138 @@
         ]
       }
     },
+    "/api/staff": {
+      "get": {
+        "description": "選執行人員、面談醫師等用；可用 roles 篩選（逗號分隔），例如 roles=職護,職醫。",
+        "operationId": "DirectoryController_staff",
+        "parameters": [
+          {
+            "name": "roles",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "職護,職醫",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StaffMemberDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "啟用中的後台人員",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/api/org": {
+      "get": {
+        "description": "法人 → 廠區 → 部門的代碼與名稱，供篩選與顯示；mine 標出你負責的廠區。",
+        "operationId": "DirectoryController_org",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectoryLegalEntityDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "組織架構（名稱）",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
     "/api/me": {
       "get": {
         "operationId": "MeController_me",
@@ -1255,6 +1387,65 @@
         ]
       }
     },
+    "/api/admin/org/import-template": {
+      "get": {
+        "description": "法人、廠區、部門三個工作表，只有欄位名稱；粗體為必填。",
+        "operationId": "OrgController_template",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "組織架構匯入範本（.xlsx）",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/org/import": {
       "post": {
         "description": "工作表「法人」（代碼、名稱）、「廠區」（代碼、名稱、法人代碼、地址）、「部門」（廠區代碼、名稱、代碼、主管姓名、主管Email、主管電話）。依代碼（部門依廠區＋名稱）新增或更新，不刪除。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。",
@@ -1407,7 +1598,7 @@
         ]
       },
       "post": {
-        "description": "指定角色與負責廠區；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。",
+        "description": "指定角色與負責廠區，並寄邀請信（含登入網址）給對方；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。",
         "operationId": "UsersController_invite",
         "parameters": [],
         "requestBody": {
@@ -1671,6 +1862,65 @@
           }
         ],
         "summary": "修改後台人員：角色、負責廠區、停用",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/employees/import-template": {
+      "get": {
+        "description": "只有欄位名稱；粗體為必填。",
+        "operationId": "EmployeesController_template",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工主檔匯入範本（.xlsx）",
         "tags": [
           "admin"
         ]
@@ -2542,6 +2792,269 @@
         "tags": [
           "admin"
         ]
+      },
+      "put": {
+        "description": "送出整套規則取代原本的；只有草稿能改。",
+        "operationId": "ExamSettingsController_updateRuleSet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "rules": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "B0111",
+                            "B0112",
+                            "B0104",
+                            "B0107",
+                            "B0201",
+                            "B0202",
+                            "B0203",
+                            "B0204",
+                            "B0205",
+                            "B0301",
+                            "B0302",
+                            "B0401",
+                            "B0501"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "sex": {
+                          "type": "string",
+                          "enum": [
+                            "男",
+                            "女",
+                            "不限"
+                          ]
+                        },
+                        "unit": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        "type": {
+                          "default": "number",
+                          "type": "string",
+                          "enum": [
+                            "number",
+                            "text"
+                          ]
+                        },
+                        "src": {
+                          "default": "manual",
+                          "type": "string",
+                          "enum": [
+                            "manual",
+                            "demo",
+                            "physician"
+                          ]
+                        },
+                        "levels": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lv": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4
+                                  },
+                                  "min": {
+                                    "type": "number"
+                                  },
+                                  "max": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "lv"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lv": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4
+                                  },
+                                  "values": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "lv",
+                                  "values"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name",
+                        "sex",
+                        "levels"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rules"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSetDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改分級標準草稿",
+        "tags": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "description": "只有草稿能刪；已發布或停用的版本永久保留。",
+        "operationId": "ExamSettingsController_deleteRuleSet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "刪除分級標準草稿",
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/api/admin/rule-sets/{id}/publish": {
@@ -2812,6 +3325,135 @@
           }
         ],
         "summary": "可用的健檢匯入對照（匯入時選擇）",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/exams/mappings/{id}/template": {
+      "get": {
+        "description": "欄位名稱與這家醫院的對照相同；粗體為必填。",
+        "operationId": "ExamsController_template",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "依健檢匯入對照產生的空白檔（.xlsx）",
+        "tags": [
+          "exams"
+        ]
+      }
+    },
+    "/api/exams/batches": {
+      "get": {
+        "description": "每次匯入的醫院、檔名、筆數與匯入人員；不含健檢內容。",
+        "operationId": "ExamsController_batches",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExamBatchDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "健檢匯入紀錄（新的在前）",
         "tags": [
           "exams"
         ]
@@ -4192,7 +4834,7 @@
     },
     "/api/cases/{id}": {
       "patch": {
-        "description": "狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。",
+        "description": "狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。結案時，這位員工未完成的協助紀錄追蹤也一併標為完成。",
         "operationId": "CasesController_update",
         "parameters": [
           {
@@ -4749,6 +5391,215 @@
         ]
       }
     },
+    "/api/programs/ergo/dispatches/{id}/remind": {
+      "post": {
+        "description": "寄提醒信給批次內負責廠區、尚未填寫的員工（可用 surveyIds 指定）；信中只說有問卷待填，不含問卷名稱與健康內容。沒有 Email 的員工列在 noEmail。",
+        "operationId": "ErgoController_remind",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "surveyIds": {
+                    "minItems": 1,
+                    "maxItems": 5000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemindResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "未填寫通知（催填）",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/ergo/surveys/{id}/tracking": {
+      "put": {
+        "description": "只有疑似有危害（任一部位 ≥ 3）的問卷可以列管；整份取代。",
+        "operationId": "ErgoController_track",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "measures": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "nextOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "列管中",
+                      "已改善",
+                      "解除列管"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "管控追蹤（列管）",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
     "/api/programs/ergo/surveys/{id}": {
       "put": {
         "operationId": "ErgoController_fill",
@@ -4940,6 +5791,90 @@
         ]
       }
     },
+    "/api/programs/workload/assessments/remind": {
+      "post": {
+        "description": "寄提醒信給指定評估中過勞量表或工時調查還沒填完的員工（只限負責廠區）；信中只說有問卷待填，不含健康內容。沒有 Email 的員工列在 noEmail。",
+        "operationId": "WorkloadController_remind",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assessmentIds": {
+                    "minItems": 1,
+                    "maxItems": 5000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "assessmentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemindResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "未填寫通知（催填）",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
     "/api/programs/workload/assessments": {
       "post": {
         "description": "員工在員工端填寫 CBI 與加班時數；也可由職護代填。",
@@ -5086,6 +6021,73 @@
           }
         ],
         "summary": "負責廠區的過勞評估",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/workload/assessments/{id}": {
+      "get": {
+        "description": "這兩項是醫療資料，讀取記入稽核。",
+        "operationId": "WorkloadController_one",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "一筆過勞評估，含面談指導結果與面談紀錄",
         "tags": [
           "programs"
         ]
@@ -5337,7 +6339,7 @@
     },
     "/api/programs/workload/assessments/{id}/interview": {
       "put": {
-        "description": "面談紀錄加密；工作安排建議可通知人資與主管。",
+        "description": "面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。",
         "operationId": "WorkloadController_interview",
         "parameters": [
           {
@@ -5366,7 +6368,6 @@
                     ]
                   },
                   "interviewedOn": {
-                    "default": null,
                     "anyOf": [
                       {
                         "type": "string",
@@ -5379,7 +6380,6 @@
                     ]
                   },
                   "doctorUserId": {
-                    "default": null,
                     "anyOf": [
                       {
                         "type": "string",
@@ -5392,7 +6392,6 @@
                     ]
                   },
                   "workAdvice": {
-                    "default": null,
                     "anyOf": [
                       {
                         "type": "object",
@@ -5415,6 +6414,21 @@
                             "default": "",
                             "type": "string",
                             "maxLength": 1000
+                          },
+                          "adjustHours": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 50
+                          },
+                          "changeWork": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 50
+                          },
+                          "period": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 50
                           }
                         },
                         "required": [
@@ -5427,8 +6441,101 @@
                       }
                     ]
                   },
+                  "guidance": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "fatigue": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "無",
+                                  "輕度",
+                                  "中度",
+                                  "重度"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "mentalConcern": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "有",
+                                  "無"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "diagnosis": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "無異常",
+                                  "需觀察或進一步追蹤檢查",
+                                  "需進行醫療"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "guidance": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "不需指導",
+                                  "需健康指導",
+                                  "需醫療指導"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "needMeasure": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "seeDoctor": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "special": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 2000
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "notes": {
-                    "default": null,
                     "anyOf": [
                       {
                         "type": "string",
@@ -5440,7 +6547,6 @@
                     ]
                   },
                   "nextOn": {
-                    "default": null,
                     "anyOf": [
                       {
                         "type": "string",
@@ -5453,9 +6559,6 @@
                     ]
                   }
                 },
-                "required": [
-                  "status"
-                ],
                 "additionalProperties": false
               }
             }
@@ -6371,8 +7474,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/ChecklistDto"
                   }
                 }
               }
@@ -6556,8 +7658,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/IncidentDto"
                   }
                 }
               }
@@ -6600,6 +7701,747 @@
           }
         ],
         "summary": "負責廠區的不法侵害事件",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/violence/incidents/{id}": {
+      "patch": {
+        "description": "只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。",
+        "operationId": "MaternalViolenceController_updateIncident",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "occurredOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "siteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "victimEmployeeId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "detail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 10000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "followUps": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "處理中",
+                      "結案"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改不法侵害事件",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/violence/reviews": {
+      "get": {
+        "operationId": "MaternalViolenceController_reviews",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ViolenceReviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "負責廠區的預防措施查核及評估",
+        "tags": [
+          "programs"
+        ]
+      },
+      "post": {
+        "description": "簽核人員的角色必須是租戶設定的簽核角色之一；送出簽核前可修改。",
+        "operationId": "MaternalViolenceController_createReview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "siteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reviewedOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "points": {
+                          "default": [],
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 50
+                          }
+                        },
+                        "result": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "fix": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "signers": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "name",
+                        "email"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "siteId",
+                  "reviewedOn",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViolenceReviewDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "新增預防措施查核及評估（草稿）",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/violence/reviews/{id}": {
+      "put": {
+        "operationId": "MaternalViolenceController_updateReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "siteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reviewedOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "item": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "points": {
+                          "default": [],
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 50
+                          }
+                        },
+                        "result": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "fix": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "item"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "signers": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "name",
+                        "email"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "siteId",
+                  "reviewedOn",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViolenceReviewDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改預防措施查核及評估草稿",
+        "tags": [
+          "programs"
+        ]
+      },
+      "delete": {
+        "description": "送出簽核後就不能刪除。",
+        "operationId": "MaternalViolenceController_deleteReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "刪除預防措施查核及評估草稿",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/violence/reviews/{id}/submit": {
+      "post": {
+        "description": "每位簽核人員各一個一次性連結（14 天內有效），寄到簽核人員的 Email；連結也只在這裡回傳這一次。",
+        "operationId": "MaternalViolenceController_submitReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignLinkDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "預防措施查核及評估送出簽核",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/violence/reviews/{id}/signatures/{signatureId}/resend": {
+      "post": {
+        "description": "寄新的連結給這位簽核人員，舊連結隨即失效。",
+        "operationId": "MaternalViolenceController_resendReview",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "signatureId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignLinkDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "重寄預防措施查核及評估的簽核連結",
         "tags": [
           "programs"
         ]
@@ -6891,9 +8733,67 @@
         ]
       }
     },
+    "/api/programs/notices/unread": {
+      "get": {
+        "description": "只回傳數字，不會標記已讀；給選單上的提示用。",
+        "operationId": "AdviceController_unreadNotices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadNoticesDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "我未讀的工作安排通知數（部門主管）",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
     "/api/programs/acknowledgements/{id}/link": {
       "post": {
-        "description": "一次性、14 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；同時排入寄給員工的通知信（信中不含健康內容）。",
+        "description": "一次性、14 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；員工有 Email 時同時寄通知信（員工端語言，信中不含健康內容）。",
         "operationId": "AdviceController_link",
         "parameters": [
           {
@@ -8359,7 +10259,7 @@
         ]
       },
       "post": {
-        "description": "完成後連結立即失效，不能再用。附表八所有簽核人員都簽核後，紀錄狀態變為已完成。",
+        "description": "完成後連結立即失效，不能再用。所有簽核人員都簽核後，紀錄狀態變為已完成。",
         "operationId": "SignController_confirm",
         "parameters": [
           {
@@ -8433,6 +10333,67 @@
         "summary": "以一次性連結確認或簽核",
         "tags": [
           "sign"
+        ]
+      }
+    },
+    "/api/service-records/sign-off-roles": {
+      "get": {
+        "description": "租戶設定的簽核角色（租戶管理員在 /api/admin/sign-off-roles 修改）；簽核人員的角色必須是其中之一。",
+        "operationId": "ServiceRecordsController_roles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "可選的簽核角色",
+        "tags": [
+          "service-records"
         ]
       }
     },
@@ -8972,11 +10933,69 @@
         "tags": [
           "service-records"
         ]
+      },
+      "delete": {
+        "description": "送出簽核後就不能刪除。",
+        "operationId": "ServiceRecordsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "刪除草稿",
+        "tags": [
+          "service-records"
+        ]
       }
     },
     "/api/service-records/{id}/submit": {
       "post": {
-        "description": "每位簽核人員各一個一次性連結（14 天內有效），並排入通知信；連結只回傳這一次。",
+        "description": "每位簽核人員各一個一次性連結（14 天內有效），寄到簽核人員的 Email；連結也只在這裡回傳這一次。",
         "operationId": "ServiceRecordsController_submit",
         "parameters": [
           {
@@ -9046,7 +11065,7 @@
     },
     "/api/service-records/{id}/signatures/{signatureId}/resend": {
       "post": {
-        "description": "舊連結隨即失效。",
+        "description": "寄新的連結給這位簽核人員，舊連結隨即失效。",
         "operationId": "ServiceRecordsController_resend",
         "parameters": [
           {
@@ -9116,6 +11135,152 @@
         "summary": "重寄簽核連結",
         "tags": [
           "service-records"
+        ]
+      }
+    },
+    "/api/admin/sign-off-roles": {
+      "get": {
+        "description": "附表八與不法侵害預防措施查核可指定的簽核人員角色。",
+        "operationId": "SignOffRolesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "簽核角色設定",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "description": "整份取代，依送出的順序顯示。已建立的紀錄保留原本的簽核角色。",
+        "operationId": "SignOffRolesController_replace",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roles": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    }
+                  }
+                },
+                "required": [
+                  "roles"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改簽核角色",
+        "tags": [
+          "admin"
         ]
       }
     },
@@ -9878,6 +12043,114 @@
           "status"
         ]
       },
+      "StaffMemberDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "職護",
+              "職醫",
+              "職安衛人員",
+              "人資",
+              "部門主管",
+              "租戶管理員"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role"
+        ]
+      },
+      "DirectoryDepartmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "DirectorySiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mine": {
+            "type": "boolean",
+            "description": "是你負責的廠區（含破窗中的）"
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryDepartmentDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "mine",
+          "departments"
+        ]
+      },
+      "DirectoryLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectorySiteDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "sites"
+        ]
+      },
       "SiteDto": {
         "type": "object",
         "properties": {
@@ -10621,6 +12894,104 @@
           "items"
         ]
       },
+      "ExamBatchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clinic": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "rowCount": {
+            "type": "number",
+            "nullable": true,
+            "description": "檔案資料列數"
+          },
+          "exams": {
+            "type": "number",
+            "description": "這批匯入的健檢筆數（全租戶）"
+          },
+          "importedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "importedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "匯入人員"
+          }
+        },
+        "required": [
+          "id",
+          "clinic",
+          "fileName",
+          "rowCount",
+          "exams",
+          "importedAt",
+          "importedBy"
+        ]
+      },
+      "ExamImportRowDto": {
+        "type": "object",
+        "properties": {
+          "row": {
+            "type": "number",
+            "description": "Excel 列號"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "examDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "gradeMax": {
+            "type": "number",
+            "description": "最高分級"
+          },
+          "gradeTotal": {
+            "type": "number",
+            "description": "各項分級加總"
+          },
+          "specialLevel": {
+            "type": "number",
+            "nullable": true,
+            "description": "特殊健檢管理分級"
+          },
+          "events": {
+            "type": "number",
+            "description": "這筆會產生的異常事件數（只有員工最新一次健檢會產生）"
+          }
+        },
+        "required": [
+          "row",
+          "employeeId",
+          "empNo",
+          "name",
+          "examDate",
+          "kind",
+          "gradeMax",
+          "gradeTotal",
+          "specialLevel",
+          "events"
+        ]
+      },
       "ExamImportReportDto": {
         "type": "object",
         "properties": {
@@ -10651,6 +13022,13 @@
           "newEvents": {
             "type": "number",
             "description": "寫入後新產生的異常事件數（預覽時為預估）"
+          },
+          "preview": {
+            "description": "可匯入的每一筆（沒有錯誤的列），依 Excel 列號排序",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExamImportRowDto"
+            }
           }
         },
         "required": [
@@ -10660,7 +13038,8 @@
           "issues",
           "ruleSetVersion",
           "grade3Plus",
-          "newEvents"
+          "newEvents",
+          "preview"
         ]
       },
       "ExamItemDto": {
@@ -11562,6 +13941,67 @@
           "suspected"
         ]
       },
+      "NmqAnswersDto": {
+        "type": "object",
+        "properties": {
+          "scores": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "description": "各部位分數（0–5），鍵為部位代碼"
+          },
+          "yesNo": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "是非題"
+          }
+        },
+        "required": [
+          "scores",
+          "yesNo"
+        ]
+      },
+      "ErgoTrackingDto": {
+        "type": "object",
+        "properties": {
+          "measures": {
+            "description": "改善措施",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string",
+            "description": "說明"
+          },
+          "nextOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "下次追蹤日期"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "列管中",
+              "已改善",
+              "解除列管"
+            ]
+          }
+        },
+        "required": [
+          "measures",
+          "note",
+          "nextOn",
+          "status"
+        ]
+      },
       "SurveyDto": {
         "type": "object",
         "properties": {
@@ -11578,6 +14018,14 @@
           },
           "name": {
             "type": "string"
+          },
+          "site": {
+            "type": "string",
+            "example": "桃園廠"
+          },
+          "department": {
+            "type": "string",
+            "example": "製造一課"
           },
           "status": {
             "type": "string",
@@ -11608,6 +14056,35 @@
               "nurse"
             ],
             "nullable": true
+          },
+          "answers": {
+            "nullable": true,
+            "description": "填答內容；未填寫時為 null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NmqAnswersDto"
+              }
+            ]
+          },
+          "reminders": {
+            "type": "number",
+            "description": "已寄出的催填通知次數"
+          },
+          "lastRemindedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tracking": {
+            "nullable": true,
+            "description": "管控追蹤（疑似有危害時）",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ErgoTrackingDto"
+              }
+            ]
           }
         },
         "required": [
@@ -11615,11 +14092,206 @@
           "employeeId",
           "empNo",
           "name",
+          "site",
+          "department",
           "status",
           "maxScore",
           "suspectedHazard",
           "filledAt",
-          "filledBy"
+          "filledBy",
+          "answers",
+          "reminders",
+          "lastRemindedAt",
+          "tracking"
+        ]
+      },
+      "RemindResultDto": {
+        "type": "object",
+        "properties": {
+          "emailed": {
+            "type": "number",
+            "description": "寄出催填通知的人數"
+          },
+          "noEmail": {
+            "description": "沒有 Email、無法通知的員工",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "emailed",
+          "noEmail"
+        ]
+      },
+      "CbiAnswersDto": {
+        "type": "object",
+        "properties": {
+          "p": {
+            "description": "個人相關過勞各題（0–4）",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "w": {
+            "description": "工作相關過勞各題（0–4）",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "p",
+          "w"
+        ]
+      },
+      "InterviewAdviceDto": {
+        "type": "object",
+        "properties": {
+          "fitness": {
+            "type": "string",
+            "example": "工作限制",
+            "description": "工作區分，例如：一般工作、工作限制、需休假"
+          },
+          "restrictions": {
+            "description": "工作限制",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "建議（備註）"
+          },
+          "adjustHours": {
+            "type": "string",
+            "example": "限制加班",
+            "description": "調整或縮短工作時間；空字串表示沒有"
+          },
+          "changeWork": {
+            "type": "string",
+            "example": "調整為常日班",
+            "description": "變更工作；空字串表示沒有"
+          },
+          "period": {
+            "type": "string",
+            "example": "3 個月",
+            "description": "措施期間"
+          }
+        },
+        "required": [
+          "fitness",
+          "restrictions",
+          "suggestion",
+          "adjustHours",
+          "changeWork",
+          "period"
+        ]
+      },
+      "InterviewGuidanceDto": {
+        "type": "object",
+        "properties": {
+          "fatigue": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "無",
+              "輕度",
+              "中度",
+              "重度"
+            ],
+            "description": "疲勞累積狀況"
+          },
+          "mentalConcern": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "有",
+              "無"
+            ],
+            "description": "應顧慮身心狀況"
+          },
+          "diagnosis": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "無異常",
+              "需觀察或進一步追蹤檢查",
+              "需進行醫療"
+            ],
+            "description": "診斷區分"
+          },
+          "guidance": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "不需指導",
+              "需健康指導",
+              "需醫療指導"
+            ],
+            "description": "指導區分"
+          },
+          "needMeasure": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "是否需採取措施"
+          },
+          "seeDoctor": {
+            "type": "string",
+            "example": "心臟內科",
+            "description": "建議就醫"
+          },
+          "special": {
+            "type": "string",
+            "description": "特殊記載事項"
+          }
+        },
+        "required": [
+          "fatigue",
+          "mentalConcern",
+          "diagnosis",
+          "guidance",
+          "needMeasure",
+          "seeDoctor",
+          "special"
+        ]
+      },
+      "AcknowledgementStatusDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "產生員工確認連結用（POST /api/programs/acknowledgements/{id}/link）"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "最近一次寄出確認連結的時間"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "員工確認的時間"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true,
+            "description": "員工確認時的回覆"
+          }
+        },
+        "required": [
+          "id",
+          "sentAt",
+          "confirmedAt",
+          "comment"
         ]
       },
       "NoticeStatusDto": {
@@ -11682,21 +14354,50 @@
             "format": "uuid",
             "nullable": true
           },
-          "workAdvice": {
-            "type": "object",
+          "doctorName": {
+            "type": "string",
             "nullable": true,
-            "additionalProperties": true,
-            "description": "工作安排建議（人資、主管可見）"
+            "description": "面談醫師姓名"
+          },
+          "workAdvice": {
+            "nullable": true,
+            "description": "工作區分與採取措施建議（人資、主管可見）",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InterviewAdviceDto"
+              }
+            ]
+          },
+          "guidance": {
+            "nullable": true,
+            "description": "面談指導結果（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InterviewGuidanceDto"
+              }
+            ]
           },
           "notes": {
             "type": "string",
             "nullable": true,
-            "description": "面談紀錄（醫療資料，加密儲存）"
+            "description": "面談紀錄（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有"
           },
           "nextOn": {
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "acknowledgement": {
+            "nullable": true,
+            "description": "員工確認狀態：面談狀態改為已面談時建立，之後用 POST /api/programs/acknowledgements/{id}/link 寄確認信給員工",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AcknowledgementStatusDto"
+              }
+            ]
           },
           "notices": {
             "description": "已寄給部門主管的通知與讀取狀態",
@@ -11711,9 +14412,12 @@
           "status",
           "interviewedOn",
           "doctorUserId",
+          "doctorName",
           "workAdvice",
+          "guidance",
           "notes",
           "nextOn",
+          "acknowledgement",
           "notices"
         ]
       },
@@ -11734,9 +14438,27 @@
           "name": {
             "type": "string"
           },
+          "site": {
+            "type": "string",
+            "example": "桃園廠"
+          },
+          "department": {
+            "type": "string",
+            "example": "製造一課"
+          },
           "sentOn": {
             "type": "string",
             "format": "date"
+          },
+          "cbiAnswers": {
+            "nullable": true,
+            "description": "CBI 各題作答；直接輸入分數時為 null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CbiAnswersDto"
+              }
+            ]
           },
           "personalBurnout": {
             "type": "number",
@@ -11747,6 +14469,36 @@
             "type": "number",
             "nullable": true,
             "description": "工作相關過勞分數"
+          },
+          "fatigueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "過勞量表填寫時間"
+          },
+          "fatigueBy": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "self",
+              "nurse"
+            ],
+            "description": "員工自填或職護代填"
+          },
+          "overloadAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "工時與工作型態填寫時間"
+          },
+          "reminders": {
+            "type": "number",
+            "description": "已寄出的催填通知次數"
+          },
+          "lastRemindedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           },
           "overtime1m": {
             "type": "number",
@@ -11800,9 +14552,17 @@
           "employeeId",
           "empNo",
           "name",
+          "site",
+          "department",
           "sentOn",
+          "cbiAnswers",
           "personalBurnout",
           "workBurnout",
+          "fatigueAt",
+          "fatigueBy",
+          "overloadAt",
+          "reminders",
+          "lastRemindedAt",
           "overtime1m",
           "overtime6mAvg",
           "workPatterns",
@@ -11851,33 +14611,6 @@
           "assessedOn",
           "hazards",
           "level"
-        ]
-      },
-      "AcknowledgementStatusDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "產生員工確認連結用（POST /api/programs/acknowledgements/{id}/link）"
-          },
-          "sentAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true,
-            "description": "最近一次寄出確認連結的時間"
-          },
-          "confirmedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true,
-            "description": "員工確認的時間"
-          }
-        },
-        "required": [
-          "id",
-          "sentAt",
-          "confirmedAt"
         ]
       },
       "MaternalInterviewDto": {
@@ -11956,7 +14689,8 @@
             "enum": [
               "妊娠",
               "產後"
-            ]
+            ],
+            "description": "產後指分娩後未滿一年"
           },
           "notifiedOn": {
             "type": "string",
@@ -12056,6 +14790,282 @@
           "items"
         ]
       },
+      "ChecklistItemDto": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "ok",
+          "note"
+        ]
+      },
+      "ChecklistDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "作業場所",
+              "人力"
+            ]
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "siteId",
+          "checkedOn",
+          "items"
+        ]
+      },
+      "IncidentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "example": "語言暴力"
+          },
+          "victimEmployeeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "受害者是本公司員工時"
+          },
+          "followUps": {
+            "description": "後續協助",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "處理中",
+              "結案"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "事件經過與處理（加密儲存）"
+          }
+        },
+        "required": [
+          "id",
+          "occurredOn",
+          "siteId",
+          "type",
+          "victimEmployeeId",
+          "followUps",
+          "status",
+          "detail"
+        ]
+      },
+      "ViolenceReviewItemDto": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "example": "辨識及評估危害"
+          },
+          "points": {
+            "description": "已檢點的重點",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "result": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string",
+            "description": "修正相關控制措施／改善情形採行措施"
+          }
+        },
+        "required": [
+          "item",
+          "points",
+          "result",
+          "fix"
+        ]
+      },
+      "SignatureDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "example": "人力資源管理人員"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "firstSentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "第一次寄出簽核連結"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "最近一次寄出（重寄會更新）"
+          },
+          "signedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "name",
+          "email",
+          "firstSentAt",
+          "sentAt",
+          "signedAt",
+          "comment"
+        ]
+      },
+      "ViolenceReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "reviewedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "草稿",
+              "簽核中",
+              "已完成"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViolenceReviewItemDto"
+            }
+          },
+          "signatures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignatureDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "siteId",
+          "siteName",
+          "departmentId",
+          "departmentName",
+          "reviewedOn",
+          "status",
+          "items",
+          "signatures"
+        ]
+      },
+      "SignLinkDto": {
+        "type": "object",
+        "properties": {
+          "signatureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "一次性簽核連結（只回傳這一次，不儲存）；同時寄給簽核人員"
+          }
+        },
+        "required": [
+          "signatureId",
+          "role",
+          "name",
+          "url"
+        ]
+      },
       "WorkAdviceDto": {
         "type": "object",
         "properties": {
@@ -12146,6 +15156,14 @@
           "name": {
             "type": "string"
           },
+          "programme": {
+            "type": "string",
+            "enum": [
+              "異常工作負荷",
+              "母性健康保護"
+            ],
+            "description": "建議來自哪個計畫的面談"
+          },
           "advice": {
             "type": "string"
           },
@@ -12164,9 +15182,22 @@
           "employeeId",
           "empNo",
           "name",
+          "programme",
           "advice",
           "sentAt",
           "readAt"
+        ]
+      },
+      "UnreadNoticesDto": {
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "number",
+            "description": "尚未讀取的通知數"
+          }
+        },
+        "required": [
+          "unread"
         ]
       },
       "LinkDto": {
@@ -12179,11 +15210,16 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工"
           }
         },
         "required": [
           "url",
-          "expiresAt"
+          "expiresAt",
+          "emailed"
         ]
       },
       "ProfileDto": {
@@ -12756,6 +15792,76 @@
           "signer"
         ]
       },
+      "ReviewSignItemDto": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "example": "辨識及評估危害"
+          },
+          "points": {
+            "description": "已檢點的重點",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "result": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string",
+            "description": "修正相關控制措施／改善情形採行措施"
+          }
+        },
+        "required": [
+          "item",
+          "points",
+          "result",
+          "fix"
+        ]
+      },
+      "ReviewSignContentDto": {
+        "type": "object",
+        "properties": {
+          "reviewedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "site": {
+            "type": "string",
+            "nullable": true,
+            "description": "廠區名稱"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true,
+            "description": "部門名稱"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewSignItemDto"
+            }
+          },
+          "signer": {
+            "description": "以什麼身分簽核",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SignerDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reviewedOn",
+          "site",
+          "department",
+          "items",
+          "signer"
+        ]
+      },
       "SignDocumentDto": {
         "type": "object",
         "properties": {
@@ -12769,7 +15875,16 @@
               "acknowledgement",
               "signature"
             ],
-            "description": "員工確認紀錄，或簽核附表八"
+            "description": "員工確認紀錄，或簽核（附表八、不法侵害預防措施查核）"
+          },
+          "document": {
+            "type": "string",
+            "enum": [
+              "employee_acknowledgements",
+              "service_records",
+              "violence_reviews"
+            ],
+            "description": "哪一種文件，決定 content 的格式"
           },
           "title": {
             "type": "string"
@@ -12782,9 +15897,12 @@
               },
               {
                 "$ref": "#/components/schemas/ServiceSignContentDto"
+              },
+              {
+                "$ref": "#/components/schemas/ReviewSignContentDto"
               }
             ],
-            "description": "kind 為 acknowledgement 時是 AcknowledgementContentDto，signature 時是 ServiceSignContentDto"
+            "description": "document 為 employee_acknowledgements 時是 AcknowledgementContentDto，service_records 時是 ServiceSignContentDto，violence_reviews 時是 ReviewSignContentDto"
           },
           "confirmedAt": {
             "type": "string",
@@ -12800,51 +15918,10 @@
         "required": [
           "id",
           "kind",
+          "document",
           "title",
           "content",
           "confirmedAt",
-          "comment"
-        ]
-      },
-      "SignatureDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "role": {
-            "type": "string",
-            "example": "人力資源管理人員"
-          },
-          "name": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "sentAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "signedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "comment": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "role",
-          "name",
-          "email",
-          "sentAt",
-          "signedAt",
           "comment"
         ]
       },
@@ -12878,6 +15955,11 @@
             "type": "object",
             "additionalProperties": true
           },
+          "executorName": {
+            "type": "string",
+            "nullable": true,
+            "description": "執行人員（content.executorUserId）的姓名；帳號已刪除時為 null"
+          },
           "signatures": {
             "type": "array",
             "items": {
@@ -12892,32 +15974,8 @@
           "siteName",
           "status",
           "content",
+          "executorName",
           "signatures"
-        ]
-      },
-      "SignLinkDto": {
-        "type": "object",
-        "properties": {
-          "signatureId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "role": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string",
-            "description": "一次性簽核連結（只回傳這一次，不儲存）"
-          }
-        },
-        "required": [
-          "signatureId",
-          "role",
-          "name",
-          "url"
         ]
       },
       "ReportTypeDto": {
@@ -13024,6 +16082,22 @@
             "type": "string",
             "format": "uuid"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "health",
+              "wl",
+              "ergo"
+            ],
+            "description": "報表類別（同 /api/reports/{kind}/{type} 的 kind）"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "報表名稱；檔案還沒產生時就有"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -13056,6 +16130,9 @@
         },
         "required": [
           "id",
+          "kind",
+          "type",
+          "title",
           "status",
           "format",
           "fileName",

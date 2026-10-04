@@ -129,6 +129,31 @@ export class ExamSettingsController {
     return { id: set!.id, version: set!.version, status: set!.status, effectiveFrom: set!.effectiveFrom, note: set!.note };
   }
 
+  @Put('rule-sets/:id') @TenantAdmin()
+  @ApiOperation({ summary: '修改分級標準草稿', description: '送出整套規則取代原本的；只有草稿能改。' })
+  @ApiBody({ schema: openApiSchema(NewRuleSet) }) @ApiOkResponse({ type: RuleSetDto })
+  async updateRuleSet(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<RuleSetDto> {
+    const input = parse(NewRuleSet, body);
+    const set = await draftRuleSet(ctx, id);
+    await ctx.tx.delete(gradingRules).where(eq(gradingRules.ruleSetId, id));
+    await ctx.tx.insert(gradingRules).values(input.rules.map(r => ({
+      tenantId: ctx.tenant.id, ruleSetId: id, itemCode: r.code, name: r.name, sex: r.sex, unit: r.unit, valueType: r.type, levels: r.levels, source: r.src,
+    })));
+    const [row] = await ctx.tx.update(gradingRuleSets).set({ note: input.note ?? null, updatedAt: new Date(), updatedBy: staff(ctx).userId })
+      .where(eq(gradingRuleSets.id, id)).returning();
+    await recordAudit(ctx, { action: 'update', subjectTable: 'grading_rule_sets', subjectId: id, reason: `draft v${set.version}` });
+    return { id, version: row!.version, status: row!.status, effectiveFrom: row!.effectiveFrom, note: row!.note };
+  }
+
+  @Delete('rule-sets/:id') @HttpCode(204) @TenantAdmin() @ApiOperation({ summary: '刪除分級標準草稿', description: '只有草稿能刪；已發布或停用的版本永久保留。' })
+  @ApiNoContentResponse()
+  async deleteRuleSet(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const set = await draftRuleSet(ctx, id);
+    await ctx.tx.delete(gradingRules).where(eq(gradingRules.ruleSetId, id));
+    await ctx.tx.delete(gradingRuleSets).where(eq(gradingRuleSets.id, id));
+    await recordAudit(ctx, { action: 'delete', subjectTable: 'grading_rule_sets', subjectId: id, reason: `draft v${set.version}` });
+  }
+
   @Post('rule-sets/:id/publish') @HttpCode(200) @TenantAdmin()
   @ApiOperation({ summary: '發布分級標準', description: '之後匯入的健檢依此版本分級；先前的結果保留原版本。' })
   @ApiOkResponse({ type: RuleSetDto })
@@ -142,4 +167,11 @@ export class ExamSettingsController {
     await recordAudit(ctx, { action: 'update', subjectTable: 'grading_rule_sets', subjectId: id, reason: `publish v${set.version}` });
     return { id, version: row!.version, status: row!.status, effectiveFrom: row!.effectiveFrom, note: row!.note };
   }
+}
+
+async function draftRuleSet(ctx: RequestContext, id: string) {
+  const [set] = await ctx.tx.select().from(gradingRuleSets).where(eq(gradingRuleSets.id, id));
+  if (!set) throw new NotFoundException({ code: 'not_found', message: 'No such rule set' });
+  if (set.status !== 'draft') throw new ConflictException({ code: 'not_draft', message: `Rule set v${set.version} is ${set.status}` });
+  return set;
 }

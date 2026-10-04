@@ -21,7 +21,7 @@ import { API_CONFIG } from '../core/database.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { mySiteIds } from '../programs/common.js';
 import { EXPORT_QUEUE, senderBoss, type ExportJob } from '../worker/jobs.js';
-import { computeReport, isReport, loadReportData, MIN_CELL_SIZE, REPORT_TYPES, type Report } from './reports.js';
+import { computeReport, isReport, loadReportData, MIN_CELL_SIZE, REPORT_TYPES, reportTitle, type Report } from './reports.js';
 
 const ReportAccess = () => StaffOnly({ feature: 'reports', roles: ['職護', '職醫', '職安衛人員', '人資'] });
 /** Download links stay valid this long and work once. */
@@ -64,6 +64,9 @@ class ReportDto {
 }
 class ExportDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ enum: Object.keys(REPORT_TYPES), description: '報表類別（同 /api/reports/{kind}/{type} 的 kind）' }) kind!: string;
+  @ApiProperty() type!: string;
+  @ApiProperty({ description: '報表名稱；檔案還沒產生時就有' }) title!: string;
   @ApiProperty({ enum: ['queued', 'running', 'done', 'failed'] }) status!: string;
   @ApiProperty({ enum: ['xlsx', 'pdf'] }) format!: string;
   @ApiProperty({ type: String, nullable: true }) fileName!: string | null;
@@ -71,7 +74,13 @@ class ExportDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) expiresAt!: Date | null;
 }
 
-const toExport = (e: typeof exportFiles.$inferSelect): ExportDto => ({ id: e.id, status: e.status, format: e.format, fileName: e.fileName, requestedAt: e.createdAt, expiresAt: e.expiresAt });
+const toExport = (e: typeof exportFiles.$inferSelect): ExportDto => {
+  const { report = '', type = '' } = e.params as { report?: string; type?: string };
+  return {
+    id: e.id, kind: report, type, title: isReport(report, type) ? reportTitle(report, type) : '', status: e.status, format: e.format, fileName: e.fileName,
+    requestedAt: e.createdAt, expiresAt: e.expiresAt,
+  };
+};
 const hash = (t: string) => createHash('sha256').update(t).digest('hex');
 
 @ApiTags('reports')
