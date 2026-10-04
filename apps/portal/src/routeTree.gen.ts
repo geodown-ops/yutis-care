@@ -9,141 +9,270 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as AccountRouteImport } from './routes/account'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as ReportRouteImport } from './routes/report'
-import { Route as TasksNmqRouteImport } from './routes/tasks.nmq'
+import { Route as EmployeeRouteImport } from './routes/_employee'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as EmployeeIndexRouteImport } from './routes/_employee/index'
+import { Route as EmployeeSplatRouteImport } from './routes/_employee/$'
+import { Route as EmployeeAccountRouteImport } from './routes/_employee/account'
+import { Route as EmployeeHealthRouteImport } from './routes/_employee/health'
+import { Route as EmployeeReportRouteImport } from './routes/_employee/report'
+import { Route as EmployeeTasksAcknowledgementIdRouteImport } from './routes/_employee/tasks.acknowledgement.$id'
+import { Route as EmployeeTasksCbiIdRouteImport } from './routes/_employee/tasks.cbi.$id'
+import { Route as EmployeeTasksNmqIdRouteImport } from './routes/_employee/tasks.nmq.$id'
+import { Route as EmployeeTasksOverloadIdRouteImport } from './routes/_employee/tasks.overload.$id'
 
-const IndexRoute = IndexRouteImport.update({
+const EmployeeRoute = EmployeeRouteImport.update({
+  id: '/_employee',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmployeeIndexRoute = EmployeeIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EmployeeRoute,
 } as any)
-const SplatRoute = SplatRouteImport.update({
+const EmployeeSplatRoute = EmployeeSplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EmployeeRoute,
 } as any)
-const AccountRoute = AccountRouteImport.update({
+const EmployeeAccountRoute = EmployeeAccountRouteImport.update({
   id: '/account',
   path: '/account',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EmployeeRoute,
 } as any)
-const HealthRoute = HealthRouteImport.update({
+const EmployeeHealthRoute = EmployeeHealthRouteImport.update({
   id: '/health',
   path: '/health',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EmployeeRoute,
 } as any)
-const ReportRoute = ReportRouteImport.update({
+const EmployeeReportRoute = EmployeeReportRouteImport.update({
   id: '/report',
   path: '/report',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EmployeeRoute,
 } as any)
-const TasksNmqRoute = TasksNmqRouteImport.update({
-  id: '/tasks/nmq',
-  path: '/tasks/nmq',
-  getParentRoute: () => rootRouteImport,
+const EmployeeTasksAcknowledgementIdRoute =
+  EmployeeTasksAcknowledgementIdRouteImport.update({
+    id: '/tasks/acknowledgement/$id',
+    path: '/tasks/acknowledgement/$id',
+    getParentRoute: () => EmployeeRoute,
+  } as any)
+const EmployeeTasksCbiIdRoute = EmployeeTasksCbiIdRouteImport.update({
+  id: '/tasks/cbi/$id',
+  path: '/tasks/cbi/$id',
+  getParentRoute: () => EmployeeRoute,
+} as any)
+const EmployeeTasksNmqIdRoute = EmployeeTasksNmqIdRouteImport.update({
+  id: '/tasks/nmq/$id',
+  path: '/tasks/nmq/$id',
+  getParentRoute: () => EmployeeRoute,
+} as any)
+const EmployeeTasksOverloadIdRoute = EmployeeTasksOverloadIdRouteImport.update({
+  id: '/tasks/overload/$id',
+  path: '/tasks/overload/$id',
+  getParentRoute: () => EmployeeRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/account': typeof AccountRoute
-  '/health': typeof HealthRoute
-  '/report': typeof ReportRoute
-  '/tasks/nmq': typeof TasksNmqRoute
+  '/': typeof EmployeeIndexRoute
+  '/login': typeof LoginRoute
+  '/$': typeof EmployeeSplatRoute
+  '/account': typeof EmployeeAccountRoute
+  '/health': typeof EmployeeHealthRoute
+  '/report': typeof EmployeeReportRoute
+  '/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
+  '/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
+  '/tasks/nmq/$id': typeof EmployeeTasksNmqIdRoute
+  '/tasks/overload/$id': typeof EmployeeTasksOverloadIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/account': typeof AccountRoute
-  '/health': typeof HealthRoute
-  '/report': typeof ReportRoute
-  '/tasks/nmq': typeof TasksNmqRoute
+  '/login': typeof LoginRoute
+  '/$': typeof EmployeeSplatRoute
+  '/account': typeof EmployeeAccountRoute
+  '/health': typeof EmployeeHealthRoute
+  '/report': typeof EmployeeReportRoute
+  '/': typeof EmployeeIndexRoute
+  '/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
+  '/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
+  '/tasks/nmq/$id': typeof EmployeeTasksNmqIdRoute
+  '/tasks/overload/$id': typeof EmployeeTasksOverloadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/account': typeof AccountRoute
-  '/health': typeof HealthRoute
-  '/report': typeof ReportRoute
-  '/tasks/nmq': typeof TasksNmqRoute
+  '/_employee': typeof EmployeeRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_employee/$': typeof EmployeeSplatRoute
+  '/_employee/account': typeof EmployeeAccountRoute
+  '/_employee/health': typeof EmployeeHealthRoute
+  '/_employee/report': typeof EmployeeReportRoute
+  '/_employee/': typeof EmployeeIndexRoute
+  '/_employee/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
+  '/_employee/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
+  '/_employee/tasks/nmq/$id': typeof EmployeeTasksNmqIdRoute
+  '/_employee/tasks/overload/$id': typeof EmployeeTasksOverloadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/account' | '/health' | '/report' | '/tasks/nmq'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/$'
+    | '/account'
+    | '/health'
+    | '/report'
+    | '/tasks/acknowledgement/$id'
+    | '/tasks/cbi/$id'
+    | '/tasks/nmq/$id'
+    | '/tasks/overload/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/account' | '/health' | '/report' | '/tasks/nmq'
+  to:
+    | '/login'
+    | '/$'
+    | '/account'
+    | '/health'
+    | '/report'
+    | '/'
+    | '/tasks/acknowledgement/$id'
+    | '/tasks/cbi/$id'
+    | '/tasks/nmq/$id'
+    | '/tasks/overload/$id'
   id:
-    '__root__' | '/' | '/$' | '/account' | '/health' | '/report' | '/tasks/nmq'
+    | '__root__'
+    | '/_employee'
+    | '/login'
+    | '/_employee/$'
+    | '/_employee/account'
+    | '/_employee/health'
+    | '/_employee/report'
+    | '/_employee/'
+    | '/_employee/tasks/acknowledgement/$id'
+    | '/_employee/tasks/cbi/$id'
+    | '/_employee/tasks/nmq/$id'
+    | '/_employee/tasks/overload/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SplatRoute: typeof SplatRoute
-  AccountRoute: typeof AccountRoute
-  HealthRoute: typeof HealthRoute
-  ReportRoute: typeof ReportRoute
-  TasksNmqRoute: typeof TasksNmqRoute
+  EmployeeRoute: typeof EmployeeRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_employee': {
+      id: '/_employee'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof EmployeeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_employee/': {
+      id: '/_employee/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof EmployeeIndexRouteImport
+      parentRoute: typeof EmployeeRoute
     }
-    '/$': {
-      id: '/$'
+    '/_employee/$': {
+      id: '/_employee/$'
       path: '/$'
       fullPath: '/$'
-      preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof EmployeeSplatRouteImport
+      parentRoute: typeof EmployeeRoute
     }
-    '/account': {
-      id: '/account'
+    '/_employee/account': {
+      id: '/_employee/account'
       path: '/account'
       fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof EmployeeAccountRouteImport
+      parentRoute: typeof EmployeeRoute
     }
-    '/health': {
-      id: '/health'
+    '/_employee/health': {
+      id: '/_employee/health'
       path: '/health'
       fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof EmployeeHealthRouteImport
+      parentRoute: typeof EmployeeRoute
     }
-    '/report': {
-      id: '/report'
+    '/_employee/report': {
+      id: '/_employee/report'
       path: '/report'
       fullPath: '/report'
-      preLoaderRoute: typeof ReportRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof EmployeeReportRouteImport
+      parentRoute: typeof EmployeeRoute
     }
-    '/tasks/nmq': {
-      id: '/tasks/nmq'
-      path: '/tasks/nmq'
-      fullPath: '/tasks/nmq'
-      preLoaderRoute: typeof TasksNmqRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_employee/tasks/acknowledgement/$id': {
+      id: '/_employee/tasks/acknowledgement/$id'
+      path: '/tasks/acknowledgement/$id'
+      fullPath: '/tasks/acknowledgement/$id'
+      preLoaderRoute: typeof EmployeeTasksAcknowledgementIdRouteImport
+      parentRoute: typeof EmployeeRoute
+    }
+    '/_employee/tasks/cbi/$id': {
+      id: '/_employee/tasks/cbi/$id'
+      path: '/tasks/cbi/$id'
+      fullPath: '/tasks/cbi/$id'
+      preLoaderRoute: typeof EmployeeTasksCbiIdRouteImport
+      parentRoute: typeof EmployeeRoute
+    }
+    '/_employee/tasks/nmq/$id': {
+      id: '/_employee/tasks/nmq/$id'
+      path: '/tasks/nmq/$id'
+      fullPath: '/tasks/nmq/$id'
+      preLoaderRoute: typeof EmployeeTasksNmqIdRouteImport
+      parentRoute: typeof EmployeeRoute
+    }
+    '/_employee/tasks/overload/$id': {
+      id: '/_employee/tasks/overload/$id'
+      path: '/tasks/overload/$id'
+      fullPath: '/tasks/overload/$id'
+      preLoaderRoute: typeof EmployeeTasksOverloadIdRouteImport
+      parentRoute: typeof EmployeeRoute
     }
   }
 }
 
+interface EmployeeRouteChildren {
+  EmployeeSplatRoute: typeof EmployeeSplatRoute
+  EmployeeAccountRoute: typeof EmployeeAccountRoute
+  EmployeeHealthRoute: typeof EmployeeHealthRoute
+  EmployeeReportRoute: typeof EmployeeReportRoute
+  EmployeeIndexRoute: typeof EmployeeIndexRoute
+  EmployeeTasksAcknowledgementIdRoute: typeof EmployeeTasksAcknowledgementIdRoute
+  EmployeeTasksCbiIdRoute: typeof EmployeeTasksCbiIdRoute
+  EmployeeTasksNmqIdRoute: typeof EmployeeTasksNmqIdRoute
+  EmployeeTasksOverloadIdRoute: typeof EmployeeTasksOverloadIdRoute
+}
+
+const EmployeeRouteChildren: EmployeeRouteChildren = {
+  EmployeeSplatRoute: EmployeeSplatRoute,
+  EmployeeAccountRoute: EmployeeAccountRoute,
+  EmployeeHealthRoute: EmployeeHealthRoute,
+  EmployeeReportRoute: EmployeeReportRoute,
+  EmployeeIndexRoute: EmployeeIndexRoute,
+  EmployeeTasksAcknowledgementIdRoute: EmployeeTasksAcknowledgementIdRoute,
+  EmployeeTasksCbiIdRoute: EmployeeTasksCbiIdRoute,
+  EmployeeTasksNmqIdRoute: EmployeeTasksNmqIdRoute,
+  EmployeeTasksOverloadIdRoute: EmployeeTasksOverloadIdRoute,
+}
+
+const EmployeeRouteWithChildren = EmployeeRoute._addFileChildren(
+  EmployeeRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SplatRoute: SplatRoute,
-  AccountRoute: AccountRoute,
-  HealthRoute: HealthRoute,
-  ReportRoute: ReportRoute,
-  TasksNmqRoute: TasksNmqRoute,
+  EmployeeRoute: EmployeeRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
