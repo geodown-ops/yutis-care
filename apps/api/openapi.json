@@ -1869,7 +1869,7 @@
     },
     "/api/admin/employees": {
       "get": {
-        "description": "依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。",
+        "description": "依姓名或工號找員工，或用 ids 查指定的員工；只回傳 id、工號、姓名與在職狀態，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。",
         "operationId": "EmployeesController_search",
         "parameters": [
           {
@@ -1879,6 +1879,15 @@
             "description": "最多幾筆（1–50，預設 20）",
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "員工 id，以逗號分隔（最多 50 個）；有給時不受 limit 限制",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -6724,7 +6733,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AssessmentDto"
+                  "$ref": "#/components/schemas/InterviewSavedDto"
                 }
               }
             }
@@ -7520,6 +7529,19 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "checkedOn": {
                     "type": "string",
                     "format": "date",
@@ -7698,6 +7720,19 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "type": {
                     "type": "string",
                     "minLength": 1,
@@ -7862,7 +7897,7 @@
     },
     "/api/programs/violence/incidents/{id}": {
       "patch": {
-        "description": "只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。",
+        "description": "只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。改廠區時，原部門不在新廠區就要一起改 departmentId（或送 null）。",
         "operationId": "MaternalViolenceController_updateIncident",
         "parameters": [
           {
@@ -7890,6 +7925,18 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "type": {
                     "type": "string",
@@ -10689,6 +10736,19 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "content": {
                     "type": "object",
                     "properties": {
@@ -10932,6 +10992,19 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "content": {
                     "type": "object",
@@ -12866,12 +12939,22 @@
           },
           "name": {
             "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "在職",
+              "留停",
+              "離職"
+            ],
+            "description": "離職員工也會列出"
           }
         },
         "required": [
           "id",
           "empNo",
-          "name"
+          "name",
+          "status"
         ]
       },
       "SeatsDto": {
@@ -14429,7 +14512,11 @@
         "properties": {
           "emailed": {
             "type": "number",
-            "description": "寄出催填通知的人數"
+            "description": "有 Email、已排入催填通知的人數"
+          },
+          "delivered": {
+            "type": "boolean",
+            "description": "信真的會寄出；系統設定為只記錄不寄（EMAIL_PROVIDER=log，測試環境）時為 false"
           },
           "noEmail": {
             "description": "沒有 Email、無法通知的員工",
@@ -14442,6 +14529,7 @@
         },
         "required": [
           "emailed",
+          "delivered",
           "noEmail"
         ]
       },
@@ -14908,6 +14996,172 @@
           "interview"
         ]
       },
+      "InterviewSavedDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "site": {
+            "type": "string",
+            "example": "桃園廠"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "department": {
+            "type": "string",
+            "example": "製造一課"
+          },
+          "sentOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "cbiAnswers": {
+            "nullable": true,
+            "description": "CBI 各題作答；直接輸入分數時為 null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CbiAnswersDto"
+              }
+            ]
+          },
+          "personalBurnout": {
+            "type": "number",
+            "nullable": true,
+            "description": "個人相關過勞分數"
+          },
+          "workBurnout": {
+            "type": "number",
+            "nullable": true,
+            "description": "工作相關過勞分數"
+          },
+          "fatigueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "過勞量表填寫時間"
+          },
+          "fatigueBy": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "self",
+              "nurse"
+            ],
+            "description": "員工自填或職護代填"
+          },
+          "overloadAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "工時與工作型態填寫時間"
+          },
+          "reminders": {
+            "type": "number",
+            "description": "已寄出的催填通知次數"
+          },
+          "lastRemindedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "overtime1m": {
+            "type": "number",
+            "nullable": true
+          },
+          "overtime6mAvg": {
+            "type": "number",
+            "nullable": true
+          },
+          "workPatterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evaluation": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "十年心血管風險、負荷等級與矩陣結果（評估當下的快照）"
+          },
+          "riskLevel": {
+            "type": "number",
+            "nullable": true,
+            "description": "0 低度、1 中度、2 高度風險；資料不全時為 null"
+          },
+          "missing": {
+            "type": "array",
+            "description": "還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cbi",
+                "overload",
+                "exam"
+              ]
+            }
+          },
+          "interview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InterviewDto"
+              }
+            ]
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "這次儲存寄出了面談通知給員工（新安排或改期、員工有 Email，且信真的會寄出）"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "empNo",
+          "name",
+          "siteId",
+          "site",
+          "departmentId",
+          "department",
+          "sentOn",
+          "cbiAnswers",
+          "personalBurnout",
+          "workBurnout",
+          "fatigueAt",
+          "fatigueBy",
+          "overloadAt",
+          "reminders",
+          "lastRemindedAt",
+          "overtime1m",
+          "overtime6mAvg",
+          "workPatterns",
+          "evaluation",
+          "riskLevel",
+          "missing",
+          "interview",
+          "emailed"
+        ]
+      },
       "EnvAssessmentDto": {
         "type": "object",
         "properties": {
@@ -15035,10 +15289,18 @@
           "name": {
             "type": "string"
           },
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "員工目前所屬廠區"
+          },
           "departmentId": {
             "type": "string",
             "format": "uuid",
             "description": "員工目前所屬部門"
+          },
+          "departmentName": {
+            "type": "string"
           },
           "type": {
             "type": "string",
@@ -15096,7 +15358,9 @@
           "employeeId",
           "empNo",
           "name",
+          "siteId",
           "departmentId",
+          "departmentName",
           "type",
           "notifiedOn",
           "dueDate",
@@ -15136,6 +15400,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
+          },
           "assessedOn": {
             "type": "string",
             "format": "date"
@@ -15152,6 +15425,8 @@
         "required": [
           "id",
           "siteId",
+          "departmentId",
+          "departmentName",
           "assessedOn",
           "items"
         ]
@@ -15193,6 +15468,15 @@
             "type": "string",
             "format": "uuid"
           },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
+          },
           "checkedOn": {
             "type": "string",
             "format": "date"
@@ -15208,6 +15492,8 @@
           "id",
           "kind",
           "siteId",
+          "departmentId",
+          "departmentName",
           "checkedOn",
           "items"
         ]
@@ -15226,6 +15512,15 @@
           "siteId": {
             "type": "string",
             "format": "uuid"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
           },
           "type": {
             "type": "string",
@@ -15261,6 +15556,8 @@
           "id",
           "occurredOn",
           "siteId",
+          "departmentId",
+          "departmentName",
           "type",
           "victimEmployeeId",
           "followUps",
@@ -15495,6 +15792,11 @@
           "name": {
             "type": "string"
           },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "通知會寄到這個 Email"
+          },
           "departmentIds": {
             "description": "這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門",
             "type": "array",
@@ -15507,6 +15809,7 @@
         "required": [
           "id",
           "name",
+          "email",
           "departmentIds"
         ]
       },
@@ -16426,6 +16729,12 @@
           "siteName": {
             "type": "string"
           },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "服務的部門（表單上的部門名稱另存在 content.departmentName）"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -16455,6 +16764,7 @@
           "serviceOn",
           "siteId",
           "siteName",
+          "departmentId",
           "status",
           "content",
           "executorName",

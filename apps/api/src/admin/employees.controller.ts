@@ -8,7 +8,7 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Query, Res } from '@nest
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { currentSubscriptionFirst, departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
 import { EMPLOYEE_LANGS, isEmployeeLang } from '@yutis/domain';
-import { asc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
@@ -53,9 +53,13 @@ class EmployeeNameDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ enum: STATUSES, description: '離職員工也會列出' }) status!: (typeof STATUSES)[number];
 }
 const EmployeeSearch = z.object({
   q: z.string().trim().max(50).default(''),
+  /** Comma-separated, or the parameter repeated. */
+  ids: z.preprocess(v => (Array.isArray(v) ? v.join(',') : v), z.string().default(''))
+    .transform(v => v.split(',').map(id => id.trim()).filter(Boolean)).pipe(z.array(z.uuid()).max(50)),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
@@ -73,16 +77,18 @@ export class EmployeesController {
   @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
   @ApiOperation({
     summary: '找員工（租戶管理員）',
-    description: '依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。',
+    description: '依姓名或工號找員工，或用 ids 查指定的員工；只回傳 id、工號、姓名與在職狀態，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。',
   })
   @ApiQuery({ name: 'q', required: false, type: String, description: '姓名或工號的一部分' })
+  @ApiQuery({ name: 'ids', required: false, type: String, description: '員工 id，以逗號分隔（最多 50 個）；有給時不受 limit 限制' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: '最多幾筆（1–50，預設 20）' })
   @ApiOkResponse({ type: [EmployeeNameDto] })
   async search(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<EmployeeNameDto[]> {
-    const { q, limit } = parse(EmployeeSearch, query);
+    const { q, ids, limit } = parse(EmployeeSearch, query);
     const like = contains(q);
-    const rows = await ctx.tx.select({ id: employees.id, empNo: employees.empNo, name: employees.name }).from(employees)
-      .where(q ? or(ilike(employees.name, like), ilike(employees.empNo, like)) : undefined).orderBy(asc(employees.empNo)).limit(limit);
+    const rows = await ctx.tx.select({ id: employees.id, empNo: employees.empNo, name: employees.name, status: employees.status }).from(employees)
+      .where(and(q ? or(ilike(employees.name, like), ilike(employees.empNo, like)) : undefined, ids.length ? inArray(employees.id, ids) : undefined))
+      .orderBy(asc(employees.empNo)).limit(ids.length ? ids.length : limit);
     if (rows.length) {
       await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'employees', subjectId: r.id, employeeId: r.id, dataCategory: 'identity', reason: 'admin employee search' })));
     }

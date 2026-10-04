@@ -2,16 +2,22 @@
 import { bigint, date, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { base, tenantKey, tenantRef } from './common.js';
 import { employees } from './employees.js';
-import { sites } from './org.js';
+import { departments, sites } from './org.js';
 
 export const serviceRecords = pgTable('service_records', {
   ...base(),
   serviceOn: date('service_on').notNull(),
   siteId: uuid('site_id').notNull(),
+  /** The department served, when the visit was for one (the form also keeps a free-text department name). */
+  departmentId: uuid('department_id'),
   /** Form content: staff present, work done, findings, recommendations. */
   content: jsonb('content').notNull(),
   status: text('status', { enum: ['草稿', '簽核中', '已完成'] }).notNull().default('草稿'),
-}, t => [tenantKey(t), tenantRef('service_records_site_fk', t, t.siteId, sites)]);
+}, t => [
+  tenantKey(t),
+  tenantRef('service_records_site_fk', t, t.siteId, sites),
+  tenantRef('service_records_department_fk', t, t.departmentId, departments),
+]);
 
 /**
  * Email sign-off on any record (附表八, maternal environment assessment…). The emailed link carries a one-time

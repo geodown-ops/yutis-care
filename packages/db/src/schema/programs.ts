@@ -182,15 +182,21 @@ export const violenceChecklists = pgTable('violence_checklists', {
   ...base(),
   kind: text('kind', { enum: ['作業場所', '人力'] }).notNull(),
   siteId: uuid('site_id').notNull(),
+  departmentId: uuid('department_id'),
   checkedOn: date('checked_on').notNull(),
   items: jsonb('items').notNull(),
-}, t => [tenantKey(t), tenantRef('violence_checklists_site_fk', t, t.siteId, sites)]);
+}, t => [
+  tenantKey(t),
+  tenantRef('violence_checklists_site_fk', t, t.siteId, sites),
+  tenantRef('violence_checklists_department_fk', t, t.departmentId, departments),
+]);
 
 /** Incident reports. Visible to care staff only; an accused manager never sees the incident. */
 export const violenceIncidents = pgTable('violence_incidents', {
   ...base(),
   occurredOn: date('occurred_on').notNull(),
   siteId: uuid('site_id').notNull(),
+  departmentId: uuid('department_id'),
   type: text('type').notNull(),
   victimEmployeeId: uuid('victim_employee_id'),
   detailEnc: bytea('detail_enc'),
@@ -200,6 +206,7 @@ export const violenceIncidents = pgTable('violence_incidents', {
 }, t => [
   tenantKey(t),
   tenantRef('violence_incidents_site_fk', t, t.siteId, sites),
+  tenantRef('violence_incidents_department_fk', t, t.departmentId, departments),
   tenantRef('violence_incidents_victim_fk', t, t.victimEmployeeId, employees),
 ]);
 

@@ -344,7 +344,7 @@ export interface paths {
         };
         /**
          * 找員工（租戶管理員）
-         * @description 依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。
+         * @description 依姓名或工號找員工，或用 ids 查指定的員工；只回傳 id、工號、姓名與在職狀態，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。
          */
         get: operations["EmployeesController_search"];
         put?: never;
@@ -1279,7 +1279,7 @@ export interface paths {
         head?: never;
         /**
          * 修改不法侵害事件
-         * @description 只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。
+         * @description 只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。改廠區時，原部門不在新廠區就要一起改 departmentId（或送 null）。
          */
         patch: operations["MaternalViolenceController_updateIncident"];
         trace?: never;
@@ -2255,6 +2255,11 @@ export interface components {
             id: string;
             empNo: string;
             name: string;
+            /**
+             * @description 離職員工也會列出
+             * @enum {string}
+             */
+            status: "在職" | "留停" | "離職";
         };
         SeatsDto: {
             /** @description 匯入後的在職員工數 */
@@ -2754,8 +2759,10 @@ export interface components {
             tracking: components["schemas"]["ErgoTrackingDto"] | null;
         };
         RemindResultDto: {
-            /** @description 寄出催填通知的人數 */
+            /** @description 有 Email、已排入催填通知的人數 */
             emailed: number;
+            /** @description 信真的會寄出；系統設定為只記錄不寄（EMAIL_PROVIDER=log，測試環境）時為 false */
+            delivered: boolean;
             /** @description 沒有 Email、無法通知的員工 */
             noEmail: string[];
         };
@@ -2942,6 +2949,63 @@ export interface components {
             missing: ("cbi" | "overload" | "exam")[];
             interview: components["schemas"]["InterviewDto"] | null;
         };
+        InterviewSavedDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            empNo: string;
+            name: string;
+            /** Format: uuid */
+            siteId: string;
+            /** @example 桃園廠 */
+            site: string;
+            /** Format: uuid */
+            departmentId: string;
+            /** @example 製造一課 */
+            department: string;
+            /** Format: date */
+            sentOn: string;
+            /** @description CBI 各題作答；直接輸入分數時為 null */
+            cbiAnswers: components["schemas"]["CbiAnswersDto"] | null;
+            /** @description 個人相關過勞分數 */
+            personalBurnout: number | null;
+            /** @description 工作相關過勞分數 */
+            workBurnout: number | null;
+            /**
+             * Format: date-time
+             * @description 過勞量表填寫時間
+             */
+            fatigueAt: string | null;
+            /**
+             * @description 員工自填或職護代填
+             * @enum {string|null}
+             */
+            fatigueBy: "self" | "nurse" | null;
+            /**
+             * Format: date-time
+             * @description 工時與工作型態填寫時間
+             */
+            overloadAt: string | null;
+            /** @description 已寄出的催填通知次數 */
+            reminders: number;
+            /** Format: date-time */
+            lastRemindedAt: string | null;
+            overtime1m: number | null;
+            overtime6mAvg: number | null;
+            workPatterns: string[];
+            /** @description 十年心血管風險、負荷等級與矩陣結果（評估當下的快照） */
+            evaluation: {
+                [key: string]: unknown;
+            } | null;
+            /** @description 0 低度、1 中度、2 高度風險；資料不全時為 null */
+            riskLevel: number | null;
+            /** @description 還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。 */
+            missing: ("cbi" | "overload" | "exam")[];
+            interview: components["schemas"]["InterviewDto"] | null;
+            /** @description 這次儲存寄出了面談通知給員工（新安排或改期、員工有 Email，且信真的會寄出） */
+            emailed: boolean;
+        };
         EnvAssessmentDto: {
             /** Format: uuid */
             id: string;
@@ -2991,9 +3055,15 @@ export interface components {
             name: string;
             /**
              * Format: uuid
+             * @description 員工目前所屬廠區
+             */
+            siteId: string;
+            /**
+             * Format: uuid
              * @description 員工目前所屬部門
              */
             departmentId: string;
+            departmentName: string;
             /**
              * @description 產後指分娩後未滿一年
              * @enum {string}
@@ -3034,6 +3104,9 @@ export interface components {
             id: string;
             /** Format: uuid */
             siteId: string;
+            /** Format: uuid */
+            departmentId: string | null;
+            departmentName: string | null;
             /** Format: date */
             assessedOn: string;
             /** @description 每題的可能性、嚴重度、風險等級與控制措施 */
@@ -3053,6 +3126,9 @@ export interface components {
             kind: "作業場所" | "人力";
             /** Format: uuid */
             siteId: string;
+            /** Format: uuid */
+            departmentId: string | null;
+            departmentName: string | null;
             /** Format: date */
             checkedOn: string;
             items: components["schemas"]["ChecklistItemDto"][];
@@ -3064,6 +3140,9 @@ export interface components {
             occurredOn: string;
             /** Format: uuid */
             siteId: string;
+            /** Format: uuid */
+            departmentId: string | null;
+            departmentName: string | null;
             /** @example 語言暴力 */
             type: string;
             /**
@@ -3155,6 +3234,11 @@ export interface components {
              */
             id: string;
             name: string;
+            /**
+             * Format: email
+             * @description 通知會寄到這個 Email
+             */
+            email: string;
             /** @description 這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門 */
             departmentIds: string[];
         };
@@ -3476,6 +3560,11 @@ export interface components {
             /** Format: uuid */
             siteId: string;
             siteName: string;
+            /**
+             * Format: uuid
+             * @description 服務的部門（表單上的部門名稱另存在 content.departmentName）
+             */
+            departmentId: string | null;
             /** @enum {string} */
             status: "草稿" | "簽核中" | "已完成";
             content: {
@@ -4752,6 +4841,8 @@ export interface operations {
             query?: {
                 /** @description 最多幾筆（1–50，預設 20） */
                 limit?: number;
+                /** @description 員工 id，以逗號分隔（最多 50 個）；有給時不受 limit 限制 */
+                ids?: string;
                 /** @description 姓名或工號的一部分 */
                 q?: string;
             };
@@ -7412,7 +7503,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssessmentDto"];
+                    "application/json": components["schemas"]["InterviewSavedDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -7902,6 +7993,8 @@ export interface operations {
                     kind: "作業場所" | "人力";
                     /** Format: uuid */
                     siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
                     /** Format: date */
                     checkedOn: string;
                     items: {
@@ -8011,6 +8104,8 @@ export interface operations {
                     occurredOn: string;
                     /** Format: uuid */
                     siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
                     type: string;
                     /** @default null */
                     victimEmployeeId?: string | null;
@@ -8075,6 +8170,7 @@ export interface operations {
                     occurredOn?: string;
                     /** Format: uuid */
                     siteId?: string;
+                    departmentId?: string | null;
                     type?: string;
                     victimEmployeeId?: string | null;
                     detail?: string | null;
@@ -9837,6 +9933,8 @@ export interface operations {
                     serviceOn: string;
                     /** Format: uuid */
                     siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
                     content: {
                         from: string;
                         to: string;
@@ -9930,6 +10028,8 @@ export interface operations {
                     serviceOn: string;
                     /** Format: uuid */
                     siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
                     content: {
                         from: string;
                         to: string;

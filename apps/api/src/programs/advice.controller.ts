@@ -58,6 +58,7 @@ class NoticeDto {
 class ManagerDto {
   @ApiProperty({ format: 'uuid', description: '通知主管時的 managerUserId' }) id!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ format: 'email', description: '通知會寄到這個 Email' }) email!: string;
   @ApiProperty({
     type: [String], format: 'uuid',
     description: '這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門',
@@ -132,7 +133,7 @@ export class AdviceController {
         .where(and(inArray(departments.siteId, sites), sql`${departments.managerEmail} is not null`))
       : [];
     return managers.map(m => ({
-      id: m.id, name: m.name,
+      id: m.id, name: m.name, email: m.email,
       departmentIds: depts.filter(d => d.managerEmail!.toLowerCase() === m.email.toLowerCase()).map(d => d.id),
     }));
   }

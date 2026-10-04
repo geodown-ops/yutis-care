@@ -258,17 +258,21 @@ describe('exports', () => {
 describe('附表八 sign-off', () => {
   it('records a service, sends it to the configured sign-off roles, and completes when everyone has signed', async () => {
     const safety = await as('safety@acme.test');
+    const depts = await owner.select({ id: departments.id, siteId: departments.siteId }).from(departments);
+    const inSite = depts.find(d => d.siteId === ids.site)!.id;
+    const elsewhere = depts.find(d => d.siteId !== ids.site)!.id;
     const body = {
-      serviceOn: '2026-10-01', siteId: ids.site,
+      serviceOn: '2026-10-01', siteId: ids.site, departmentId: inSite,
       content: { from: '09:00', to: '12:00', executorUserId: ids['safety@acme.test'], headcount: { adminM: 6, adminF: 4, opM: 58, opF: 21, general: 31 }, services: '9.1 健康檢查結果分析' },
       signers: [{ role: '人力資源管理人員', name: '李人資', email: 'hr@acme.test' }, { role: '部門主管', name: '周課長', email: 'boss@acme.test' }],
     };
     expect((await call('POST', '/api/service-records', { cookie: safety, body: { ...body, signers: [{ role: '老闆', name: 'x', email: 'x@acme.test' }] } })).json()).toMatchObject({ code: 'unknown_sign_off_role' });
+    expect((await call('POST', '/api/service-records', { cookie: safety, body: { ...body, departmentId: elsewhere } })).json()).toMatchObject({ code: 'unknown_department' });
     expect((await call('POST', '/api/service-records', { cookie: await as('hr@acme.test'), body })).statusCode).toBe(403);
     expect((await call('GET', '/api/service-records/sign-off-roles', { cookie: safety })).json()).toEqual(['勞工健康服務醫師', '人力資源管理人員', '部門主管']);
     const created = (await call('POST', '/api/service-records', { cookie: safety, body })).json();
     expect(created).toMatchObject({
-      status: '草稿', executorName: '吳工安', signatures: [{ role: '人力資源管理人員', firstSentAt: null }, { role: '部門主管', firstSentAt: null }],
+      departmentId: inSite, status: '草稿', executorName: '吳工安', signatures: [{ role: '人力資源管理人員', firstSentAt: null }, { role: '部門主管', firstSentAt: null }],
     });
     const spare = (await call('POST', '/api/service-records', { cookie: safety, body })).json();
     expect((await call('DELETE', `/api/service-records/${spare.id}`, { cookie: safety })).statusCode).toBe(204);

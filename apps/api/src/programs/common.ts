@@ -1,6 +1,6 @@
 /* Shared by the four programmes (四大計畫): site scope, abnormal events and the latest health check. */
-import { NotFoundException } from '@nestjs/common';
-import { caseEvents, employees, healthExamResults, healthExams, portalDrafts } from '@yutis/db';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { caseEvents, departments, employees, healthExamResults, healthExams, portalDrafts } from '@yutis/db';
 import { ageAt, EXAM_ITEMS, isAgeConcern, type EventType, type ExamValues } from '@yutis/domain';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { assertSiteAccess, siteAccess } from '../auth/site-access.js';
@@ -25,6 +25,14 @@ export async function mySiteIds(ctx: RequestContext): Promise<string[]> {
 
 export async function assertSitesInScope(ctx: RequestContext, siteId: string) {
   await assertSiteAccess(ctx.tx, staff(ctx), siteId);
+}
+
+/** The department's name, after checking it belongs to the site; null when no department is given. */
+export async function departmentInSite(ctx: RequestContext, siteId: string, departmentId: string | null | undefined): Promise<string | null> {
+  if (!departmentId) return null;
+  const [dept] = await ctx.tx.select({ name: departments.name }).from(departments).where(and(eq(departments.id, departmentId), eq(departments.siteId, siteId)));
+  if (!dept) throw new BadRequestException({ code: 'unknown_department', message: 'The department is not in that site' });
+  return dept.name;
 }
 
 /** A submitted questionnaire no longer needs the employee's draft, whoever submitted it. */

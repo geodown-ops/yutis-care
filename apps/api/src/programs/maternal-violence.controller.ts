@@ -27,7 +27,7 @@ import {
   assertSignOffRoles, deleteSigners, issueSignLink, replaceSigners, SignatureDto, signaturesOf, Signer, SignLinkDto,
 } from '../service/sign-off.js';
 import { SIGN_LINK_DAYS } from './advice.controller.js';
-import { assertSitesInScope, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
+import { assertSitesInScope, departmentInSite, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
 import { AcknowledgementStatusDto } from './acknowledgements.js';
 import { noticesBySubject, NoticeStatusDto } from './notices.js';
@@ -55,11 +55,12 @@ const RiskAssessment = z.object({
   }).strict()).min(1).max(100),
 }).strict();
 const Checklist = z.object({
-  kind: z.enum(['作業場所', '人力']), siteId: z.uuid(), checkedOn: z.iso.date(),
+  kind: z.enum(['作業場所', '人力']), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), checkedOn: z.iso.date(),
   items: z.array(z.object({ item: z.string().trim().min(1).max(300), ok: z.boolean(), note: z.string().max(500).default('') }).strict()).min(1).max(200),
 }).strict();
 const Incident = z.object({
-  occurredOn: z.iso.date(), siteId: z.uuid(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable().default(null),
+  occurredOn: z.iso.date(), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), type: z.string().trim().min(1).max(50),
+  victimEmployeeId: z.uuid().nullable().default(null),
   detail: z.string().max(10000).nullable().default(null), followUps: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
 }).strict();
 const INCIDENT_STATUSES = violenceIncidents.status.enumValues;
@@ -72,7 +73,7 @@ const Review = z.object({
   signers: z.array(Signer).max(10).default([]),
 }).strict();
 const UpdateIncident = z.object({
-  occurredOn: z.iso.date(), siteId: z.uuid(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable(),
+  occurredOn: z.iso.date(), siteId: z.uuid(), departmentId: z.uuid().nullable(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable(),
   detail: z.string().max(10000).nullable(), followUps: z.array(z.string().trim().min(1).max(200)).max(20), status: z.enum(INCIDENT_STATUSES),
 }).partial().strict();
 
@@ -100,7 +101,9 @@ class MaternalCaseDto {
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ format: 'uuid', description: '員工目前所屬廠區' }) siteId!: string;
   @ApiProperty({ format: 'uuid', description: '員工目前所屬部門' }) departmentId!: string;
+  @ApiProperty() departmentName!: string;
   @ApiProperty({ enum: ['妊娠', '產後'], description: '產後指分娩後未滿一年' }) type!: string;
   @ApiProperty({ type: String, format: 'date' }) notifiedOn!: string;
   @ApiProperty({ type: String, format: 'date', nullable: true, description: '預產期' }) dueDate!: string | null;
@@ -119,6 +122,8 @@ class ChecklistDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ enum: ['作業場所', '人力'] }) kind!: '作業場所' | '人力';
   @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) departmentName!: string | null;
   @ApiProperty({ type: String, format: 'date' }) checkedOn!: string;
   @ApiProperty({ type: [ChecklistItemDto] }) items!: ChecklistItemDto[];
 }
@@ -126,6 +131,8 @@ class IncidentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ type: String, format: 'date' }) occurredOn!: string;
   @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) departmentName!: string | null;
   @ApiProperty({ example: '語言暴力' }) type!: string;
   @ApiProperty({ type: String, format: 'uuid', nullable: true, description: '受害者是本公司員工時' }) victimEmployeeId!: string | null;
   @ApiProperty({ type: [String], description: '後續協助' }) followUps!: string[];
@@ -152,6 +159,8 @@ class ViolenceReviewDto {
 class RiskAssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) departmentName!: string | null;
   @ApiProperty({ type: String, format: 'date' }) assessedOn!: string;
   @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true }, description: '每題的可能性、嚴重度、風險等級與控制措施' }) items!: unknown[];
 }
@@ -174,6 +183,7 @@ export class MaternalViolenceController {
   async createEnv(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<EnvAssessmentDto> {
     const input = parse(EnvAssessment, body);
     await assertSitesInScope(ctx, input.siteId);
+    await departmentInSite(ctx, input.siteId, input.departmentId);
     const [row] = await ctx.tx.insert(maternalEnvAssessments).values({ ...input, level: suggestMaternalLevel(input.hazards), tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning();
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_env_assessments', subjectId: row!.id, dataCategory: 'work' });
     return toEnv(row!);
@@ -204,14 +214,17 @@ export class MaternalViolenceController {
     }).returning();
     await raiseEvent(ctx, { employeeId: employee.id, type: 'mat', sourceTable: 'maternal_cases', sourceId: row!.id, occurredOn: input.notifiedOn, description: `工作場所母性健康保護：${input.type}通報` });
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_cases', subjectId: row!.id, employeeId: employee.id, dataCategory: 'medical' });
-    return (await this.toCases(ctx, [{ c: row!, empNo: employee.empNo, name: employee.name, departmentId: employee.departmentId }]))[0]!;
+    const [dept] = await ctx.tx.select({ name: departments.name }).from(departments).where(eq(departments.id, employee.departmentId));
+    return (await this.toCases(ctx, [{ c: row!, empNo: employee.empNo, name: employee.name, siteId: employee.siteId, departmentId: employee.departmentId, departmentName: dept!.name }]))[0]!;
   }
 
   @Get('maternal/cases') @Clinical() @ApiOperation({ summary: '負責廠區的母性健康保護個案', description: '每位列出的員工都記入稽核。' }) @ApiOkResponse({ type: [MaternalCaseDto] })
   async maternal(@Ctx() ctx: RequestContext): Promise<MaternalCaseDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select({ c: maternalCases, empNo: employees.empNo, name: employees.name, departmentId: employees.departmentId }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId))
+    const rows = await ctx.tx.select({
+      c: maternalCases, empNo: employees.empNo, name: employees.name, siteId: employees.siteId, departmentId: employees.departmentId, departmentName: departments.name,
+    }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId)).innerJoin(departments, eq(departments.id, employees.departmentId))
       .where(inArray(employees.siteId, sites)).orderBy(desc(maternalCases.notifiedOn));
     if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'maternal_cases', subjectId: r.c.id, employeeId: r.c.employeeId, dataCategory: 'medical' })));
     return this.toCases(ctx, rows);
@@ -242,18 +255,21 @@ export class MaternalViolenceController {
   async createRisk(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<RiskAssessmentDto> {
     const input = parse(RiskAssessment, body);
     await assertSitesInScope(ctx, input.siteId);
+    const departmentName = await departmentInSite(ctx, input.siteId, input.departmentId);
     const items = input.items.map(i => ({ ...i, risk: violenceRisk(i.likelihood, i.severity) }));
     const [row] = await ctx.tx.insert(violenceRiskAssessments).values({ ...input, items, tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning();
     await recordAudit(ctx, { action: 'create', subjectTable: 'violence_risk_assessments', subjectId: row!.id, dataCategory: 'work' });
-    return { id: row!.id, siteId: row!.siteId, assessedOn: row!.assessedOn, items };
+    return { id: row!.id, siteId: row!.siteId, departmentId: row!.departmentId, departmentName, assessedOn: row!.assessedOn, items };
   }
 
   @Get('violence/risk-assessments') @Environment() @ApiOperation({ summary: '負責廠區的不法侵害風險評估' }) @ApiOkResponse({ type: [RiskAssessmentDto] })
   async risks(@Ctx() ctx: RequestContext): Promise<RiskAssessmentDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select().from(violenceRiskAssessments).where(inArray(violenceRiskAssessments.siteId, sites)).orderBy(desc(violenceRiskAssessments.assessedOn));
-    return rows.map(r => ({ id: r.id, siteId: r.siteId, assessedOn: r.assessedOn, items: r.items as unknown[] }));
+    const rows = await ctx.tx.select({ r: violenceRiskAssessments, departmentName: departments.name }).from(violenceRiskAssessments)
+      .leftJoin(departments, eq(departments.id, violenceRiskAssessments.departmentId))
+      .where(inArray(violenceRiskAssessments.siteId, sites)).orderBy(desc(violenceRiskAssessments.assessedOn));
+    return rows.map(({ r, departmentName }) => ({ id: r.id, siteId: r.siteId, departmentId: r.departmentId, departmentName, assessedOn: r.assessedOn, items: r.items as unknown[] }));
   }
 
   @Post('violence/checklists') @Environment()
@@ -262,6 +278,7 @@ export class MaternalViolenceController {
   async createChecklist(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<CreatedDto> {
     const input = parse(Checklist, body);
     await assertSitesInScope(ctx, input.siteId);
+    await departmentInSite(ctx, input.siteId, input.departmentId);
     const [row] = await ctx.tx.insert(violenceChecklists).values({ ...input, tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning({ id: violenceChecklists.id });
     await recordAudit(ctx, { action: 'create', subjectTable: 'violence_checklists', subjectId: row!.id, dataCategory: 'work' });
     return row!;
@@ -272,8 +289,11 @@ export class MaternalViolenceController {
   async checklists(@Ctx() ctx: RequestContext): Promise<ChecklistDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select({ id: violenceChecklists.id, kind: violenceChecklists.kind, siteId: violenceChecklists.siteId, checkedOn: violenceChecklists.checkedOn, items: violenceChecklists.items })
-      .from(violenceChecklists).where(inArray(violenceChecklists.siteId, sites)).orderBy(desc(violenceChecklists.checkedOn));
+    const rows = await ctx.tx.select({
+      id: violenceChecklists.id, kind: violenceChecklists.kind, siteId: violenceChecklists.siteId, departmentId: violenceChecklists.departmentId, departmentName: departments.name,
+      checkedOn: violenceChecklists.checkedOn, items: violenceChecklists.items,
+    }).from(violenceChecklists).leftJoin(departments, eq(departments.id, violenceChecklists.departmentId))
+      .where(inArray(violenceChecklists.siteId, sites)).orderBy(desc(violenceChecklists.checkedOn));
     return rows.map(r => ({ ...r, items: r.items as ChecklistItemDto[] }));
   }
 
@@ -283,6 +303,7 @@ export class MaternalViolenceController {
   async createIncident(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<CreatedDto> {
     const { detail, ...input } = parse(Incident, body);
     await assertSitesInScope(ctx, input.siteId);
+    await departmentInSite(ctx, input.siteId, input.departmentId);
     if (input.victimEmployeeId) await employeeInScope(ctx, input.victimEmployeeId);
     const [row] = await ctx.tx.insert(violenceIncidents).values({
       ...input, detailEnc: await encryptOptional(this.crypto, ctx.tenant.id, detail), tenantId: ctx.tenant.id, createdBy: staff(ctx).userId,
@@ -296,13 +317,15 @@ export class MaternalViolenceController {
   async incidents(@Ctx() ctx: RequestContext): Promise<IncidentDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select().from(violenceIncidents).where(inArray(violenceIncidents.siteId, sites)).orderBy(desc(violenceIncidents.occurredOn));
-    if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'violence_incidents', subjectId: r.id, employeeId: r.victimEmployeeId ?? undefined, dataCategory: 'medical' })));
-    return Promise.all(rows.map(r => this.toIncident(ctx, r)));
+    const rows = await ctx.tx.select({ r: violenceIncidents, departmentName: departments.name }).from(violenceIncidents)
+      .leftJoin(departments, eq(departments.id, violenceIncidents.departmentId))
+      .where(inArray(violenceIncidents.siteId, sites)).orderBy(desc(violenceIncidents.occurredOn));
+    if (rows.length) await recordAudit(ctx, rows.map(({ r }): AuditEntry => ({ action: 'read', subjectTable: 'violence_incidents', subjectId: r.id, employeeId: r.victimEmployeeId ?? undefined, dataCategory: 'medical' })));
+    return Promise.all(rows.map(({ r, departmentName }) => this.toIncident(ctx, r, departmentName)));
   }
 
   @Patch('violence/incidents/:id') @Clinical()
-  @ApiOperation({ summary: '修改不法侵害事件', description: '只送要改的欄位，例如 { status: \'結案\' }；detail 送 null 會清除。' })
+  @ApiOperation({ summary: '修改不法侵害事件', description: '只送要改的欄位，例如 { status: \'結案\' }；detail 送 null 會清除。改廠區時，原部門不在新廠區就要一起改 departmentId（或送 null）。' })
   @ApiBody({ schema: openApiSchema(UpdateIncident) }) @ApiOkResponse({ type: IncidentDto })
   async updateIncident(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<IncidentDto> {
     const { detail, ...input } = parse(UpdateIncident, body);
@@ -310,6 +333,7 @@ export class MaternalViolenceController {
     if (!current) throw new NotFoundException({ code: 'not_found', message: 'No such incident' });
     await assertSitesInScope(ctx, current.siteId);
     if (input.siteId) await assertSitesInScope(ctx, input.siteId);
+    const departmentName = await departmentInSite(ctx, input.siteId ?? current.siteId, input.departmentId !== undefined ? input.departmentId : current.departmentId);
     if (input.victimEmployeeId) await employeeInScope(ctx, input.victimEmployeeId);
     const [row] = await ctx.tx.update(violenceIncidents).set({
       ...input, ...(detail !== undefined ? { detailEnc: await encryptOptional(this.crypto, ctx.tenant.id, detail) } : {}),
@@ -320,7 +344,7 @@ export class MaternalViolenceController {
       action: 'update', subjectTable: 'violence_incidents', subjectId: id, employeeId: row!.victimEmployeeId ?? undefined, dataCategory: 'medical',
       reason: changed.length ? `changed ${changed.join(', ')}` : undefined,
     });
-    return this.toIncident(ctx, row!);
+    return this.toIncident(ctx, row!, departmentName);
   }
 
   @Get('violence/reviews') @Environment() @ApiOperation({ summary: '負責廠區的預防措施查核及評估' }) @ApiOkResponse({ type: [ViolenceReviewDto] })
@@ -398,10 +422,7 @@ export class MaternalViolenceController {
 
   private async validateReview(ctx: RequestContext, input: { siteId: string; departmentId: string | null }, signers: z.infer<typeof Signer>[]) {
     await assertSitesInScope(ctx, input.siteId);
-    if (input.departmentId) {
-      const [dept] = await ctx.tx.select({ id: departments.id }).from(departments).where(and(eq(departments.id, input.departmentId), eq(departments.siteId, input.siteId)));
-      if (!dept) throw new BadRequestException({ code: 'unknown_department', message: 'The department is not in that site' });
-    }
+    await departmentInSite(ctx, input.siteId, input.departmentId);
     await assertSignOffRoles(ctx, signers);
   }
 
@@ -424,15 +445,15 @@ export class MaternalViolenceController {
     }));
   }
 
-  private async toIncident(ctx: RequestContext, r: typeof violenceIncidents.$inferSelect): Promise<IncidentDto> {
+  private async toIncident(ctx: RequestContext, r: typeof violenceIncidents.$inferSelect, departmentName: string | null): Promise<IncidentDto> {
     return {
-      id: r.id, occurredOn: r.occurredOn, siteId: r.siteId, type: r.type, victimEmployeeId: r.victimEmployeeId, followUps: r.followUps, status: r.status,
+      id: r.id, occurredOn: r.occurredOn, siteId: r.siteId, departmentId: r.departmentId, departmentName, type: r.type, victimEmployeeId: r.victimEmployeeId, followUps: r.followUps, status: r.status,
       detail: await decryptOptional(this.crypto, ctx.tenant.id, r.detailEnc),
     };
   }
 
   private async toCases(
-    ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; empNo: string; name: string; departmentId: string }[],
+    ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; empNo: string; name: string; siteId: string; departmentId: string; departmentName: string }[],
   ): Promise<MaternalCaseDto[]> {
     const ivs = rows.length
       ? await ctx.tx.select().from(maternalInterviews).where(inArray(maternalInterviews.caseId, rows.map(r => r.c.id))).orderBy(asc(maternalInterviews.interviewedOn), asc(maternalInterviews.createdAt))
@@ -442,8 +463,8 @@ export class MaternalViolenceController {
       ? await ctx.tx.select().from(employeeAcknowledgements).where(and(eq(employeeAcknowledgements.subjectTable, 'maternal_interviews'), inArray(employeeAcknowledgements.subjectId, ivIds)))
       : [];
     const notices = await noticesBySubject(ctx, 'maternal_interviews', ivIds);
-    return Promise.all(rows.map(async ({ c, empNo, name, departmentId }) => ({
-      id: c.id, employeeId: c.employeeId, empNo, name, departmentId, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate, birthDate: c.birthDate,
+    return Promise.all(rows.map(async ({ c, empNo, name, siteId, departmentId, departmentName }) => ({
+      id: c.id, employeeId: c.employeeId, empNo, name, siteId, departmentId, departmentName, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate, birthDate: c.birthDate,
       weeks: pregnancyWeeks(c.type, c.dueDate, todayTw()), level: c.level, detail: await decryptOptional(this.crypto, ctx.tenant.id, c.detailEnc),
       interviews: ivs.filter(i => i.caseId === c.id).map(i => {
         const ack = acks.find(a => a.subjectId === i.id);

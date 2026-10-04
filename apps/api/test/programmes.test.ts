@@ -18,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { LocalTenantCrypto } from '../src/core/crypto.js';
-import { MAILER, type Mail, type Mailer } from '../src/core/mail.js';
+import { MAILER, Notifier, type Mail, type Mailer } from '../src/core/mail.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 /* ---------- the prototype's seeds, evaluated by the prototype ---------- */
@@ -242,9 +242,18 @@ describe('overwork (異常工作負荷)', () => {
     expect((await save({ status: '待安排' })).statusCode).toBe(200);
     expect((await save({ status: '已安排' })).statusCode).toBe(200);
     expect(mails()).toEqual([]);
-    expect((await save({ status: '已安排', interviewedOn: '2026-10-20' })).json().interview).toMatchObject({ status: '已安排', interviewedOn: '2026-10-20', nextInterview: null });
-    await save({ status: '已安排', interviewedOn: '2026-10-20' });
-    await save({ interviewedOn: '2026-10-22' });
+    const scheduled = (await save({ status: '已安排', interviewedOn: '2026-10-20' })).json();
+    expect(scheduled.interview).toMatchObject({ status: '已安排', interviewedOn: '2026-10-20', nextInterview: null });
+    // Mail is only logged in tests, so the nurse is told the employee was not really emailed.
+    expect(scheduled.emailed).toBe(false);
+    expect((await save({ status: '已安排', interviewedOn: '2026-10-20' })).json().emailed).toBe(false);
+    const delivers = vi.spyOn(app.get(Notifier), 'delivers', 'get').mockReturnValue(true);
+    try {
+      expect((await save({ interviewedOn: '2026-10-22' })).json().emailed).toBe(true);
+      expect((await save({ interviewedOn: '2026-10-22' })).json().emailed).toBe(false);
+    } finally {
+      delivers.mockRestore();
+    }
     expect(mails().map(m => m.subject)).toEqual(['健康面談通知', '健康面談通知']);
     expect(mails()[0]!.text).toContain('2026-10-20');
     expect(mails()[1]!.text).toContain('2026-10-22');
@@ -257,12 +266,12 @@ describe('overwork (異常工作負荷)', () => {
     const done = (await call('acme', 'GET', '/api/programs/workload/assessments', { cookie: await nurse() })).json().find((x: { missing: string[] }) => !x.missing.length);
     const before = sent.length;
     const res = await call('acme', 'POST', '/api/programs/workload/assessments/remind', { cookie: await nurse(), body: { assessmentIds: [fresh.id, done.id] } });
-    expect(res.json()).toEqual({ emailed: 1, noEmail: [] });
+    expect(res.json()).toEqual({ emailed: 1, delivered: false, noEmail: [] });
     expect(sent.slice(before).map(m => [m.to, m.subject])).toEqual([['old01@acme.test', '提醒：您有尚未填寫的問卷']]);
     const listed = (await call('acme', 'GET', '/api/programs/workload/assessments', { cookie: await nurse() })).json().find((x: { id: string }) => x.id === fresh.id);
     expect(listed).toMatchObject({ reminders: 1, lastRemindedAt: expect.any(String) });
     expect((await call('acme', 'POST', '/api/programs/workload/assessments/remind', { cookie: await as('nurse2@acme.test'), body: { assessmentIds: [fresh.id] } })).json())
-      .toEqual({ emailed: 0, noEmail: [] });
+      .toEqual({ emailed: 0, delivered: false, noEmail: [] });
   });
 });
 
@@ -409,7 +418,7 @@ describe('ergonomics (人因) and the employee portal', () => {
     const before = sent.length;
     const res = (await call('acme', 'POST', `/api/programs/ergo/dispatches/${pending.id}/remind`, { cookie: await nurse(), body: {} })).json();
     await owner.update(employees).set({ email: 'old01@acme.test' }).where(eq(employees.empNo, 'OLD01'));
-    expect(res).toEqual({ emailed: 1, noEmail: [await empId('OLD01')] });
+    expect(res).toEqual({ emailed: 1, delivered: false, noEmail: [await empId('OLD01')] });
     expect(sent.slice(before).map(m => m.to)).toEqual([`${protoEmployee!.empId.toLowerCase()}@acme.test`]);
     expect(sent.at(-1)!.text).toContain('http://acme.care.test/me/');
     const after = (await call('acme', 'GET', `/api/programs/ergo/dispatches/${pending.id}/surveys`, { cookie: await nurse() })).json();
@@ -431,6 +440,9 @@ describe('maternal protection, confirmations and sign links', () => {
     expect((await call('acme', 'GET', '/api/programs/maternal/env-assessments', { cookie: safety })).json()).toEqual([expect.objectContaining({ id: env.json().id, departmentId: ids.d1, shiftType: '輪班' })]);
     ids.env = env.json().id;
     expect((await call('acme', 'POST', '/api/programs/maternal/env-assessments', { cookie: safety, body: { siteId: ids.s2, area: 'x', assessedOn: '2026-09-15', hazards: { a: { v: '有' } } } })).statusCode).toBe(403);
+    expect((await call('acme', 'POST', '/api/programs/maternal/env-assessments', {
+      cookie: safety, body: { siteId: ids.s1, departmentId: ids.d2, area: 'x', assessedOn: '2026-09-15', hazards: { a: { v: '有' } } },
+    })).json()).toMatchObject({ code: 'unknown_department' });
     for (const url of ['/api/programs/maternal/cases', '/api/programs/work-advice', '/api/programs/ergo/dispatches', '/api/programs/violence/incidents']) {
       expect((await call('acme', 'GET', url, { cookie: safety })).statusCode, url).toBe(403);
     }
@@ -441,7 +453,9 @@ describe('maternal protection, confirmations and sign links', () => {
     const c = (await call('acme', 'POST', '/api/programs/maternal/cases', {
       cookie: await nurse(), body: { employeeId: a, type: '妊娠', notifiedOn: '2026-09-20', dueDate: '2027-04-01', envAssessmentId: ids.env, detail: '孕吐嚴重' },
     })).json();
-    expect(c).toMatchObject({ empNo: 'A001', departmentId: ids.d1, dueDate: '2027-04-01', birthDate: null, level: '第二級管理', detail: '孕吐嚴重' });
+    expect(c).toMatchObject({
+      empNo: 'A001', siteId: ids.s1, departmentId: ids.d1, departmentName: '製造一課', dueDate: '2027-04-01', birthDate: null, level: '第二級管理', detail: '孕吐嚴重',
+    });
     const [stored] = await owner.select().from(maternalCases).where(eq(maternalCases.id, c.id));
     expect(stored!.detailEnc!.toString('utf8')).not.toContain('孕吐');
     expect(await owner.select().from(caseEvents).where(and(eq(caseEvents.type, 'mat'), eq(caseEvents.employeeId, a)))).toHaveLength(1);
@@ -481,6 +495,7 @@ describe('maternal protection, confirmations and sign links', () => {
 
     // The case list carries each interview with its confirmation status, so links and notices can be sent later.
     const listed = (await call('acme', 'GET', '/api/programs/maternal/cases', { cookie: await nurse() })).json().find((x: { id: string }) => x.id === c.id);
+    expect(listed).toMatchObject({ siteId: ids.s1, departmentId: ids.d1, departmentName: '製造一課' });
     expect(listed.interviews).toEqual([{
       id: iv.id, interviewedOn: '2026-09-25', fitAdvice: '可繼續工作，避免接觸有機溶劑', limits: ['不從事塗裝作業'], agreedArrangement: '調至組裝線',
       acknowledgement: { id: iv.acknowledgementId, sentAt: expect.any(String), confirmedAt: expect.any(String), comment: '了解' }, notices: [],
@@ -543,8 +558,8 @@ describe('managers, violence, age and scope', () => {
     const managers = (await call('acme', 'GET', '/api/programs/managers', { cookie: await nurse() })).json();
     expect(managers).toHaveLength(2);
     expect(managers).toEqual(expect.arrayContaining([
-      { id: ids['boss@acme.test'], name: '周課長', departmentIds: [ids.d1] },
-      { id: ids['boss2@acme.test'], name: '林課長', departmentIds: [] },
+      { id: ids['boss@acme.test'], name: '周課長', email: 'boss@acme.test', departmentIds: [ids.d1] },
+      { id: ids['boss2@acme.test'], name: '林課長', email: 'boss2@acme.test', departmentIds: [] },
     ]));
     const fromHsinchu = (await call('acme', 'GET', '/api/programs/managers', { cookie: await as('nurse2@acme.test') })).json();
     expect(fromHsinchu.find((m: { id: string }) => m.id === ids['boss2@acme.test']).departmentIds).toEqual([ids.d2]);
@@ -560,9 +575,18 @@ describe('managers, violence, age and scope', () => {
       body: { siteId: ids.s1, assessedOn: '2026-09-01', items: [{ question: '是否有單獨夜間作業', likelihood: '可能', severity: '嚴重' }, { question: '櫃台是否有防護', likelihood: '極不可能', severity: '輕' }] },
     })).json();
     expect(risk.items.map((i: { risk: string }) => i.risk)).toEqual(['高度風險', '低度風險']);
-    const incident = (await call('acme', 'POST', '/api/programs/violence/incidents', {
-      cookie: await nurse(), body: { occurredOn: '2026-09-10', siteId: ids.s1, type: '言語暴力', victimEmployeeId: await empId('B001'), detail: '課長當眾辱罵' },
-    })).json();
+    expect(risk).toMatchObject({ departmentId: null, departmentName: null });
+    const riskBody = { siteId: ids.s1, departmentId: ids.d1, assessedOn: '2026-09-02', items: [{ question: '是否有單獨夜間作業', likelihood: '可能', severity: '輕' }] };
+    expect((await call('acme', 'POST', '/api/programs/violence/risk-assessments', { cookie: await as('safety@acme.test'), body: { ...riskBody, departmentId: ids.d2 } })).json())
+      .toMatchObject({ code: 'unknown_department' });
+    expect((await call('acme', 'POST', '/api/programs/violence/risk-assessments', { cookie: await as('safety@acme.test'), body: riskBody })).json())
+      .toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
+    expect((await call('acme', 'GET', '/api/programs/violence/risk-assessments', { cookie: await as('safety@acme.test') })).json().map((r: { departmentName: string | null }) => r.departmentName))
+      .toEqual(['製造一課', null]);
+    const incidentBody = { occurredOn: '2026-09-10', siteId: ids.s1, type: '言語暴力', victimEmployeeId: await empId('B001'), detail: '課長當眾辱罵' };
+    expect((await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: { ...incidentBody, departmentId: ids.d2 } })).json())
+      .toMatchObject({ code: 'unknown_department' });
+    const incident = (await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: incidentBody })).json();
     const [row] = await owner.select().from(violenceIncidents).where(eq(violenceIncidents.id, incident.id));
     expect(row!.detailEnc!.toString('utf8')).not.toContain('辱罵');
     expect((await call('acme', 'GET', '/api/programs/violence/incidents', { cookie: await nurse() })).json()[0].detail).toBe('課長當眾辱罵');
@@ -572,8 +596,14 @@ describe('managers, violence, age and scope', () => {
   it('updates incidents and lists typed checklists', async () => {
     const [incident] = (await call('acme', 'GET', '/api/programs/violence/incidents', { cookie: await nurse() })).json();
     expect(incident).toEqual({
-      id: expect.any(String), occurredOn: '2026-09-10', siteId: ids.s1, type: '言語暴力', victimEmployeeId: await empId('B001'), followUps: [], status: '處理中', detail: '課長當眾辱罵',
+      id: expect.any(String), occurredOn: '2026-09-10', siteId: ids.s1, departmentId: null, departmentName: null, type: '言語暴力', victimEmployeeId: await empId('B001'),
+      followUps: [], status: '處理中', detail: '課長當眾辱罵',
     });
+    const placed = await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { departmentId: ids.d1 } });
+    expect(placed.json()).toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
+    expect((await call('acme', 'GET', '/api/programs/violence/incidents', { cookie: await nurse() })).json()[0]).toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
+    expect((await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { departmentId: ids.d2 } })).json())
+      .toMatchObject({ code: 'unknown_department' });
     const closed = await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { status: '結案', followUps: ['轉介心理諮商'] } });
     expect(closed.json()).toMatchObject({ status: '結案', followUps: ['轉介心理諮商'], detail: '課長當眾辱罵' });
     expect((await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { status: '不明' } })).statusCode).toBe(400);
@@ -581,11 +611,13 @@ describe('managers, violence, age and scope', () => {
       .toMatchObject({ code: 'outside_sites' });
     expect((await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await as('safety@acme.test'), body: { status: '處理中' } })).statusCode).toBe(403);
 
-    await call('acme', 'POST', '/api/programs/violence/checklists', {
-      cookie: await as('safety@acme.test'), body: { kind: '作業場所', siteId: ids.s1, checkedOn: '2026-09-02', items: [{ item: '照明充足', ok: true }] },
-    });
-    expect((await call('acme', 'GET', '/api/programs/violence/checklists', { cookie: await as('safety@acme.test') })).json())
-      .toEqual([{ id: expect.any(String), kind: '作業場所', siteId: ids.s1, checkedOn: '2026-09-02', items: [{ item: '照明充足', ok: true, note: '' }] }]);
+    const checklist = { kind: '作業場所', siteId: ids.s1, departmentId: ids.d1, checkedOn: '2026-09-02', items: [{ item: '照明充足', ok: true }] };
+    expect((await call('acme', 'POST', '/api/programs/violence/checklists', { cookie: await as('safety@acme.test'), body: { ...checklist, departmentId: ids.d2 } })).json())
+      .toMatchObject({ code: 'unknown_department' });
+    await call('acme', 'POST', '/api/programs/violence/checklists', { cookie: await as('safety@acme.test'), body: checklist });
+    expect((await call('acme', 'GET', '/api/programs/violence/checklists', { cookie: await as('safety@acme.test') })).json()).toEqual([{
+      id: expect.any(String), kind: '作業場所', siteId: ids.s1, departmentId: ids.d1, departmentName: '製造一課', checkedOn: '2026-09-02', items: [{ item: '照明充足', ok: true, note: '' }],
+    }]);
   });
 
   it('runs prevention reviews through the sign-off chain', async () => {

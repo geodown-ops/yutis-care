@@ -144,6 +144,9 @@ class AssessmentDto {
   @ApiProperty({ enum: RISK_MISSING, isArray: true, description: RISK_MISSING_DESCRIPTION }) missing!: (typeof RISK_MISSING)[number][];
   @ApiProperty({ type: InterviewDto, nullable: true }) interview!: InterviewDto | null;
 }
+class InterviewSavedDto extends AssessmentDto {
+  @ApiProperty({ description: '這次儲存寄出了面談通知給員工（新安排或改期、員工有 Email，且信真的會寄出）' }) emailed!: boolean;
+}
 
 /** Store CBI answers or directly entered scores, then re-evaluate. Shared with the employee portal. */
 export async function submitFatigue(ctx: RequestContext, crypto: TenantCrypto, assessmentId: string, input: z.infer<typeof Fatigue>, by: Principal) {
@@ -211,7 +214,7 @@ export class WorkloadController {
   async remind(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<RemindResultDto> {
     const { assessmentIds } = parse(Remind, body);
     const sites = await mySiteIds(ctx);
-    if (!sites.length) return { emailed: 0, noEmail: [] };
+    if (!sites.length) return { emailed: 0, delivered: this.notifier.delivers, noEmail: [] };
     const pending = await ctx.tx.select({ id: workloadAssessments.id, employeeId: employees.id, name: employees.name, email: employees.email, lang: employees.lang })
       .from(workloadAssessments).innerJoin(employees, eq(employees.id, workloadAssessments.employeeId))
       .where(and(inArray(workloadAssessments.id, assessmentIds), inArray(employees.siteId, sites), or(isNull(workloadAssessments.fatigueAt), isNull(workloadAssessments.overloadAt))));
@@ -227,7 +230,7 @@ export class WorkloadController {
         .where(inArray(workloadAssessments.id, reachable.map(p => p.id)));
       await recordAudit(ctx, reachable.map((p): AuditEntry => ({ action: 'update', subjectTable: 'workload_assessments', subjectId: p.id, employeeId: p.employeeId, reason: 'fill-in reminder sent' })));
     }
-    return { emailed: reachable.length, noEmail: pending.filter(p => !p.email).map(p => p.employeeId) };
+    return { emailed: reachable.length, delivered: this.notifier.delivers, noEmail: pending.filter(p => !p.email).map(p => p.employeeId) };
   }
 
   @Post('assessments')
@@ -302,8 +305,8 @@ export class WorkloadController {
       + '狀態為已安排且有日期（interviewedOn）時，寄信通知員工面談日期（改期會再寄一次；信中不提是哪個計畫）。',
   })
   @ApiBody({ schema: openApiSchema(Interview) })
-  @ApiOkResponse({ type: AssessmentDto })
-  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<AssessmentDto> {
+  @ApiOkResponse({ type: InterviewSavedDto })
+  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<InterviewSavedDto> {
     const { notes, guidance, ...input } = parse(Interview, body);
     const employeeId = await this.inScope(ctx, id);
     if (input.doctorUserId) {
@@ -325,6 +328,7 @@ export class WorkloadController {
     }
     await recordAudit(ctx, { action: existing ? 'update' : 'create', subjectTable: 'interviews', subjectId: id, employeeId, dataCategory: 'medical' });
     const scheduled = saved!.status === '已安排' && saved!.interviewedOn;
+    let emailed = false;
     if (scheduled && (existing?.status !== '已安排' || existing.interviewedOn !== saved!.interviewedOn)) {
       const [employee] = await ctx.tx.select({ name: employees.name, email: employees.email, lang: employees.lang }).from(employees).where(eq(employees.id, employeeId));
       if (employee?.email) {
@@ -332,6 +336,7 @@ export class WorkloadController {
           to: employee.email, employeeId, interviewId: saved!.id, name: employee.name, lang: employee.lang, tenantName: ctx.tenant.name,
           on: saved!.interviewedOn!, url: `${tenantOrigin(this.config, ctx.tenant.slug)}/me/`,
         }));
+        emailed = this.notifier.delivers;
       }
     }
     if (saved!.status === '已面談') {
@@ -341,7 +346,7 @@ export class WorkloadController {
       if (!ack) await ctx.tx.insert(employeeAcknowledgements).values({ tenantId: ctx.tenant.id, employeeId, subjectTable: 'interviews', subjectId: saved!.id, createdBy: staff(ctx).userId });
     }
     const [result] = await this.list(ctx, [id], { notes: true });
-    return result!;
+    return { ...result!, emailed };
   }
 
   private async inScope(ctx: RequestContext, id: string): Promise<string> {
