@@ -6,11 +6,12 @@ import { useState, type ReactNode } from 'react';
 import { tenantQuery, type TenantDetail } from '../api';
 import { DangerOutlineButton, Footnote, LabelBadge, LoadError, PageLoader, SeatBar, ToneAlert, ToneBadge } from '../components';
 import { isMissingTenant } from '../errors';
-import { formatCount, formatDate, formatDateTime } from '../format';
+import { formatCount, formatDate, formatDateTime, todayInTaipei } from '../format';
 import { SUBSCRIPTION_STATUS, TENANT_STATUS } from '../labels';
 import { AnchorLink } from '../links';
+import { can, useMe } from '../permissions';
 import { TenantDialogs, type TenantDialogKind } from '../tenant-dialogs';
-import { pendingSetup } from '../tenants';
+import { currentPeriodIndex, pendingSetup } from '../tenants';
 
 export const Route = createFileRoute('/tenants/$tenantId')({ component: TenantDetailPage });
 
@@ -34,8 +35,13 @@ function TenantDetailPage() {
 
 function TenantView({ tenant: t }: { tenant: TenantDetail }) {
   const [dialog, setDialog] = useState<TenantDialogKind | null>(null);
+  const me = useMe();
   const pending = pendingSetup(t);
   const s = t.subscription;
+  const today = todayInTaipei();
+  const current = currentPeriodIndex(t.subscriptions, today);
+  const canStatus = can(me, 'tenants:write');
+  const canSubscribe = can(me, 'subscriptions:write');
   return (
     <>
       <Group justify="space-between" align="flex-start" gap="md">
@@ -45,11 +51,16 @@ function TenantView({ tenant: t }: { tenant: TenantDetail }) {
             <Group gap={4} wrap="nowrap">{t.url.replace(/^https?:\/\//, '')}<IconExternalLink size={14} /></Group>
           </Anchor>
         </Stack>
-        {t.status !== 'closed' && (
+        {t.status !== 'closed' && (canStatus || canSubscribe) && (
           <Group gap="sm">
-            <Button variant="default" onClick={() => setDialog('subscription')}>{s ? '變更訂閱' : '設定訂閱'}</Button>
-            {t.status === 'active' && <DangerOutlineButton onClick={() => setDialog('suspend')}>停用租戶</DangerOutlineButton>}
-            {t.status === 'suspended' && <Button onClick={() => setDialog('reactivate')}>恢復啟用</Button>}
+            {canSubscribe && (s
+              ? <>
+                <Button variant="default" onClick={() => setDialog('renew')}>續約／新期間</Button>
+                <Button variant="default" onClick={() => setDialog('subscription')}>更正目前訂閱</Button>
+              </>
+              : <Button variant="default" onClick={() => setDialog('subscription')}>設定訂閱</Button>)}
+            {canStatus && t.status === 'active' && <DangerOutlineButton onClick={() => setDialog('suspend')}>停用租戶</DangerOutlineButton>}
+            {canStatus && t.status === 'suspended' && <Button onClick={() => setDialog('reactivate')}>恢復啟用</Button>}
           </Group>
         )}
       </Group>
@@ -124,7 +135,12 @@ function TenantView({ tenant: t }: { tenant: TenantDetail }) {
               <Table.Tbody>
                 {t.subscriptions.map((h, i) => (
                   <Table.Tr key={`${h.startsOn}-${i}`}>
-                    <Table.Td><Group gap={8}>{h.planName}{i === 0 && <Text span size="xs" c="dimmed">目前</Text>}</Group></Table.Td>
+                    <Table.Td>
+                      <Group gap={8}>
+                        {h.planName}
+                        {i === current ? <Text span size="xs" c="dimmed">目前</Text> : h.startsOn > today && <Text span size="xs" c="dimmed">尚未開始</Text>}
+                      </Group>
+                    </Table.Td>
                     <Table.Td><LabelBadge value={SUBSCRIPTION_STATUS[h.status]} /></Table.Td>
                     <Table.Td>{h.seatLimit == null ? '不限' : formatCount(h.seatLimit)}</Table.Td>
                     <Table.Td>{formatDate(h.startsOn)}</Table.Td>

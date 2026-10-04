@@ -1,5 +1,5 @@
 /* Tenant figures and checks the platform admin works out from the API's tenant rows. */
-import { isValidTenantSlug, RESERVED_SUBDOMAINS } from '@yutis/domain';
+import { DEMO_SITE_SUBDOMAIN, isAvailableTenantSubdomain, RESERVED_SUBDOMAINS } from '@yutis/domain';
 import type { Subscription, SubscriptionStatus, Tenant, TenantDetail, Usage } from './api';
 import { emailProblem, textProblem, withoutEmpty, type Problems } from './forms';
 
@@ -59,18 +59,13 @@ export function pendingSetup(t: Pick<TenantDetail, 'encryptionKeyReady' | 'signI
 export const normalizeSubdomain = (value: string) => value.trim().toLowerCase();
 
 /**
- * demo.care.yutis.com.tw is the separate marketing demo site, so onboarding refuses it although `isValidTenantSlug`
- * accepts it. Mirrors DEMO_SITE_SUBDOMAIN in apps/platform-api/src/tenants/onboarding.ts until @yutis/domain has it.
- */
-export const DEMO_SITE_SUBDOMAIN = 'demo';
-
-/**
- * Why a new tenant cannot have this subdomain, or null if onboarding accepts it: `isValidTenantSlug` (one lower-case
- * DNS label of letters, digits and inner hyphens, at most 63, not reserved for the platform) and not the demo site.
+ * Why a new tenant cannot have this subdomain, or null if onboarding accepts it: the domain's
+ * `isAvailableTenantSubdomain` (one lower-case DNS label of letters, digits and inner hyphens, at most 63, not reserved
+ * for the platform, and not demo.care.yutis.com.tw, the separate marketing demo site).
  */
 export function subdomainProblem(slug: string): string | null {
+  if (isAvailableTenantSubdomain(slug)) return null;
   if (slug === DEMO_SITE_SUBDOMAIN) return `「${slug}」是展示網站使用的網址，請換一個`;
-  if (isValidTenantSlug(slug)) return null;
   if (!slug) return '請輸入子網域';
   if (RESERVED_SUBDOMAINS.has(slug)) return `「${slug}」是平台保留的名稱，請換一個`;
   if (/[^a-z0-9-]/.test(slug)) return '只能使用小寫英文字母、數字和連字號（-）';
@@ -112,6 +107,46 @@ export const subscriptionProblems = (f: SubscriptionForm): Problems<Subscription
   startsOn: f.startsOn ? undefined : '請選擇開始日',
   endsOn: termProblem(f.startsOn, f.endsOn),
 });
+
+/** ISO dates (YYYY-MM-DD) one day apart. */
+export const dayBefore = (date: string) => new Date(Date.parse(date) - 86_400_000).toISOString().slice(0, 10);
+export const dayAfter = (date: string) => new Date(Date.parse(date) + 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Which history row (newest first) is the current subscription, as the API picks it: the newest that has started,
+ * else the earliest. -1 without any. A renewal can start later, so the newest row is not always the current one.
+ */
+export function currentPeriodIndex(subscriptions: readonly Pick<Subscription, 'startsOn'>[], today: string): number {
+  if (!subscriptions.length) return -1;
+  const started = subscriptions.findIndex(s => s.startsOn <= today);
+  return started === -1 ? subscriptions.length - 1 : started;
+}
+
+/**
+ * POST /platform-api/tenants/{id}/subscriptions (續約、換方案), as a form: same plan and seat limit as the latest
+ * period, starting the day after it ends (or today when it has no end), as a paid period without an end date.
+ */
+export function newPeriodToForm(latest: Subscription | null, today: string): SubscriptionForm {
+  let startsOn = latest?.endsOn ? dayAfter(latest.endsOn) : today;
+  if (latest && startsOn <= latest.startsOn) startsOn = dayAfter(latest.startsOn);
+  return { planCode: latest?.planCode ?? '', status: 'active', seatLimit: latest?.seatLimit ?? '', startsOn, endsOn: '' };
+}
+
+/** As the subscription form, and a new period must start after the latest one's start (the API's period_overlap). */
+export function newPeriodProblems(f: SubscriptionForm, latest: Pick<Subscription, 'startsOn'> | null, activePlanCodes: readonly string[] | null): Problems<SubscriptionForm> {
+  const problems = subscriptionProblems(f);
+  return withoutEmpty({
+    ...problems,
+    planCode: problems.planCode ?? (activePlanCodes && !activePlanCodes.includes(f.planCode) ? '這個方案已停用，請選擇其他方案' : undefined),
+    startsOn: problems.startsOn ?? (latest && f.startsOn <= latest.startsOn ? `要晚於最近一期的開始日（${latest.startsOn.replaceAll('-', '/')}）` : undefined),
+  });
+}
+
+/** The end date the API gives the latest period when a new one starts on `startsOn`, or null when it stays as it is. */
+export function latestPeriodNewEnd(latest: Pick<Subscription, 'startsOn' | 'endsOn'> | null, startsOn: string): string | null {
+  if (!latest || !startsOn || startsOn <= latest.startsOn) return null;
+  return latest.endsOn === null || latest.endsOn >= startsOn ? dayBefore(startsOn) : null;
+}
 
 /** POST /platform-api/tenants, as a form. A new tenant starts on a trial or a paid subscription only. */
 export interface NewTenantForm {

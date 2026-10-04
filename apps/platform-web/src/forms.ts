@@ -1,5 +1,6 @@
 /* Form checks that mirror the platform API's limits, so most mistakes show next to the field before any request. */
-import type { PlatformRole } from './api';
+import type { PlatformPaths } from '@yutis/api-client';
+import type { Plan, PlatformRole } from './api';
 
 /** Field → problem, in plain Chinese; a field without a problem is absent. */
 export type Problems<F> = Partial<Record<keyof F, string>>;
@@ -27,3 +28,22 @@ export const platformUserProblems = (f: PlatformUserForm, isNew: boolean): Probl
   email: isNew ? emailProblem(f.email) : undefined,
   name: textProblem(f.name, '姓名', 100),
 });
+
+/** PATCH /platform-api/plans/{id}: the name and whether it can still be chosen. The code never changes. */
+export interface PlanForm {
+  name: string;
+  active: boolean;
+}
+
+export type PlanUpdate = PlatformPaths['/platform-api/plans/{id}']['patch']['requestBody']['content']['application/json'];
+
+export const planProblems = (f: PlanForm): Problems<PlanForm> => withoutEmpty({ name: textProblem(f.name, '方案名稱', 100) });
+
+/** Only what changed (the API refuses an empty change); null when nothing did. */
+export function planUpdate(plan: Pick<Plan, 'name' | 'active'>, f: PlanForm): PlanUpdate | null {
+  const body: PlanUpdate = {
+    ...(f.name.trim() !== plan.name ? { name: f.name.trim() } : {}),
+    ...(f.active !== plan.active ? { active: f.active } : {}),
+  };
+  return Object.keys(body).length ? body : null;
+}
