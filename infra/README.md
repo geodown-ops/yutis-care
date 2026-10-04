@@ -31,7 +31,8 @@
 3. **yutis.com.tw 的 DNS 管理權限**：要新增下面「DNS 紀錄」那幾筆。
 4. **平台人員的 Google Workspace 帳號或群組**：誰能進平台管理後台，以及誰第一次部署時拿到「營運」角色。
 5. **告警收件 Email**（選用）。
-6. 在 GitHub repo 的 Settings → Environments 建立 `production` 與 `demo` 兩個環境；`production` 請設定 Required reviewers（你自己），之後每次正式部署都要你按核准。
+6. **寄信服務 Resend 帳號**（員工邀請信、附表八簽核信）：在 Resend 驗證寄件網域（DNS 加 SPF／DKIM），建立 API 金鑰。第一次 `terraform apply` 後用 `printf %s 're_…' | gcloud secrets versions add resend-api-key --data-file=- --project yutis-care-prod` 存入，再在 `terraform.tfvars` 填 `email_from` 並重新 apply。沒填之前信只會記錄，不會寄出。
+7. 在 GitHub repo 的 Settings → Environments 建立 `production` 與 `demo` 兩個環境；`production` 請設定 Required reviewers（你自己），之後每次正式部署都要你按核准。
 
 ## 第一次建立（由有專案擁有者權限的人執行）
 

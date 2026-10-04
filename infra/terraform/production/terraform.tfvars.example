@@ -5,3 +5,7 @@ platform_staff        = ["group:care-ops@yutis.com.tw"]
 # 第一次部署時取得「營運」角色的帳號（也要在 platform_staff 內）
 platform_admin_emails = ["someone@yutis.com.tw"]
 alert_email           = "ops@yutis.com.tw"
+# 網域（換成新申請的網域時改這裡）
+# domain                = "care.yutis.com.tw"
+# 寄件者；先在 Resend 驗證網域、把 API 金鑰加入 resend-api-key 密鑰後再填，空白則只記錄不寄出
+# email_from            = "Yutis Care <noreply@care.yutis.com.tw>"

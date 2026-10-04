@@ -28,14 +28,26 @@ variable "alert_email" {
   default = null
 }
 
+variable "domain" {
+  description = "Tenants at {slug}.<domain>, the platform back office at admin.<domain>."
+  type        = string
+  default     = "care.yutis.com.tw"
+}
+
+variable "email_from" {
+  type    = string
+  default = ""
+}
+
 module "env" {
   source      = "../modules/environment"
   project_id  = var.project_id
   environment = "production"
 
-  certificate_domain = "care.yutis.com.tw"
-  tenant_hosts       = ["*.care.yutis.com.tw"]
-  platform_host      = "admin.care.yutis.com.tw"
+  certificate_domain = var.domain
+  tenant_hosts       = ["*.${var.domain}"]
+  platform_host      = "admin.${var.domain}"
+  tenant_base_domain = var.domain
   web_api_mode       = "live"
 
   platform_staff        = var.platform_staff
@@ -51,6 +63,7 @@ module "env" {
   github_environment = "production"
   identity_platform  = true
   alert_email        = var.alert_email
+  email_from         = var.email_from
 }
 
 output "load_balancer_ip" {

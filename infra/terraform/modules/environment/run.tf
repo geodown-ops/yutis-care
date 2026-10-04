@@ -19,9 +19,12 @@ locals {
     NODE_ENV           = "production"
     TRUST_PROXY        = "true"
     TENANT_BASE_DOMAIN = var.tenant_base_domain
-  }, local.demo_env, local.kms_env, local.sign_in_env)
+  }, local.demo_env, local.kms_env, local.sign_in_env, local.email_env)
   worker_env   = merge({ NODE_ENV = "production" }, local.demo_env, local.kms_env)
   demo_secrets = var.demo_site ? { TENANT_CRYPTO_LOCAL_KEY = "tenant-crypto-local-key" } : {}
+  # Invitations and sign-off links: sent through Resend once email_from is set, otherwise only logged.
+  send_email = !var.demo_site && var.email_from != ""
+  email_env  = local.send_email ? { EMAIL_PROVIDER = "resend", EMAIL_FROM = var.email_from } : {}
 }
 
 resource "google_cloud_run_v2_service" "api" {
@@ -72,6 +75,18 @@ resource "google_cloud_run_v2_service" "api" {
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.s[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = local.send_email ? [google_secret_manager_secret.resend[0].secret_id] : []
+        content {
+          name = "RESEND_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
               version = "latest"
             }
           }

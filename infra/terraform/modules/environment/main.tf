@@ -194,6 +194,31 @@ resource "google_secret_manager_secret_version" "s" {
   secret_data = local.secret_values[each.key]
 }
 
+# Resend API key for sending email (production only). Terraform creates the secret but never sees the key: add it with
+#   printf %s 're_…' | gcloud secrets versions add resend-api-key --data-file=- --project <project>
+# before setting email_from.
+resource "google_secret_manager_secret" "resend" {
+  count     = var.demo_site ? 0 : 1
+  project   = var.project_id
+  secret_id = "resend-api-key"
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "resend" {
+  count     = var.demo_site ? 0 : 1
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.resend[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = google_service_account.run["api"].member
+}
+
 # ---------------------------------------------------------------- Cloud KMS: one key per tenant, created by the platform API
 
 resource "google_kms_key_ring" "tenants" {

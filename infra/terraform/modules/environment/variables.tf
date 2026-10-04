@@ -120,3 +120,9 @@ variable "alert_email" {
   type        = string
   default     = null
 }
+
+variable "email_from" {
+  description = "Sender of invitations and sign-off links through Resend, e.g. \"Yutis Care <noreply@care.yutis.com.tw>\"; empty = emails are only logged. Verify the domain in Resend and add the API key to the resend-api-key secret first."
+  type        = string
+  default     = ""
+}
