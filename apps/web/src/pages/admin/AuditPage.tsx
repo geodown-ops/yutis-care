@@ -7,7 +7,7 @@ import { useState, type FormEvent } from 'react';
 import { staffSelectProps } from '../nurse/StaffPicker';
 import { CardNote, problemText } from '../states';
 import {
-  ACTION_LABEL, ACTION_TONE, actorText, appliedEmployeeLabel, CATEGORY_HINT, CATEGORY_LABEL, dateRangeProblem, EMPLOYEE_STATUS_TONE, employeeLabel, employeeText,
+  ACTION_LABEL, ACTION_TONE, actorText, appliedEmployeeLabel, CATEGORY_HINT, CATEGORY_LABEL, dateRangeProblem, EMPLOYEE_STATUS_TONE, employeeLabel,
   formatAt, pageCount, sameFilters, subjectText, type AuditAction, type AuditEntry, type AuditSearch, type EmployeeStatus,
 } from './audit';
 import { adminEmployeesByIdQuery, adminEmployeesQuery, auditQuery, staffAccountsQuery } from './queries';
@@ -47,7 +47,7 @@ export function AuditPage({ search, onSearch }: { search: AuditSearch; onSearch:
     onSearch(next);
   };
   const byEmployee = (e: NonNullable<AuditEntry['employee']>) => {
-    remember({ id: e.id, label: employeeText(e) });
+    remember({ id: e.id, label: employeeLabel(e) });
     run({ ...search, employee: e.id, page: undefined });
   };
   const picked = search.employee;
@@ -174,13 +174,16 @@ function EmployeeField({ value, onChange }: { value: PickedEmployee | null; onCh
         return (
           <Group gap="xs" wrap="nowrap" justify="space-between" w="100%">
             <Text size="sm" truncate><Text span ff="monospace" size="sm">{o.empNo}</Text> {o.name}</Text>
-            {o.status && (o.status === '在職' ? <Text size="xs" c="dimmed">在職</Text> : <ToneBadge tone={EMPLOYEE_STATUS_TONE[o.status]}>{o.status}</ToneBadge>)}
+            {o.status && (o.status === '在職' ? <Text size="xs" c="dimmed">在職</Text> : <StatusMark status={o.status} />)}
           </Group>
         );
       }}
       nothingFoundMessage={!debounced ? '輸入工號或姓名（含留停、離職員工）' : found.isFetching ? '搜尋中…' : found.isError ? problemText(found.error) : '找不到符合的員工'} />
   );
 }
+
+/** 留停 or 離職, as the employee list colours them (在職 is not marked). */
+const StatusMark = ({ status }: { status: EmployeeStatus }) => <ToneBadge tone={EMPLOYEE_STATUS_TONE[status]}>{status}</ToneBadge>;
 
 function AuditRow({ entry: e, search, onEmployee, onActor }: {
   entry: AuditEntry; search: AuditSearch; onEmployee: (emp: NonNullable<AuditEntry['employee']>) => void; onActor: (id: string) => void;
@@ -203,13 +206,16 @@ function AuditRow({ entry: e, search, onEmployee, onActor }: {
       <Table.Td fz="sm" c={subject ? undefined : 'dimmed'}>{subject ?? '—'}</Table.Td>
       <Table.Td fz="sm" style={{ whiteSpace: 'nowrap' }}>
         {e.employee ? (
-          e.employee.id === search.employee
-            ? <Text size="sm"><Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}</Text>
-            : (
-              <Anchor component="button" type="button" size="sm" ta="left" onClick={() => onEmployee(e.employee!)} aria-label={`只看 ${e.employee.name} 的資料`}>
-                <Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}
-              </Anchor>
-            )
+          <Group gap={6} wrap="nowrap">
+            {e.employee.id === search.employee
+              ? <Text size="sm"><Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}</Text>
+              : (
+                <Anchor component="button" type="button" size="sm" ta="left" onClick={() => onEmployee(e.employee!)} aria-label={`只看 ${e.employee.name} 的資料`}>
+                  <Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}
+                </Anchor>
+              )}
+            {e.employee.status !== '在職' && <StatusMark status={e.employee.status} />}
+          </Group>
         ) : <Text size="sm" c="dimmed">—</Text>}
       </Table.Td>
       <Table.Td fz="sm" c={e.dataCategory ? undefined : 'dimmed'}>{e.dataCategory ? CATEGORY_LABEL[e.dataCategory] : '—'}</Table.Td>
