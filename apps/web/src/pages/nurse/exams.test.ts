@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canCommit, fileProblem, mappingColumns, sortIssues, type ImportReport } from './exams';
+import { asGrade, canCommit, fileProblem, mappingColumns, sortIssues, type ImportReport } from './exams';
 
 describe('exam import helpers', () => {
   it('lists the headers a clinic file needs, identity and date first', () => {
@@ -27,10 +27,14 @@ describe('exam import helpers', () => {
   });
 
   it('commits only a clean preview with exams in it', () => {
-    const r: ImportReport = { committed: false, rows: 2, exams: 2, issues: [], ruleSetVersion: 1, grade3Plus: 1, newEvents: 1 };
+    const r: ImportReport = { committed: false, rows: 2, exams: 2, issues: [], ruleSetVersion: 1, grade3Plus: 1, newEvents: 1, preview: [] };
     expect(canCommit(r)).toBe(true);
     expect(canCommit({ ...r, issues: [{ row: 2, message: 'x' }] })).toBe(false);
     expect(canCommit({ ...r, exams: 0 })).toBe(false);
     expect(canCommit({ ...r, committed: true })).toBe(false);
+  });
+
+  it('shows only grades 1–4 as badges', () => {
+    expect([0, 1, 4, 5, null].map(asGrade)).toEqual([null, 1, 4, null, null]);
   });
 });

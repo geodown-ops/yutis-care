@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiRequestError } from '@yutis/api-client';
 import { CardNote, problemText } from '../states';
 import { downloadExport, exportsQuery } from './queries';
-import { EXPORT_STATE_LABEL, exportState, isPending, pollInterval, SLOW_MINUTES, waitedMinutes, type ExportState } from './report';
+import { EXPORT_STATE_LABEL, exportFileName, exportState, exportTitle, isPending, KIND_LABEL, pollInterval, SLOW_MINUTES, waitedMinutes, type ExportState } from './report';
 
 const TONE: Record<ExportState, { bg: string; fg: string }> = {
   queued: { bg: 'var(--yutis-surface2)', fg: 'var(--yutis-muted)' },
@@ -17,7 +17,7 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString('zh-TW', { dateSt
 const time = (iso: string) => new Date(iso).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** My exports: built by the background worker, then downloaded once through a short-lived link. */
-export function ExportsCard({ titles }: { titles: Record<string, string> }) {
+export function ExportsCard() {
   const qc = useQueryClient();
   const list = useQuery({ ...exportsQuery, refetchInterval: q => pollInterval(q.state.data, new Date()) });
   const download = useMutation({
@@ -49,8 +49,8 @@ export function ExportsCard({ titles }: { titles: Record<string, string> }) {
                   return (
                     <Table.Tr key={e.id}>
                       <Table.Td>
-                        <Text size="sm" fw={500}>{e.fileName ?? titles[e.id] ?? '統計報表'}</Text>
-                        <Text size="xs" c="dimmed">{e.format === 'xlsx' ? 'Excel' : 'PDF'} · {dateTime(e.requestedAt)} 申請</Text>
+                        <Text size="sm" fw={500}>{exportTitle(e)}</Text>
+                        <Text size="xs" c="dimmed">{[KIND_LABEL[e.kind], e.format === 'xlsx' ? 'Excel' : 'PDF', `${dateTime(e.requestedAt)} 申請`].filter(Boolean).join(' · ')}</Text>
                       </Table.Td>
                       <Table.Td>
                         <Badge styles={{ root: { background: TONE[state].bg, color: TONE[state].fg, textTransform: 'none', fontWeight: 600 } }}>{EXPORT_STATE_LABEL[state]}</Badge>
@@ -58,7 +58,7 @@ export function ExportsCard({ titles }: { titles: Record<string, string> }) {
                       </Table.Td>
                       <Table.Td ta="right">
                         {state === 'ready' && (
-                          <Button size="xs" variant="default" loading={download.isPending && download.variables?.id === e.id} disabled={download.isPending} onClick={() => download.mutate({ id: e.id, fileName: e.fileName ?? `export.${e.format}` })}>下載</Button>
+                          <Button size="xs" variant="default" loading={download.isPending && download.variables?.id === e.id} disabled={download.isPending} onClick={() => download.mutate({ id: e.id, fileName: exportFileName(e) })}>下載</Button>
                         )}
                       </Table.Td>
                     </Table.Tr>

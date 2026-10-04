@@ -1,6 +1,6 @@
 /* Pure helpers for 健檢匯入: the clinic mapping a file is read with, and the file checks done before uploading. */
 import type { Schemas } from '@yutis/api-client';
-import { EXAM_ITEMS } from '@yutis/domain';
+import { EXAM_ITEMS, type Grade } from '@yutis/domain';
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 /** The API refuses bigger uploads (MAX_IMPORT_BYTES in apps/api). */
@@ -9,6 +9,8 @@ export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
 export type ExamMapping = Schemas['ExamMappingDto'];
 export type ImportReport = Schemas['ExamImportReportDto'];
 export type ImportIssue = Schemas['ImportIssueDto'];
+export type ImportRow = Schemas['ExamImportRowDto'];
+export type ExamBatch = Schemas['ExamBatchDto'];
 
 const COLUMN_LABEL = {
   empNo: '工號', nationalId: '身分證字號', examDate: '檢查日期', kind: '健檢類別', smoker: '吸菸',
@@ -43,3 +45,6 @@ export const sortIssues = (issues: readonly ImportIssue[]) =>
 
 /** A preview can be committed when every row is readable and at least one exam would be written. */
 export const canCommit = (r: ImportReport) => !r.committed && r.issues.length === 0 && r.exams > 0;
+
+/** A grade the badges can show (1–4); anything else (0: no graded item) shows as —. */
+export const asGrade = (n: number | null | undefined): Grade | null => (n === 1 || n === 2 || n === 3 || n === 4 ? n : null);

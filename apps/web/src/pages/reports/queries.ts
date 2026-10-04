@@ -3,6 +3,7 @@ import { ApiRequestError, data } from '@yutis/api-client';
 import { queryOptions } from '@tanstack/react-query';
 import { api } from '../../api';
 import { reportQuery } from '../../queries';
+import { saveFile } from '../nurse/files';
 import type { ReportKind } from './report';
 
 export const reportTypesQuery = queryOptions({ queryKey: ['reports'], queryFn: () => data(api.GET('/api/reports')), staleTime: Infinity });
@@ -28,12 +29,5 @@ export async function downloadExport({ id, fileName }: { id: string; fileName: s
   const { url } = await data(api.POST('/api/exports/{id}/link', { params: { path: { id } } }));
   const res = url ? await fetch(url, { credentials: 'same-origin' }) : null;
   if (!res?.ok) throw new ApiRequestError(res?.status ?? 410, 'link_expired', 'Download failed');
-  const href = URL.createObjectURL(await res.blob());
-  const a = document.createElement('a');
-  a.href = href;
-  a.download = fileName;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 10_000);
+  saveFile(await res.blob(), fileName);
 }

@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { CaseStatus } from '@yutis/domain';
 import { CaseStatusBadge } from '@yutis/ui';
 import { useState } from 'react';
-import { caseMoves, knownStaff, openAction, type EmployeeCase } from '../../cases';
-import { casesQuery } from '../../queries';
+import { caseMoves, openAction, type EmployeeCase } from '../../cases';
 import { useMe } from '../../session';
 import { caseChange, caseForm, type CaseForm, type Reply } from './caseEdit';
-import { actionErrorText, useOpenCase, useUpdateCase } from './queries';
+import { actionErrorText, staffQuery, useOpenCase, useUpdateCase } from './queries';
+import { CARE_ROLES, staffOptions } from './staff';
 
 type Case = NonNullable<EmployeeCase['case']>;
 export interface CaseTarget { employeeId: string; name: string; case: Case }
@@ -39,12 +39,11 @@ const REPLIES: { value: Reply; label: string }[] = [{ value: 'none', label: '未
 function CaseEditForm({ target, onDone }: { target: CaseTarget; onDone: () => void }) {
   const me = useMe();
   const c = target.case;
-  const cases = useQuery(casesQuery);
+  const staff = useQuery(staffQuery(CARE_ROLES));
   const [f, setF] = useState<CaseForm>(() => caseForm(c));
   const set = <K extends keyof CaseForm>(k: K, v: CaseForm[K]) => setF(x => ({ ...x, [k]: v }));
   const update = useUpdateCase();
-  const staff = knownStaff(cases.data ?? [], me);
-  if (c.leadUserId && !staff.some(s => s.value === c.leadUserId)) staff.push({ value: c.leadUserId, label: c.leadName ?? '目前主責' });
+  const leads = staffOptions(staff.data, me.id, [{ id: c.leadUserId, name: c.leadName }]);
   const statuses: CaseStatus[] = [c.status, ...caseMoves(c.status)];
   const change = caseChange(c, f);
   const moved = f.status !== c.status;
@@ -58,14 +57,18 @@ function CaseEditForm({ target, onDone }: { target: CaseTarget; onDone: () => vo
               data={statuses.map(s => ({ value: s, label: s }))} />
           ) : <CaseStatusBadge status={c.status} />}
         </div>
-        {f.status === '結案' && moved && <Text size="xs" c="dimmed" mt={6}>結案後，個案內的異常事件都會標示為結案；之後有新事件時會再出現在未開單。</Text>}
+        {f.status === '結案' && moved && (
+          <Text size="xs" c="dimmed" mt={6}>
+            結案後，個案內的異常事件都會標示為結案，這位員工所有未完成的協助紀錄追蹤也會一併標為完成，不再出現在近期追蹤。之後有新事件時，員工會再出現在未開單。
+          </Text>
+        )}
       </Input.Wrapper>
       {moved && (
         <Textarea label="狀態變更說明" description="記入狀態歷程" autosize minRows={2} maxLength={500}
           value={f.note} onChange={e => set('note', e.currentTarget.value)} />
       )}
-      <Select label="主責" data={staff} value={f.leadUserId || null} onChange={v => v && set('leadUserId', v)} allowDeselect={false}
-        description="可選擇自己，或目前已主責其他個案的同仁。" />
+      <Select label="主責" data={leads} value={f.leadUserId || null} onChange={v => v && set('leadUserId', v)} allowDeselect={false} searchable
+        description="可指派給在職的職護或職醫。" disabled={staff.isPending} error={staff.isError ? '暫時無法載入人員名單' : undefined} />
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
         <TextInput type="date" label="通知日" value={f.noticeOn} onChange={e => set('noticeOn', e.currentTarget.value)} />
         <TextInput type="date" label="預計處理日" value={f.plannedOn} onChange={e => set('plannedOn', e.currentTarget.value)} />

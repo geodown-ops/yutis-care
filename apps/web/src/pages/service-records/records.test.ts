@@ -1,14 +1,14 @@
 import { ApiRequestError } from '@yutis/api-client';
 import { describe, expect, it } from 'vitest';
 import {
-  copyForm, countByStatus, filterRecords, formErrors, formFromRecord, newForm, readContent, serviceProblem, signProgress, timeRange, toBody, usedValues,
-  type ServiceRecord, type Signature,
+  copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formErrors, formFromRecord, linksAreEmailed, myCompanies, newForm, readContent,
+  roleOptions, serviceProblem, signProgress, timeRange, toBody, unitForSite, usedValues, type OrgEntity, type ServiceRecord, type Signature,
 } from './records';
 
 const ME = { id: 'u-me', name: '王護理師', email: 'nurse@demo.test' };
 
 const sig = (role: string, signedAt: string | null = null): Signature =>
-  ({ id: `s-${role}`, role, name: `${role}人`, email: `${role}@x.test`, sentAt: null, signedAt, comment: null });
+  ({ id: `s-${role}`, role, name: `${role}人`, email: `${role}@x.test`, firstSentAt: null, sentAt: null, signedAt, comment: null });
 
 const record = (id: string, status: ServiceRecord['status'], serviceOn: string, extra: Partial<ServiceRecord> = {}): ServiceRecord => ({
   id, status, serviceOn, siteId: 'site-1', siteName: '桃園廠',
@@ -17,6 +17,7 @@ const record = (id: string, status: ServiceRecord['status'], serviceOn: string, 
     headcount: { adminM: 1, adminF: 2, opM: 3, opF: 4, general: 5 }, special: [{ category: '噪音作業', count: 6 }],
     workplace: '二', services: '三', findings: '四', followUp: '五',
   },
+  executorName: '吳工安',
   signatures: [sig('勞工健康服務醫師', '2026-09-02T03:00:00Z'), sig('職業安全衛生人員')],
   ...extra,
 });
@@ -78,6 +79,9 @@ describe('forms and request bodies', () => {
   it('checks what the API checks', () => {
     const ok = { ...newForm({ today: '2026-10-04', siteId: 's', me: ME }), signers: [{ role: '勞工代表', name: '甲', email: 'a@b.tw' }] };
     expect(formErrors(ok)).toEqual({});
+    expect(formErrors(ok, ['勞工代表', '其他'])).toEqual({});
+    expect(formErrors(ok, ['勞工健康服務醫師']).signers).toContain('簽核角色');
+    expect(formErrors({ ...ok, executorUserId: '' }).executorUserId).toBe('請選擇執行人員');
     expect(formErrors({ ...ok, to: '08:00' }).to).toBe('結束時間需晚於開始時間');
     expect(formErrors({ ...ok, from: '' }).from).toBeDefined();
     expect(formErrors({ ...ok, siteId: '' }).siteId).toBeDefined();
@@ -97,16 +101,60 @@ describe('list helpers', () => {
     expect(signProgress(list[0]!.signatures)).toEqual({ signed: 1, total: 2 });
   });
 
-  it('filters by status, site and an inclusive date range', () => {
+  it('filters by status, company, site, department, executor and an inclusive date range', () => {
     expect(filterRecords(list, {}).map(r => r.id)).toEqual(['a', 'b', 'c']);
     expect(filterRecords(list, { status: '簽核中' }).map(r => r.id)).toEqual(['b']);
     expect(filterRecords(list, { siteId: 'site-1' }).map(r => r.id)).toEqual(['a', 'c']);
+    expect(filterRecords(list, { companySites: ['site-2', 'site-9'] }).map(r => r.id)).toEqual(['b']);
+    expect(filterRecords(list, { department: '製造一課' }).map(r => r.id)).toEqual(['a', 'b', 'c']);
+    expect(filterRecords(list, { department: '品保部' })).toEqual([]);
+    expect(filterRecords(list, { executor: 'u-other' })).toHaveLength(3);
+    expect(filterRecords(list, { executor: 'u-me' })).toEqual([]);
     expect(filterRecords(list, { from: '2026-08-01', to: '2026-09-20' }).map(r => r.id)).toEqual(['a', 'b']);
+  });
+
+  it('lists each executor once by name', () => {
+    expect(executorsOf([...list, record('d', '草稿', '2026-07-01', { executorName: null, content: { executorUserId: 'u-gone' } })]))
+      .toEqual([{ value: 'u-other', label: '吳工安' }, { value: 'u-gone', label: '已刪除的帳號' }].sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant')));
   });
 
   it('suggests values already used, once each', () => {
     expect(usedValues(list, r => r.signatures.map(s => s.role))).toEqual(['勞工健康服務醫師', '職業安全衛生人員'].sort((a, b) => a.localeCompare(b, 'zh-Hant')));
     expect(usedValues([], () => [])).toEqual([]);
+  });
+});
+
+describe('organisation, roles and email', () => {
+  const ORG: OrgEntity[] = [
+    { id: 'e1', code: 'DEMO', name: '示範科技', sites: [
+      { id: 'site-1', code: 'TY', name: '桃園廠', mine: true, departments: [{ id: 'd1', code: 'MFG1', name: '製造一課' }, { id: 'd2', code: null, name: '品保部' }] },
+      { id: 'site-3', code: 'HC', name: '新竹廠', mine: false, departments: [{ id: 'd3', code: null, name: '研發部' }] },
+    ] },
+    { id: 'e2', code: 'DM02', name: '示範服務', sites: [{ id: 'site-2', code: 'TP', name: '台北總部', mine: true, departments: [{ id: 'd4', code: null, name: '品保部' }] }] },
+    { id: 'e3', code: 'X', name: '別人的公司', sites: [{ id: 'site-4', code: 'X1', name: '高雄廠', mine: false, departments: [] }] },
+  ];
+
+  it('offers companies with my sites, and department names of a choice of sites', () => {
+    expect(myCompanies(ORG)).toEqual([{ id: 'e1', name: '示範科技', siteIds: ['site-1'] }, { id: 'e2', name: '示範服務', siteIds: ['site-2'] }]);
+    expect(departmentNames(ORG)).toEqual(['製造一課', '品保部']);
+    expect(departmentNames(ORG, ['site-3'])).toEqual(['研發部']);
+  });
+
+  it('follows the site with 事業單位 unless someone typed their own', () => {
+    expect(unitForSite(ORG, { siteId: 'site-1', unit: '' }, 'site-2')).toBe('示範服務');
+    expect(unitForSite(ORG, { siteId: 'site-1', unit: '示範科技' }, 'site-2')).toBe('示範服務');
+    expect(unitForSite(ORG, { siteId: 'site-1', unit: '外包商' }, 'site-2')).toBe('外包商');
+  });
+
+  it('keeps a role a record uses that is no longer configured, marked', () => {
+    expect(roleOptions(['勞工代表', '其他'], ['其他', ' 舊角色 ', ''])).toEqual([
+      { value: '勞工代表', label: '勞工代表' }, { value: '其他', label: '其他' }, { value: '舊角色', label: '舊角色（已不在簽核角色）' },
+    ]);
+  });
+
+  it('knows mail is only logged where the dev sign-in is on', () => {
+    expect(linksAreEmailed({ loginMethods: ['sso', 'email_otp'] })).toBe(true);
+    expect(linksAreEmailed({ loginMethods: ['dev'] })).toBe(false);
   });
 });
 

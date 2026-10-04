@@ -1,18 +1,31 @@
 import { ApiRequestError } from '@yutis/api-client';
 import { describe, expect, it } from 'vitest';
-import { readSignDocument, signProblem } from './sign';
+import { employeeSignPath, signProblem, signView, type SignDocument } from './sign';
+
+const doc = (d: Partial<SignDocument>): SignDocument =>
+  ({ id: 's1', kind: 'signature', document: 'service_records', title: '', content: null, confirmedAt: null, comment: null, ...d });
+const signer = { role: '勞工健康服務醫師', name: '張醫師' };
 
 describe('sign link', () => {
-  it('reads a 附表八 sign-off document', () => {
-    const d = readSignDocument({
-      id: 's1', title: '勞工健康服務執行紀錄表（附表八）', confirmedAt: null, comment: null,
-      content: { serviceOn: '2026-10-01', site: '桃園廠', record: { from: '09:00' }, signer: { role: '勞工健康服務醫師', name: '張醫師' } },
-    });
-    expect(d).toEqual({ serviceOn: '2026-10-01', site: '桃園廠', record: { from: '09:00' }, signer: { role: '勞工健康服務醫師', name: '張醫師' } });
+  it('opens a 附表八 sign-off', () => {
+    const content = { serviceOn: '2026-10-01', site: '桃園廠', record: { from: '09:00' }, signer };
+    expect(signView(doc({ content }))).toEqual({ kind: 'service', content });
   });
 
-  it('recognises an employee confirmation as not a sign-off', () => {
-    expect(readSignDocument({ id: 'a1', title: '母性健康保護面談紀錄', confirmedAt: null, comment: null, content: { interviewedOn: '2026-10-01', fitAdvice: '' } })).toBeNull();
+  it('opens a violence-prevention review sign-off', () => {
+    const content = { reviewedOn: '2026-10-02', site: '桃園廠', department: '製造一課', items: [{ item: '辨識及評估危害', points: ['組織'], result: '已完成', fix: '' }], signer };
+    expect(signView(doc({ document: 'violence_reviews', content }))).toEqual({ kind: 'review', content });
+  });
+
+  it('sends employee confirmations to the employee portal', () => {
+    const content = { interviewedOn: '2026-10-01', fitAdvice: '可', limits: [], agreedArrangement: null };
+    expect(signView(doc({ kind: 'acknowledgement', document: 'employee_acknowledgements', content }))).toEqual({ kind: 'employee' });
+    expect(employeeSignPath('a_b-c')).toBe('/me/sign/a_b-c');
+  });
+
+  it('says so when the record behind the link is gone or does not match its kind', () => {
+    expect(signView(doc({ content: null }))).toEqual({ kind: 'missing' });
+    expect(signView(doc({ document: 'violence_reviews', content: { serviceOn: null, site: null, record: null, signer } }))).toEqual({ kind: 'missing' });
   });
 
   it('explains used, expired and unknown links', () => {

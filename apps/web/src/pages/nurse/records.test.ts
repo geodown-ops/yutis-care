@@ -61,6 +61,8 @@ describe('case steps after a saved record', () => {
   it('closes a running case on a closing record', () => {
     expect(caseFollowOn(kase('處理中', [ev('hc', '處理中')]), '結案')).toEqual({ open: false, merge: false, to: '結案' });
     expect(caseFollowOn(kase('起單', [ev('hc', '起單')]), '結案')).toEqual({ open: false, merge: false, to: '結案' });
+    // The API also completes the employee's open follow-ups when it closes the case.
+    expect(followOnLabel({ open: false, merge: false, to: '結案' })).toBe('同時將個案結案（這位員工未完成的追蹤也會一併完成）');
   });
 
   it('adds new events to a running case', () => {
