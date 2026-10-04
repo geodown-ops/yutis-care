@@ -9,14 +9,15 @@ domain="${2:-care.yutis.com.tw}"
 me="$(gcloud config get-value account 2>/dev/null)"
 cd "$(dirname "$0")/terraform/production"
 
-# Cloud Shell no longer ships Terraform: keep a copy in ~/bin (the home directory survives between sessions).
-if ! command -v terraform >/dev/null 2>&1; then
+# Cloud Shell no longer ships Terraform (its `terraform` only prints install instructions): keep our own copy in ~/bin,
+# which survives between sessions.
+tf="$HOME/bin/terraform"
+if [ ! -x "$tf" ]; then
   version=1.13.4
   mkdir -p "$HOME/bin"
   curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/$version/terraform_${version}_linux_amd64.zip"
   unzip -oq /tmp/terraform.zip terraform -d "$HOME/bin"
   rm /tmp/terraform.zip
-  export PATH="$HOME/bin:$PATH"
 fi
 
 gcloud config set project "$project" >/dev/null
@@ -51,5 +52,5 @@ TFVARS
 fi
 echo "terraform.tfvars:"; cat terraform.tfvars
 
-terraform init -input=false -backend-config="bucket=$bucket"
-terraform apply
+"$tf" init -input=false -backend-config="bucket=$bucket"
+"$tf" apply
