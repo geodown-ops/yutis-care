@@ -1,0 +1,7 @@
+# 複製成 terraform.tfvars（不提交）後填入。
+project_id            = "yutis-care-prod"
+# 可進入平台管理後台的 Google Workspace 帳號或群組（Identity-Aware Proxy）
+platform_staff        = ["group:care-ops@yutis.com.tw"]
+# 第一次部署時取得「營運」角色的帳號（也要在 platform_staff 內）
+platform_admin_emails = ["someone@yutis.com.tw"]
+alert_email           = "ops@yutis.com.tw"

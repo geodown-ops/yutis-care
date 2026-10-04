@@ -19,10 +19,18 @@ const Env = z.object({
   AUTH_DEV_SIGN_IN: flag.default(false),
   /** Base64 32-byte master key for local per-tenant encryption keys. Local development and tests only; production uses Cloud KMS. */
   TENANT_CRYPTO_LOCAL_KEY: z.string().min(1).optional(),
+  /**
+   * The marketing demo site (demo.care.yutis.com.tw), a separate deployment whose database holds only fictional data.
+   * There, dev sign-in and the local encryption key are allowed even with NODE_ENV=production. Never set on the
+   * production deployment.
+   */
+  DEMO_SITE: flag.default(false),
 });
 
 export interface ApiConfig {
   production: boolean;
+  /** The marketing demo site (fictional data only). */
+  demoSite: boolean;
   port: number;
   databaseUrl: string;
   tenantBaseDomain: string;
@@ -40,13 +48,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (!parsed.success) throw new Error(`Invalid API configuration:\n${z.prettifyError(parsed.error)}`);
   const e = parsed.data;
   const production = e.NODE_ENV === 'production';
-  if (production && e.AUTH_DEV_SIGN_IN) throw new Error('AUTH_DEV_SIGN_IN must not be enabled in production');
+  if (production && e.AUTH_DEV_SIGN_IN && !e.DEMO_SITE) throw new Error('AUTH_DEV_SIGN_IN must not be enabled in production');
   if (production && !e.COOKIE_SECURE) throw new Error('COOKIE_SECURE must not be disabled in production');
-  if (production && e.TENANT_CRYPTO_LOCAL_KEY) throw new Error('TENANT_CRYPTO_LOCAL_KEY must not be used in production');
+  if (production && e.TENANT_CRYPTO_LOCAL_KEY && !e.DEMO_SITE) throw new Error('TENANT_CRYPTO_LOCAL_KEY must not be used in production');
   const cryptoLocalKey = e.TENANT_CRYPTO_LOCAL_KEY ? Buffer.from(e.TENANT_CRYPTO_LOCAL_KEY, 'base64') : undefined;
   if (cryptoLocalKey && cryptoLocalKey.length !== 32) throw new Error('TENANT_CRYPTO_LOCAL_KEY must be 32 bytes, base64-encoded');
   return {
     production,
+    demoSite: e.DEMO_SITE,
     port: e.PORT,
     databaseUrl: e.APP_DATABASE_URL,
     tenantBaseDomain: e.TENANT_BASE_DOMAIN.toLowerCase(),

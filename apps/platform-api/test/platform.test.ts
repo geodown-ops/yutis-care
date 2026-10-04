@@ -164,7 +164,7 @@ describe('tenants', () => {
   it('refuses taken, reserved and malformed subdomains and unknown plans', async () => {
     const taken = await call('POST', '/tenants', OPS, onboardBody('acme'));
     expect([taken.statusCode, taken.json().code]).toEqual([409, 'subdomain_taken']);
-    for (const subdomain of ['admin', 'www', 'a.b', '-x']) {
+    for (const subdomain of ['admin', 'www', 'demo', 'a.b', '-x']) {
       const res = await call('POST', '/tenants', OPS, onboardBody(subdomain, { admin: { email: 'boss@example.test', name: '老闆' } }));
       expect([res.statusCode, res.json().code]).toEqual([400, 'invalid_subdomain']);
     }

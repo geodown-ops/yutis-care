@@ -57,6 +57,13 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
   });
 
+  it('allows dev sign-in and the local key on the demo site only', () => {
+    const demo = { ...env, NODE_ENV: 'production', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') };
+    expect(loadConfig({ ...demo, DEMO_SITE: 'true' })).toMatchObject({ production: true, demoSite: true, devSignIn: true });
+    expect(() => loadConfig(demo)).toThrow(/AUTH_DEV_SIGN_IN/);
+    expect(() => loadConfig({ ...demo, DEMO_SITE: 'true', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+  });
+
   it('requires a database URL', () => {
     expect(() => loadConfig({})).toThrow(/APP_DATABASE_URL/);
   });
