@@ -1,0 +1,38 @@
+{
+  "name": "@yutis/sign-in",
+  "version": "0.1.0",
+  "private": true,
+  "description": "租戶後台與員工端共用的登入畫面：依 /api/tenant 的登入方式顯示 SSO、Email 登入連結、密碼或本機／示範登入，取得 Identity Platform 的 ID token 後換成 session。",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@yutis/api-client": "workspace:*",
+    "@yutis/ui": "workspace:*",
+    "firebase": "^12.19.0"
+  },
+  "devDependencies": {
+    "@mantine/core": "^9.6.3",
+    "@mantine/hooks": "^9.6.3",
+    "@tabler/icons-react": "^3.48.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  },
+  "peerDependencies": {
+    "@mantine/core": "^9.6.3",
+    "@mantine/hooks": "^9.6.3",
+    "@tabler/icons-react": "^3.48.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
