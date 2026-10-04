@@ -22,7 +22,7 @@ function LoginPage() {
 
   return (
     <SignInPage api={api} tenant={tenant} as="employee" emailLinkUrl={`${window.location.origin}${import.meta.env.BASE_URL}login`}
-      text={expired ? { ...text, subtitle: t('signIn.expired') } : text} headerEnd={<LanguageSelect />}
+      text={text} notice={expired ? t('signIn.expired') : undefined} headerEnd={<LanguageSelect />}
       onSignedIn={() => {
         // A new session: nothing cached from before (another person on a shared phone, or a staff account) may show.
         clearSession(queryClient);

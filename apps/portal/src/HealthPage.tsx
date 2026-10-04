@@ -68,8 +68,16 @@ function Empty({ text }: { text: string }) {
   return <Card padding="md"><Text c="dimmed" size="sm">{text}</Text></Card>;
 }
 
+/** The grade's meaning in the reader's language, for the badge's tooltip and screen-reader text. */
+function useGradeLabel() {
+  const { t } = useTranslation();
+  const grades = t('health.grades', { returnObjects: true }) as string[];
+  return (grade: number | null) => (grade ? grades[grade - 1] : undefined);
+}
+
 function ExamCard({ exam }: { exam: ExamView }) {
   const { t, i18n } = useTranslation();
+  const gradeLabel = useGradeLabel();
   return (
     <Card padding="md">
       <Group justify="space-between" wrap="nowrap" align="flex-start" gap="sm">
@@ -77,7 +85,7 @@ function ExamCard({ exam }: { exam: ExamView }) {
         {exam.gradeMax && (
           <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
             <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{t('health.highest')}</Text>
-            <GradeBadge grade={exam.gradeMax} />
+            <GradeBadge grade={exam.gradeMax} label={gradeLabel(exam.gradeMax)} />
           </Group>
         )}
       </Group>
@@ -90,7 +98,7 @@ function ExamCard({ exam }: { exam: ExamView }) {
               <Text size="sm" style={{ minWidth: 0 }}>{t(`health.items.${item.code}`, { defaultValue: item.name })}</Text>
               <Group gap={8} wrap="nowrap" style={{ flexShrink: 0 }}>
                 <Text size="sm" fw={600}>{item.value ?? '—'}{item.unit && <Text span size="xs" c="dimmed" fw={400}> {item.unit}</Text>}</Text>
-                <GradeBadge grade={item.grade} />
+                <GradeBadge grade={item.grade} label={gradeLabel(item.grade)} />
               </Group>
             </Group>
           </Fragment>
@@ -100,7 +108,7 @@ function ExamCard({ exam }: { exam: ExamView }) {
   );
 }
 
-/** The grade badges' meaning in the reader's language (the badge's own tooltip is Chinese). */
+/** The grade badges' meaning in the reader's language. */
 function GradeLegend() {
   const { t } = useTranslation();
   const grades = t('health.grades', { returnObjects: true }) as string[];
@@ -108,7 +116,7 @@ function GradeLegend() {
     <Group gap="md" px={4} aria-label={t('health.gradeLegend')}>
       {grades.map((label, i) => (
         <Group key={i} gap={6} wrap="nowrap">
-          <GradeBadge grade={(i + 1) as 1 | 2 | 3 | 4} />
+          <GradeBadge grade={(i + 1) as 1 | 2 | 3 | 4} label={label} />
           <Text size="xs" c="dimmed">{label}</Text>
         </Group>
       ))}

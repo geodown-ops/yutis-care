@@ -11,7 +11,7 @@ import { isUnauthorized } from './session';
 function onApiError(err: unknown) {
   if (!isUnauthorized(err) || router.state.location.pathname === '/login') return;
   queryClient.clear();
-  void router.navigate({ to: '/login', search: { redirect: router.state.location.href } });
+  void router.navigate({ to: '/login', search: { redirect: router.state.location.href, expired: true } });
 }
 
 const queryClient = new QueryClient({

@@ -20,13 +20,15 @@ export interface SignInPageProps {
   text?: SignInText;
   /** Top-right of the page, e.g. the portal's language select. */
   headerEnd?: ReactNode;
+  /** Shown above the sign-in options, e.g. that the previous session timed out. */
+  notice?: ReactNode;
 }
 
 /**
  * The tenant's sign-in page. Offers what GET /api/tenant lists: SSO providers, an emailed sign-in link and password
  * (all through Identity Platform), or dev sign-in on local machines and the demo site. Each ends in POST /api/auth/sign-in.
  */
-export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = STAFF_TEXT, headerEnd }: SignInPageProps) {
+export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = STAFF_TEXT, headerEnd, notice }: SignInPageProps) {
   const t = text;
   const cfg = tenant.identityPlatform ?? null;
   const methods = new Set(tenant.loginMethods);
@@ -137,6 +139,7 @@ export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = S
               <Title order={2} fz={26}>{t.title}</Title>
               <Text size="sm" c="dimmed" mt={4}>{t.subtitle}</Text>
             </div>
+            {notice && !problem && <Notice tone="info">{notice}</Notice>}
             {problem && <Notice tone="bad">{t.problems[problem]}</Notice>}
             {sections.length === 0
               ? <Text c="dimmed">{t.noMethods}</Text>
