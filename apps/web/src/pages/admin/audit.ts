@@ -103,3 +103,29 @@ export const subjectText = (table: string | null) => (table ? SUBJECT_LABEL[tabl
 
 /** An employee in the filter: "工號 姓名" (the URL holds only the id). */
 export const employeeText = (e: { empNo: string; name: string }) => `${e.empNo} ${e.name}`;
+
+/** GET /api/admin/employees: id, 工號, name and 在職／留停／離職. */
+export type EmployeeName = Schemas['EmployeeNameDto'];
+export type EmployeeStatus = EmployeeName['status'];
+
+/** As the employee list colours them. */
+export const EMPLOYEE_STATUS_TONE: Record<EmployeeStatus, Tone> = { 在職: 'ok', 留停: 'warn', 離職: 'bad' };
+
+/** "工號 姓名", marked when the employee has left or is on leave: "E0012 王小明（離職）". */
+export const employeeLabel = (e: { empNo: string; name: string; status?: EmployeeStatus }) =>
+  (e.status && e.status !== '在職' ? `${employeeText(e)}（${e.status}）` : employeeText(e));
+
+/**
+ * The filter's words for the employee whose id is in the URL: as picked or clicked on this page, else as looked up by
+ * id (a shared link or a reload), else as named in the results; null while the lookup runs.
+ */
+export function appliedEmployeeLabel(id: string, sources: {
+  known?: string; lookup: { isPending: boolean; isError: boolean; data?: readonly EmployeeName[] }; inResults?: { empNo: string; name: string };
+}): string | null {
+  if (sources.known) return sources.known;
+  const found = sources.lookup.data?.find(e => e.id === id);
+  if (found) return employeeLabel(found);
+  if (sources.inResults) return employeeText(sources.inResults);
+  if (sources.lookup.isPending) return null;
+  return sources.lookup.isError ? '指定的員工' : '找不到這位員工';
+}

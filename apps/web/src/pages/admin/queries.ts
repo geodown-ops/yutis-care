@@ -47,6 +47,19 @@ export const adminEmployeesQuery = (q: string) => queryOptions({
   refetchOnReconnect: false,
 });
 
+/**
+ * Employees by id (GET /api/admin/employees?ids=…): to name the employee of a shared audit link. Each one returned is
+ * audited too, so the page asks only for an employee it cannot name otherwise, once.
+ */
+export const adminEmployeesByIdQuery = (ids: readonly string[]) => queryOptions({
+  queryKey: ['admin', 'employees', { ids }],
+  queryFn: () => data(api.GET('/api/admin/employees', { params: { query: { ids: ids.join(',') } } })),
+  enabled: ids.length > 0,
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
 /** Blank import files with the header row the import reads (bold = required). */
 export const downloadOrgTemplate = () => downloadFile(api.GET('/api/admin/org/import-template', { parseAs: 'blob' }), '組織架構匯入範本.xlsx');
 export const downloadEmployeeTemplate = () => downloadFile(api.GET('/api/admin/employees/import-template', { parseAs: 'blob' }), '員工主檔匯入範本.xlsx');

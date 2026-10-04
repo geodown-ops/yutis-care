@@ -7,10 +7,10 @@ import { useState, type FormEvent } from 'react';
 import { staffSelectProps } from '../nurse/StaffPicker';
 import { CardNote, problemText } from '../states';
 import {
-  ACTION_LABEL, ACTION_TONE, actorText, CATEGORY_HINT, CATEGORY_LABEL, dateRangeProblem, employeeText, formatAt, pageCount, sameFilters, subjectText,
-  type AuditAction, type AuditEntry, type AuditSearch,
+  ACTION_LABEL, ACTION_TONE, actorText, appliedEmployeeLabel, CATEGORY_HINT, CATEGORY_LABEL, dateRangeProblem, EMPLOYEE_STATUS_TONE, employeeLabel, employeeText,
+  formatAt, pageCount, sameFilters, subjectText, type AuditAction, type AuditEntry, type AuditSearch, type EmployeeStatus,
 } from './audit';
-import { adminEmployeesQuery, auditQuery, staffAccountsQuery } from './queries';
+import { adminEmployeesByIdQuery, adminEmployeesQuery, auditQuery, staffAccountsQuery } from './queries';
 import { AdminTitle, ToneBadge } from './ui';
 
 /** An employee picked for the filter, with the words shown for them. */
@@ -20,7 +20,8 @@ interface PickedEmployee { id: string; label: string }
 interface FilterForm { employee: PickedEmployee | null; actor: string | null; action: AuditAction | null; category: DataCategory | null; from: string; to: string }
 
 const toForm = (s: AuditSearch, employeeLabel: string | null): FilterForm => ({
-  employee: s.employee ? { id: s.employee, label: employeeLabel ?? '指定的員工' } : null,
+  // No label yet: the employee of a shared link is still being looked up.
+  employee: s.employee ? { id: s.employee, label: employeeLabel ?? '載入中…' } : null,
   actor: s.actor ?? null, action: s.action ?? null, category: s.category ?? null, from: s.from ?? '', to: s.to ?? '',
 });
 const fromForm = (f: FilterForm): AuditSearch => ({
@@ -50,8 +51,11 @@ export function AuditPage({ search, onSearch }: { search: AuditSearch; onSearch:
     run({ ...search, employee: e.id, page: undefined });
   };
   const picked = search.employee;
-  const pickedEntry = list.data?.items.find(i => i.employee?.id === picked)?.employee;
-  const employeeLabel = picked ? employeeNames[picked] ?? (pickedEntry ? employeeText(pickedEntry) : null) : null;
+  const known = picked ? employeeNames[picked] : undefined;
+  // Opened from a link or reloaded: the URL holds only the id, so look the employee up (once; it is audited too).
+  const lookup = useQuery(adminEmployeesByIdQuery(picked && !known ? [picked] : []));
+  const pickedEntry = list.data?.items.find(i => i.employee?.id === picked)?.employee ?? undefined;
+  const pickedLabel = picked ? appliedEmployeeLabel(picked, { known, lookup, inResults: pickedEntry }) : null;
 
   return (
     <Stack gap="lg">
@@ -59,7 +63,7 @@ export function AuditPage({ search, onSearch }: { search: AuditSearch; onSearch:
         description="查詢誰在什麼時候讀取、修改或匯出了哪些資料，例如某位員工的資料被哪些人看過。日期以台灣時間計，含起訖兩天。每次查詢本身也會記入稽核紀錄。" />
 
       {/* Keyed by the applied filters: after a search, a click in the results or going back, the form shows what is applied. */}
-      <AuditFilters key={filtersKey(search)} search={search} employeeLabel={employeeLabel} searching={list.isFetching} onRun={run} onPickEmployee={remember} />
+      <AuditFilters key={filtersKey(search)} search={search} employeeLabel={pickedLabel} searching={list.isFetching} onRun={run} onPickEmployee={remember} />
 
       <Card>
         {list.isPending ? <Skeleton h={360} /> : list.isError ? <CardNote>{problemText(list.error)}</CardNote> : (
@@ -143,20 +147,22 @@ function AuditFilters({ search, employeeLabel, searching, onRun, onPickEmployee 
   );
 }
 
-interface EmployeeOption { value: string; label: string; empNo?: string; name?: string }
+interface EmployeeOption { value: string; label: string; empNo?: string; name?: string; status?: EmployeeStatus }
 
 /**
- * Employee filter: type 工號 or a name and pick from GET /api/admin/employees (leavers included). Searches wait for a
- * pause in typing, since every employee the search returns is itself written to the audit log.
+ * Employee filter: type 工號 or a name and pick from GET /api/admin/employees (leavers and people on leave included,
+ * marked). Searches wait for a pause in typing, since every employee the search returns is itself written to the audit log.
  */
 function EmployeeField({ value, onChange }: { value: PickedEmployee | null; onChange: (e: PickedEmployee | null) => void }) {
   const [search, setSearch] = useState(value?.label ?? '');
   const term = value && search === value.label ? '' : search.trim();
   const [debounced] = useDebouncedValue(term, 350);
   const found = useQuery(adminEmployeesQuery(debounced));
+  const results = found.data ?? [];
+  // The picked employee keeps its label (the input shows it); among the results it also shows its status.
   const options: EmployeeOption[] = [
-    ...(value ? [{ value: value.id, label: value.label }] : []),
-    ...(found.data ?? []).filter(e => e.id !== value?.id).map(e => ({ value: e.id, label: employeeText(e), empNo: e.empNo, name: e.name })),
+    ...(value && !results.some(e => e.id === value.id) ? [{ value: value.id, label: value.label }] : []),
+    ...results.map(e => ({ value: e.id, label: e.id === value?.id ? value.label : employeeLabel(e), empNo: e.empNo, name: e.name, status: e.status })),
   ];
   return (
     <Select label="員工" placeholder="輸入工號或姓名" searchable clearable searchValue={search} onSearchChange={setSearch}
@@ -164,9 +170,15 @@ function EmployeeField({ value, onChange }: { value: PickedEmployee | null; onCh
       onChange={id => { const o = options.find(x => x.value === id); onChange(o ? { id: o.value, label: o.label } : null); }}
       renderOption={({ option }) => {
         const o = option as EmployeeOption;
-        return o.empNo ? <Text size="sm"><Text span ff="monospace" size="sm">{o.empNo}</Text> {o.name}</Text> : <Text size="sm">{o.label}</Text>;
+        if (!o.empNo) return <Text size="sm">{o.label}</Text>;
+        return (
+          <Group gap="xs" wrap="nowrap" justify="space-between" w="100%">
+            <Text size="sm" truncate><Text span ff="monospace" size="sm">{o.empNo}</Text> {o.name}</Text>
+            {o.status && (o.status === '在職' ? <Text size="xs" c="dimmed">在職</Text> : <ToneBadge tone={EMPLOYEE_STATUS_TONE[o.status]}>{o.status}</ToneBadge>)}
+          </Group>
+        );
       }}
-      nothingFoundMessage={!debounced ? '輸入工號或姓名（含離職員工）' : found.isFetching ? '搜尋中…' : found.isError ? problemText(found.error) : '找不到符合的員工'} />
+      nothingFoundMessage={!debounced ? '輸入工號或姓名（含留停、離職員工）' : found.isFetching ? '搜尋中…' : found.isError ? problemText(found.error) : '找不到符合的員工'} />
   );
 }
 

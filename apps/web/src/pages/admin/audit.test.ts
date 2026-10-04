@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { actorText, auditParams, dateRangeProblem, employeeText, formatAt, pageCount, sameFilters, subjectText, validateAuditSearch } from './audit';
+import {
+  actorText, appliedEmployeeLabel, auditParams, dateRangeProblem, employeeLabel, employeeText, formatAt, pageCount, sameFilters, subjectText, validateAuditSearch,
+} from './audit';
 
 const ID = '9c10b8ed-5f74-4e6e-bdcb-ba1d9a2d5b6d';
 
@@ -60,6 +62,25 @@ describe('audit entries in words', () => {
 
   it('names an employee by 工號 and name', () => {
     expect(employeeText({ empNo: 'E0012', name: '王小明' })).toBe('E0012 王小明');
+  });
+
+  it('marks employees who have left or are on leave', () => {
+    expect(employeeLabel({ empNo: 'E0012', name: '王小明', status: '在職' })).toBe('E0012 王小明');
+    expect(employeeLabel({ empNo: 'E0012', name: '王小明', status: '離職' })).toBe('E0012 王小明（離職）');
+    expect(employeeLabel({ empNo: 'E0012', name: '王小明', status: '留停' })).toBe('E0012 王小明（留停）');
+    expect(employeeLabel({ empNo: 'E0012', name: '王小明' })).toBe('E0012 王小明');
+  });
+
+  it('names the employee of the URL: as picked here, else looked up by id, else from the results', () => {
+    const left = { id: ID, empNo: 'E0012', name: '王小明', status: '離職' as const };
+    const done = (data: (typeof left)[]) => ({ isPending: false, isError: false, data });
+    const pending = { isPending: true, isError: false };
+    expect(appliedEmployeeLabel(ID, { known: 'E0012 王小明', lookup: pending })).toBe('E0012 王小明');
+    expect(appliedEmployeeLabel(ID, { lookup: done([left]), inResults: left })).toBe('E0012 王小明（離職）');
+    expect(appliedEmployeeLabel(ID, { lookup: pending, inResults: left })).toBe('E0012 王小明');
+    expect(appliedEmployeeLabel(ID, { lookup: pending })).toBeNull();
+    expect(appliedEmployeeLabel(ID, { lookup: done([]) })).toBe('找不到這位員工');
+    expect(appliedEmployeeLabel(ID, { lookup: { isPending: false, isError: true } })).toBe('指定的員工');
   });
 
   it('formats the time in local time', () => {
