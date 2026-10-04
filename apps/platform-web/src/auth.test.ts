@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { createPlatformApi } from '@yutis/api-client';
 import { fetchSignInConfig, googleSignIn, googleSignInProblem } from './auth';
 
-const answer = (status: number, body?: unknown) => (async () => new Response(body === undefined ? null : JSON.stringify(body), { status })) as unknown as typeof fetch;
+const answer = (status: number, body?: unknown) => createPlatformApi({
+  baseUrl: 'http://admin.test',
+  fetch: (async () => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })) as unknown as typeof fetch,
+});
 
 describe('platform sign-in config', () => {
-  it('reads the method, and treats an API without the endpoint as IAP', async () => {
+  it('reads the method', async () => {
     expect(await fetchSignInConfig(answer(200, { method: 'google', apiKey: 'k', authDomain: 'p.firebaseapp.com' }))).toEqual({ method: 'google', apiKey: 'k', authDomain: 'p.firebaseapp.com' });
     expect(await fetchSignInConfig(answer(200, { method: 'dev' }))).toEqual({ method: 'dev' });
-    expect(await fetchSignInConfig(answer(404))).toEqual({ method: 'iap' });
     await expect(fetchSignInConfig(answer(503))).rejects.toThrow();
   });
 

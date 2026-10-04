@@ -1,23 +1,18 @@
 /*
  * How platform staff are identified (GET /platform-api/sign-in-config). Behind Identity-Aware Proxy (Google Cloud) and
- * on the dev server the app does nothing: IAP or the dev proxy vouches for every request. With Google sign-in
- * (Railway) the app shows a sign-in page and sends the person's ID token with every request (api.ts).
+ * on the dev server the app does nothing: IAP or the dev proxy vouches for every request. With Google sign-in (Railway,
+ * or Google Cloud without a Workspace organization) the app shows a sign-in page and sends the person's ID token with
+ * every request (api.ts).
  */
 import { queryOptions } from '@tanstack/react-query';
+import { data, type PlatformApi, type PlatformSchemas } from '@yutis/api-client';
 import { platformAccount, type PlatformSignInConfig } from '@yutis/sign-in';
+import { api } from './api';
 
-export interface SignInConfig { method: 'iap' | 'google' | 'dev'; apiKey?: string; authDomain?: string }
+export type SignInConfig = PlatformSchemas['SignInConfigDto'];
 
-/**
- * A plain fetch: the endpoint is public and newer than the generated client. A platform API without it (404) predates
- * Google sign-in, so it is guarded by IAP or runs locally.
- */
-export async function fetchSignInConfig(fetcher: typeof fetch = fetch): Promise<SignInConfig> {
-  const res = await fetcher('/platform-api/sign-in-config', { credentials: 'same-origin' });
-  if (res.status === 404) return { method: 'iap' };
-  if (!res.ok) throw new Error(`sign-in-config ${res.status}`);
-  return (await res.json()) as SignInConfig;
-}
+/** Public: asked before anyone has signed in, so no token goes with it. */
+export const fetchSignInConfig = (client: PlatformApi = api): Promise<SignInConfig> => data(client.GET('/platform-api/sign-in-config'));
 
 export const signInConfigQuery = queryOptions({ queryKey: ['sign-in-config'], queryFn: () => fetchSignInConfig(), staleTime: Infinity, gcTime: Infinity });
 
