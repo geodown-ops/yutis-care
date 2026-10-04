@@ -2,7 +2,7 @@
   "zh": {
     "tabs": { "tasks": "待辦", "health": "我的健康", "report": "通報", "account": "我的" },
     "tasks": {
-      "greeting": "{{name}}，你有 {{count}} 件待辦", "greeting_zero": "{{name}}，目前沒有待辦", "service": "健康服務", "start": "開始", "view": "查看",
+      "greeting": "{{name}}，你有 {{count}} 件待辦", "greeting_zero": "{{name}}，目前沒有待辦", "service": "健康服務", "start": "開始", "continue": "繼續", "draft": "已填一部分", "draftSaved": "{{date}} 已暫存", "view": "查看",
       "emptyTitle": "都完成了", "empty": "有新的問卷或需要你確認的紀錄時，會出現在這裡。", "due": "{{date}} 截止", "minutes": "約 {{count}} 分鐘",
       "kinds": { "nmq": "肌肉骨骼症狀調查", "cbi": "過勞量表", "overload": "工時與工作型態調查", "acknowledgement": "紀錄確認" },
       "privacy": "填寫內容只有醫護人員看得到，主管與人資只會看到統計結果。"
@@ -77,7 +77,7 @@
     "tabs": { "tasks": "To do", "health": "My health", "report": "Report", "account": "Me" },
     "tasks": {
       "greeting": "{{name}}, you have {{count}} things to do", "greeting_one": "{{name}}, you have 1 thing to do", "greeting_zero": "{{name}}, nothing to do right now",
-      "service": "Health service", "start": "Start", "view": "View",
+      "service": "Health service", "start": "Start", "continue": "Continue", "draft": "In progress", "draftSaved": "Saved {{date}}", "view": "View",
       "emptyTitle": "All done", "empty": "New questionnaires and records for you to confirm will show up here.", "due": "Due {{date}}", "minutes": "About {{count}} min",
       "kinds": { "nmq": "Musculoskeletal symptom survey", "cbi": "Burnout questionnaire", "overload": "Working hours survey", "acknowledgement": "Record to confirm" },
       "privacy": "Only the occupational health staff can see your answers. Managers and HR only see statistics."
@@ -155,7 +155,7 @@
   "ja": {
     "tabs": { "tasks": "やること", "health": "健康データ", "report": "通報", "account": "マイページ" },
     "tasks": {
-      "greeting": "{{name}}さん、やることが {{count}} 件あります", "greeting_zero": "{{name}}さん、今やることはありません", "service": "健康サービス", "start": "開始", "view": "確認",
+      "greeting": "{{name}}さん、やることが {{count}} 件あります", "greeting_zero": "{{name}}さん、今やることはありません", "service": "健康サービス", "start": "開始", "continue": "続ける", "draft": "回答途中", "draftSaved": "{{date}} に一時保存", "view": "確認",
       "emptyTitle": "すべて完了しました", "empty": "新しい質問票や確認が必要な記録があると、ここに表示されます。", "due": "{{date}} まで", "minutes": "約 {{count}} 分",
       "kinds": { "nmq": "筋骨格系症状調査", "cbi": "燃え尽き尺度", "overload": "労働時間と勤務形態の調査", "acknowledgement": "記録の確認" },
       "privacy": "回答は産業保健スタッフだけが見られます。上司と人事は統計のみ閲覧できます。"
@@ -234,7 +234,7 @@
   "vi": {
     "tabs": { "tasks": "Việc cần làm", "health": "Sức khỏe", "report": "Báo cáo", "account": "Tôi" },
     "tasks": {
-      "greeting": "{{name}}, bạn có {{count}} việc cần làm", "greeting_zero": "{{name}}, hiện không có việc cần làm", "service": "Dịch vụ sức khỏe", "start": "Bắt đầu", "view": "Xem",
+      "greeting": "{{name}}, bạn có {{count}} việc cần làm", "greeting_zero": "{{name}}, hiện không có việc cần làm", "service": "Dịch vụ sức khỏe", "start": "Bắt đầu", "continue": "Tiếp tục", "draft": "Đang làm dở", "draftSaved": "Đã lưu {{date}}", "view": "Xem",
       "emptyTitle": "Đã xong hết", "empty": "Khi có bảng câu hỏi mới hoặc hồ sơ cần bạn xác nhận, chúng sẽ hiện ở đây.", "due": "Hạn {{date}}", "minutes": "Khoảng {{count}} phút",
       "kinds": { "nmq": "Khảo sát triệu chứng cơ xương khớp", "cbi": "Bảng câu hỏi về kiệt sức", "overload": "Khảo sát giờ làm và hình thức công việc", "acknowledgement": "Xác nhận hồ sơ" },
       "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn. Quản lý và nhân sự chỉ xem số liệu thống kê."
@@ -312,7 +312,7 @@
   "th": {
     "tabs": { "tasks": "สิ่งที่ต้องทำ", "health": "สุขภาพของฉัน", "report": "แจ้งเหตุ", "account": "ฉัน" },
     "tasks": {
-      "greeting": "{{name}} คุณมีสิ่งที่ต้องทำ {{count}} รายการ", "greeting_zero": "{{name}} ตอนนี้ไม่มีสิ่งที่ต้องทำ", "service": "บริการสุขภาพ", "start": "เริ่ม", "view": "ดู",
+      "greeting": "{{name}} คุณมีสิ่งที่ต้องทำ {{count}} รายการ", "greeting_zero": "{{name}} ตอนนี้ไม่มีสิ่งที่ต้องทำ", "service": "บริการสุขภาพ", "start": "เริ่ม", "continue": "ทำต่อ", "draft": "ทำค้างไว้", "draftSaved": "บันทึกไว้ {{date}}", "view": "ดู",
       "emptyTitle": "ทำครบแล้ว", "empty": "เมื่อมีแบบสอบถามใหม่หรือบันทึกที่ต้องยืนยัน จะแสดงที่นี่", "due": "ภายใน {{date}}", "minutes": "ประมาณ {{count}} นาที",
       "kinds": { "nmq": "แบบสำรวจอาการทางระบบกระดูกและกล้ามเนื้อ", "cbi": "แบบประเมินภาวะหมดไฟ", "overload": "แบบสำรวจชั่วโมงทำงานและลักษณะงาน", "acknowledgement": "ยืนยันบันทึก" },
       "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ หัวหน้างานและฝ่ายบุคคลเห็นเพียงข้อมูลสถิติ"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatDate } from './dates';
-import { TASK_ROUTES, taskLink, taskTitle, type TaskKind } from './tasks';
+import { TASK_ROUTES, taskAction, taskLink, taskTitle, type TaskKind } from './tasks';
 
 describe('tasks', () => {
   it('opens each kind of task in its own flow', () => {
@@ -8,6 +8,12 @@ describe('tasks', () => {
     for (const kind of kinds) expect(taskLink({ kind, id: 'a1' })).toEqual({ to: `/tasks/${kind}/$id`, params: { id: 'a1' } });
     // Every flow sits under /tasks/, where the tab bar is hidden.
     expect(Object.values(TASK_ROUTES).every(r => r.startsWith('/tasks/'))).toBe(true);
+  });
+
+  it('continues a questionnaire with a saved draft and views a record', () => {
+    expect(taskAction({ kind: 'nmq', hasDraft: false })).toBe('start');
+    expect(taskAction({ kind: 'cbi', hasDraft: true })).toBe('continue');
+    expect(taskAction({ kind: 'acknowledgement', hasDraft: false })).toBe('view');
   });
 
   it('uses the API title when it is in the language shown, else the kind of task', () => {

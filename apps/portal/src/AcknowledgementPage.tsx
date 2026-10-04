@@ -4,7 +4,7 @@ import { data } from '@yutis/api-client';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ackFields, type AckContent } from './acknowledgement';
-import { acknowledgementQuery, api, isApiError, profileQuery, tasksQuery } from './api';
+import { acknowledgementQuery, api, isApiError, tasksQuery } from './api';
 import { formatDate } from './dates';
 import { FlowFrame, FlowLoading, FlowMessage } from './Flow';
 import { ErrorNote, LoadError } from './Page';
@@ -19,7 +19,6 @@ export function AcknowledgementPage({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const query = acknowledgementQuery(id);
   const ack = useQuery(query);
-  const profile = useQuery(profileQuery);
   const [comment, setComment] = useState('');
   const confirm = useMutation({
     mutationFn: () => data(api.POST('/api/portal/acknowledgements/{id}/confirm', { params: { path: { id } }, body: comment.trim() ? { comment: comment.trim() } : {} })),
@@ -29,7 +28,7 @@ export function AcknowledgementPage({ id }: { id: string }) {
     onSettled: () => queryClient.invalidateQueries({ queryKey: tasksQuery.queryKey }),
   });
   // The API writes the title in the account's language; another language on this device gets the generic name.
-  const title = ack.data && profile.data?.lang === lang ? ack.data.title : t('ack.title');
+  const title = ack.data && ack.data.lang === lang ? ack.data.title : t('ack.title');
 
   if (confirm.isSuccess) return <FlowMessage title={title} message={t('ack.done')} done />;
   if (ack.isPending) return <FlowLoading title={title} />;

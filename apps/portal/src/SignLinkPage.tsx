@@ -8,6 +8,7 @@ import { AckRecord, AckUnavailable } from './AcknowledgementPage';
 import { api } from './api';
 import { formatDate } from './dates';
 import { FlowFrame, FlowLoading, FlowMessage } from './Flow';
+import { applyProfileLang } from './i18n';
 import { LoadError } from './Page';
 
 type SignDocument = Schemas['SignDocumentDto'];
@@ -51,8 +52,11 @@ export function SignLinkPage({ token }: { token: string }) {
   });
   const signOff = doc.data ? isSignOff(doc.data) : false;
   useEffect(() => { if (signOff) window.location.replace(`/sign/${encodeURIComponent(token)}`); }, [signOff, token]);
-  // The title is in the employee's account language, which this device may not know; Chinese is the default.
-  const title = lang === 'zh' && doc.data ? doc.data.title : t('ack.title');
+  // Nobody is signed in here: show the employee's account language unless this device already chose one.
+  const docLang = doc.data && !signOff ? doc.data.lang : null;
+  useEffect(() => { if (docLang) applyProfileLang(docLang); }, [docLang]);
+  // The API writes the title in the account's language; another language on this device gets the generic name.
+  const title = doc.data && doc.data.lang === lang ? doc.data.title : t('ack.title');
 
   if (confirm.isSuccess) return <FlowMessage title={title} message={t('ack.done')} done exit={false} />;
   if (doc.isPending || signOff) return <FlowLoading title={title} exit={false} />;

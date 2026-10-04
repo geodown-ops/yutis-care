@@ -7,7 +7,7 @@ import { profileQuery, tasksQuery, tenantQuery } from './api';
 import { formatDate } from './dates';
 import { LanguageSelect } from './LanguageSelect';
 import { ButtonLink, LoadError } from './Page';
-import { TASK_MINUTES, taskLink, taskTitle } from './tasks';
+import { TASK_MINUTES, taskAction, taskLink, taskTitle } from './tasks';
 
 /** 待辦: what the API says is open for this employee, each opening its own flow. */
 export function TasksPage({ name, accountLang }: { name: string; accountLang?: string }) {
@@ -43,7 +43,12 @@ export function TasksPage({ name, accountLang }: { name: string; accountLang?: s
         )}
         {open.map(task => {
           const minutes = TASK_MINUTES[task.kind];
-          const detail = [task.dueOn && t('tasks.due', { date: formatDate(task.dueOn, lang, { year: false }) }), minutes && t('tasks.minutes', { count: minutes })].filter(Boolean).join(' · ');
+          const action = taskAction(task);
+          // A half-filled questionnaire says when it was saved instead of how long it takes.
+          const progress = action === 'continue'
+            ? (task.draftSavedAt ? t('tasks.draftSaved', { date: formatDate(task.draftSavedAt, lang, { year: false }) }) : t('tasks.draft'))
+            : minutes && t('tasks.minutes', { count: minutes });
+          const detail = [task.dueOn && t('tasks.due', { date: formatDate(task.dueOn, lang, { year: false }) }), progress].filter(Boolean).join(' · ');
           return (
             <Card key={`${task.kind}:${task.id}`} padding="md">
               <Group justify="space-between" wrap="nowrap" gap="sm">
@@ -51,8 +56,8 @@ export function TasksPage({ name, accountLang }: { name: string; accountLang?: s
                   <Text fw={600} lh={1.4}>{taskTitle(task, lang, profile.data?.lang ?? accountLang, k => t(`tasks.kinds.${k}`))}</Text>
                   {detail && <Text size="sm" c="dimmed">{detail}</Text>}
                 </div>
-                <ButtonLink {...taskLink(task)} size="sm" style={{ flexShrink: 0 }} variant={task.kind === 'acknowledgement' ? 'default' : 'filled'}>
-                  {t(task.kind === 'acknowledgement' ? 'tasks.view' : 'tasks.start')}
+                <ButtonLink {...taskLink(task)} size="sm" style={{ flexShrink: 0 }} variant={action === 'view' ? 'default' : 'filled'}>
+                  {t(`tasks.${action}`)}
                 </ButtonLink>
               </Group>
             </Card>
