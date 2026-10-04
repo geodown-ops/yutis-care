@@ -2,7 +2,7 @@
 import { data } from '@yutis/api-client';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
-import type { IncidentBody, IncidentPatch, Review, ReviewBody } from './violence';
+import { placeIncident, type IncidentBody, type IncidentPatch, type Review, type ReviewBody } from './violence';
 
 export const riskAssessmentsQuery = queryOptions({
   queryKey: ['violence', 'risk-assessments'],
@@ -42,13 +42,16 @@ export function useCreateIncident() {
   });
 }
 
-/** 結案, 重新開啟 or an edit: PATCH sends only what changed (incidentPatch); the answer replaces the cached row. */
+/**
+ * 結案, 重新開啟 or an edit: PATCH sends only what changed (incidentPatch); the answer replaces the cached row, moved
+ * to where the API lists it when its date or time changed.
+ */
 export function useUpdateIncident() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: IncidentPatch }) =>
       data(api.PATCH('/api/programs/violence/incidents/{id}', { params: { path: { id } }, body })),
-    onSuccess: row => qc.setQueryData(incidentsQuery.queryKey, list => list?.map(i => (i.id === row.id ? row : i))),
+    onSuccess: row => qc.setQueryData(incidentsQuery.queryKey, list => list && placeIncident(list, row)),
   });
 }
 
