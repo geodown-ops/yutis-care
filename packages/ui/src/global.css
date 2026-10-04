@@ -1,6 +1,7 @@
 /* White cards (dark: charcoal) sit on the lilac-grey page with no shadow, as in the reference. */
 .mantine-Card-root,
-.mantine-Paper-root {
+.mantine-Paper-root,
+.mantine-Modal-header {
   background-color: var(--yutis-surface);
 }
 body {
