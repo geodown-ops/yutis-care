@@ -16,6 +16,7 @@ import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCasesRouteImport } from './routes/_app/cases'
 import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
 import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
+import { Route as AppExamsImportRouteImport } from './routes/_app/exams.import'
 import { Route as AppProgramsErgoRouteImport } from './routes/_app/programs.ergo'
 import { Route as AppProgramsWorkloadRouteImport } from './routes/_app/programs.workload'
 
@@ -53,6 +54,11 @@ const AppEmployeesEmployeeIdRoute = AppEmployeesEmployeeIdRouteImport.update({
   path: '/employees/$employeeId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppExamsImportRoute = AppExamsImportRouteImport.update({
+  id: '/exams/import',
+  path: '/exams/import',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProgramsErgoRoute = AppProgramsErgoRouteImport.update({
   id: '/programs/ergo',
   path: '/programs/ergo',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/exams/import': typeof AppExamsImportRoute
   '/programs/ergo': typeof AppProgramsErgoRoute
   '/programs/workload': typeof AppProgramsWorkloadRoute
   '/employees/': typeof AppEmployeesIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/cases': typeof AppCasesRoute
   '/': typeof AppIndexRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/exams/import': typeof AppExamsImportRoute
   '/programs/ergo': typeof AppProgramsErgoRoute
   '/programs/workload': typeof AppProgramsWorkloadRoute
   '/employees': typeof AppEmployeesIndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_app/cases': typeof AppCasesRoute
   '/_app/': typeof AppIndexRoute
   '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/_app/exams/import': typeof AppExamsImportRoute
   '/_app/programs/ergo': typeof AppProgramsErgoRoute
   '/_app/programs/workload': typeof AppProgramsWorkloadRoute
   '/_app/employees/': typeof AppEmployeesIndexRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/$'
     | '/cases'
     | '/employees/$employeeId'
+    | '/exams/import'
     | '/programs/ergo'
     | '/programs/workload'
     | '/employees/'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/cases'
     | '/'
     | '/employees/$employeeId'
+    | '/exams/import'
     | '/programs/ergo'
     | '/programs/workload'
     | '/employees'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_app/cases'
     | '/_app/'
     | '/_app/employees/$employeeId'
+    | '/_app/exams/import'
     | '/_app/programs/ergo'
     | '/_app/programs/workload'
     | '/_app/employees/'
@@ -186,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmployeesEmployeeIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/exams/import': {
+      id: '/_app/exams/import'
+      path: '/exams/import'
+      fullPath: '/exams/import'
+      preLoaderRoute: typeof AppExamsImportRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/programs/ergo': {
       id: '/_app/programs/ergo'
       path: '/programs/ergo'
@@ -208,6 +227,7 @@ interface AppRouteChildren {
   AppCasesRoute: typeof AppCasesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
+  AppExamsImportRoute: typeof AppExamsImportRoute
   AppProgramsErgoRoute: typeof AppProgramsErgoRoute
   AppProgramsWorkloadRoute: typeof AppProgramsWorkloadRoute
   AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
@@ -218,6 +238,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCasesRoute: AppCasesRoute,
   AppIndexRoute: AppIndexRoute,
   AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
+  AppExamsImportRoute: AppExamsImportRoute,
   AppProgramsErgoRoute: AppProgramsErgoRoute,
   AppProgramsWorkloadRoute: AppProgramsWorkloadRoute,
   AppEmployeesIndexRoute: AppEmployeesIndexRoute,

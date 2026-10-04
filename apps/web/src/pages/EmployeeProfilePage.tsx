@@ -1,16 +1,21 @@
 import { Avatar, Badge, Box, Breadcrumbs, Button, Card, Grid, Group, Modal, ScrollArea, Skeleton, Stack, Table, Tabs, Text, Timeline, Title } from '@mantine/core';
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { IconPlus } from '@tabler/icons-react';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { data, type Schemas } from '@yutis/api-client';
 import { ageAt, EVENT_TYPES, LOAD_LABEL, MATRIX, RISK_LABEL, type Grade, type Level3 } from '@yutis/domain';
 import { CaseStatusBadge, GradeBadge } from '@yutis/ui';
 import { useState } from 'react';
 import { api } from '../api';
-import { todayIso } from '../cases';
+import { runningCase, todayIso } from '../cases';
 import { AnchorLink } from '../links';
 import { seesHealth } from '../nav';
 import { employeeCaseQuery, employeeExamsQuery, employeeQuery, employeeRecordsQuery, workAdviceQuery, workloadAssessmentsQuery } from '../queries';
 import { useMe } from '../session';
 import { EmployeeStatus } from './EmployeesPage';
+import { nurseAccess } from './nurse/access';
+import { CaseEditModal, CaseOpenButton, type CaseTarget } from './nurse/CaseActions';
+import { actionErrorText, useFollowUp } from './nurse/queries';
+import { RecordFormModal, type RecordFormTarget } from './nurse/RecordForm';
 import { CardNote, problemText } from './states';
 
 type Exam = Schemas['ExamSummaryDto'];
@@ -26,8 +31,11 @@ export function EmployeeProfilePage({ id }: { id: string }) {
   const me = useMe();
   const { data: e } = useSuspenseQuery(employeeQuery(id));
   const care = seesHealth(me);
+  const access = nurseAccess(me);
   const kase = useQuery({ ...employeeCaseQuery(id), enabled: care });
   const [tab, setTab] = useState<string | null>('overview');
+  const [writing, setWriting] = useState<RecordFormTarget | null>(null);
+  const write = access.records ? (record?: CareRecord) => setWriting({ employeeId: id, employeeName: e.name, record }) : undefined;
   const open = kase.data && kase.data.status !== '結案' && kase.data.events.length > 0;
 
   return (
@@ -53,7 +61,10 @@ export function EmployeeProfilePage({ id }: { id: string }) {
               </Group>
             </div>
           </Group>
-          {care && kase.data?.status === '未開單' && kase.data.events.length > 0 && <OpenCaseButton employeeId={id} />}
+          <Group gap="sm" align="flex-start">
+            {access.cases && kase.data && <CaseOpenButton employeeId={id} kase={kase.data} variant="default" />}
+            {write && <Button leftSection={<IconPlus size={16} />} onClick={() => write()}>新增協助紀錄</Button>}
+          </Group>
         </Group>
         {care && (
           <Tabs value={tab} onChange={setTab} mt="md">
@@ -67,7 +78,9 @@ export function EmployeeProfilePage({ id }: { id: string }) {
         )}
       </Card>
 
-      {!care ? <WorkAdvice employeeId={id} /> : tab === 'exams' ? <ExamsTab employeeId={id} /> : tab === 'records' ? <RecordsTab employeeId={id} /> : tab === 'case' ? <CaseTab employeeId={id} /> : <Overview employeeId={id} />}
+      {!care ? <WorkAdvice employeeId={id} /> : tab === 'exams' ? <ExamsTab employeeId={id} /> : tab === 'records' ? <RecordsTab employeeId={id} onWrite={write} />
+        : tab === 'case' ? <CaseTab employeeId={id} name={e.name} canEdit={access.cases} /> : <Overview employeeId={id} />}
+      <RecordFormModal target={writing} onClose={() => setWriting(null)} />
     </Stack>
   );
 }
@@ -241,24 +254,38 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-function RecordsTab({ employeeId }: { employeeId: string }) {
+function RecordsTab({ employeeId, onWrite }: { employeeId: string; onWrite?: (r?: CareRecord) => void }) {
   const records = useQuery(employeeRecordsQuery(employeeId));
   if (records.isPending) return <Card><Skeleton h={200} /></Card>;
   if (records.isError) return <Card><CardNote>{problemText(records.error)}</CardNote></Card>;
-  if (records.data.length === 0) return <Card><CardNote>還沒有協助紀錄。</CardNote></Card>;
-  return <Stack gap="md">{records.data.map(r => <RecordCard key={r.id} r={r} />)}</Stack>;
+  if (records.data.length === 0) {
+    return (
+      <Card>
+        <CardNote>還沒有協助紀錄。</CardNote>
+        {onWrite && <Group justify="center"><Button variant="default" leftSection={<IconPlus size={16} />} onClick={() => onWrite()}>新增協助紀錄</Button></Group>}
+      </Card>
+    );
+  }
+  // Drafts first: they are unfinished work.
+  const sorted = [...records.data].sort((a, b) => Number(b.draft) - Number(a.draft));
+  return <Stack gap="md">{sorted.map(r => <RecordCard key={r.id} r={r} onEdit={onWrite && (() => onWrite(r))} />)}</Stack>;
 }
 
-function RecordCard({ r }: { r: CareRecord }) {
+function RecordCard({ r, onEdit }: { r: CareRecord; onEdit?: () => void }) {
   const c = r.content ?? { explain: '', handling: '', note: '' };
+  const follow = useFollowUp();
+  const pending = r.result === '追蹤' && !r.draft && !r.followUpDone && !!r.followUpOn;
   return (
     <Card>
-      <Group justify="space-between" mb="xs">
+      <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
         <Group gap="xs">
           <Text fw={600}>{r.category}</Text>
           {r.draft && <Badge variant="light" color="gray">草稿</Badge>}
         </Group>
-        <Text size="sm" c="dimmed">{new Date(r.occurredAt).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+        <Group gap="sm">
+          <Text size="sm" c="dimmed">{new Date(r.occurredAt).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+          {onEdit && <Button size="compact-sm" variant="default" onClick={onEdit}>{r.draft ? '繼續編輯' : '編輯'}</Button>}
+        </Group>
       </Group>
       {r.consultTypes.length > 0 && <Text size="xs" c="dimmed" mb="xs">{r.consultTypes.join('、')}</Text>}
       <Stack gap="xs">
@@ -267,23 +294,43 @@ function RecordCard({ r }: { r: CareRecord }) {
         {r.lifestyleAdvice.length > 0 && <Field label="生活型態建議" value={r.lifestyleAdvice.join('、')} />}
         {c.note && <Field label="備註" value={c.note} />}
       </Stack>
-      <Text size="sm" mt="sm">{r.result === '追蹤' ? `追蹤${r.followUpOn ? ` · ${dt(r.followUpOn)}` : ''}${r.followUpDone ? '（已完成）' : ''}` : '結案'}</Text>
+      <Group justify="space-between" mt="sm" gap="xs">
+        <Text size="sm">{r.result === '追蹤' ? `追蹤${r.followUpOn ? ` · ${dt(r.followUpOn)}` : ''}${r.followUpDone ? '（已完成）' : ''}` : '結案'}</Text>
+        {onEdit && pending && (
+          <Group gap="xs">
+            {follow.isError && <Text size="xs" c="var(--yutis-bad)">{actionErrorText(follow.error)}</Text>}
+            <Button size="compact-sm" variant="light" color="yutis" loading={follow.isPending}
+              onClick={() => follow.mutate({ recordId: r.id, employeeId: r.employeeId, body: { followUpDone: true } })}>完成追蹤</Button>
+          </Group>
+        )}
+      </Group>
     </Card>
   );
 }
 
-function CaseTab({ employeeId }: { employeeId: string }) {
+function CaseTab({ employeeId, name, canEdit }: { employeeId: string; name: string; canEdit: boolean }) {
   const kase = useQuery(employeeCaseQuery(employeeId));
+  const [editing, setEditing] = useState<CaseTarget | null>(null);
   if (kase.isPending) return <Card><Skeleton h={200} /></Card>;
   if (kase.isError) return <Card><CardNote>{problemText(kase.error)}</CardNote></Card>;
   const k = kase.data;
   if (k.events.length === 0) return <Card><CardNote>這位員工沒有異常事件，不需要開立個案。</CardNote></Card>;
   const c = k.case;
+  const running = runningCase(k);
   return (
     <Grid gap="md">
       <Grid.Col span={{ base: 12, md: 5 }}>
         <Card h="100%">
-          <Group justify="space-between" mb="sm"><Text fw={600}>個案服務單</Text><CaseStatusBadge status={k.status} /></Group>
+          <Group justify="space-between" mb="sm" align="flex-start">
+            <Group gap="xs"><Text fw={600}>個案服務單</Text><CaseStatusBadge status={k.status} /></Group>
+            {canEdit && (
+              <Group gap="xs" align="flex-start">
+                <CaseOpenButton employeeId={employeeId} kase={k} size="compact-sm" variant="light" color="yutis" />
+                {running && <Button size="compact-sm" variant="default" onClick={() => setEditing({ employeeId, name, case: running })}>編輯</Button>}
+              </Group>
+            )}
+          </Group>
+          <CaseEditModal target={editing} onClose={() => setEditing(null)} />
           {!c ? <CardNote>還沒有開單。</CardNote> : (
             <Table verticalSpacing={6}>
               <Table.Tbody>
@@ -325,23 +372,6 @@ function CaseTab({ employeeId }: { employeeId: string }) {
         </Card>
       </Grid.Col>
     </Grid>
-  );
-}
-
-function OpenCaseButton({ employeeId }: { employeeId: string }) {
-  const qc = useQueryClient();
-  const open = useMutation({
-    mutationFn: () => data(api.POST('/api/employees/{employeeId}/case/open', { params: { path: { employeeId } } })),
-    onSuccess: k => {
-      qc.setQueryData(employeeCaseQuery(employeeId).queryKey, k);
-      void qc.invalidateQueries({ queryKey: ['cases'] });
-    },
-  });
-  return (
-    <Stack gap={4} align="flex-end">
-      <Button loading={open.isPending} onClick={() => open.mutate()}>開單</Button>
-      {open.isError && <Text size="xs" c="var(--yutis-bad)">{problemText(open.error)}</Text>}
-    </Stack>
   );
 }
 
