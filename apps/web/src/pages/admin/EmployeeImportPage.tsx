@@ -1,11 +1,11 @@
-import { Alert, Card, Grid, SimpleGrid, Stack, Table, Text } from '@mantine/core';
+import { Alert, Card, Grid, Group, SimpleGrid, Stack, Table, Text } from '@mantine/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { StatCard } from '@yutis/ui';
 import { AnchorLink } from '../../links';
 import type { EmployeeImportReport } from './imports';
 import { ImportFlow } from './ImportFlow';
-import { importEmployees } from './queries';
-import { AdminTitle } from './ui';
+import { downloadEmployeeTemplate, importEmployees } from './queries';
+import { AdminTitle, DownloadButton } from './ui';
 
 /** The columns the API reads (EMPLOYEE_COLUMNS in apps/api/src/admin/employees.controller.ts). */
 const REQUIRED: [string, string][] = [
@@ -52,9 +52,12 @@ export function EmployeeImportPage() {
         </Grid.Col>
         <Grid.Col span={{ base: 12, lg: 5 }}>
           <Card>
-            <Text fw={600} size="lg" mb={4}>檔案格式</Text>
+            <Group justify="space-between" align="flex-start" gap="sm" mb={4}>
+              <Text fw={600} size="lg">檔案格式</Text>
+              <DownloadButton download={downloadEmployeeTemplate} size="xs">下載匯入範本</DownloadButton>
+            </Group>
             <Text size="sm" c="dimmed" mb="sm">
-              讀取第一個工作表，第一列為欄位名稱。法人、廠區與部門要先在<AnchorLink to="/admin/org" size="sm">組織架構</AnchorLink>建立。
+              讀取第一個工作表，第一列為欄位名稱（範本已填好，粗體為必填）。法人、廠區與部門要先在<AnchorLink to="/admin/org" size="sm">組織架構</AnchorLink>建立。
             </Text>
             <ColumnTable title="必填欄位" rows={REQUIRED} />
             <ColumnTable title="選填欄位" rows={OPTIONAL} />

@@ -1,15 +1,10 @@
 /* The organisation tree (法人 → 廠區 → 部門) as the flat lists the admin screens show. */
+import type { Schemas } from '@yutis/api-client';
 
-/*
- * What GET /api/admin/org returns (OrgController in apps/api). Written out here because the generated contract
- * merges the org SiteDto with the /api/me SiteDto of the same name and loses `address`, `departments` and DepartmentDto.
- */
-export interface Department {
-  id: string; code: string | null; name: string;
-  managerName: string | null; managerEmail: string | null; managerPhone: string | null;
-}
-export interface Site { id: string; code: string; name: string; address: string | null; departments: Department[] }
-export interface LegalEntity { id: string; code: string; name: string; sites: Site[] }
+/** GET /api/admin/org: legal entities with their sites and departments. */
+export type LegalEntity = Schemas['LegalEntityDto'];
+export type Site = Schemas['OrgSiteDto'];
+export type Department = Schemas['OrgDepartmentDto'];
 
 export interface SiteRow extends Site { legalEntity: { id: string; code: string; name: string } }
 export interface DepartmentRow extends Department { site: { id: string; code: string; name: string } }

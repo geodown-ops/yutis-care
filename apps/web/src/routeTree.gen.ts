@@ -18,6 +18,7 @@ import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppServiceRecordsRouteImport } from './routes/_app/service-records'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as AppAdminAccountsRouteImport } from './routes/_app/admin.accounts'
+import { Route as AppAdminAuditRouteImport } from './routes/_app/admin.audit'
 import { Route as AppAdminCompanyRouteImport } from './routes/_app/admin.company'
 import { Route as AppAdminEmployeeImportRouteImport } from './routes/_app/admin.employee-import'
 import { Route as AppAdminExamMappingRouteImport } from './routes/_app/admin.exam-mapping'
@@ -75,6 +76,11 @@ const SignTokenRoute = SignTokenRouteImport.update({
 const AppAdminAccountsRoute = AppAdminAccountsRouteImport.update({
   id: '/admin/accounts',
   path: '/admin/accounts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminAuditRoute = AppAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminCompanyRoute = AppAdminCompanyRouteImport.update({
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/service-records': typeof AppServiceRecordsRoute
   '/sign/$token': typeof SignTokenRoute
   '/admin/accounts': typeof AppAdminAccountsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/company': typeof AppAdminCompanyRoute
   '/admin/employee-import': typeof AppAdminEmployeeImportRoute
   '/admin/exam-mapping': typeof AppAdminExamMappingRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/sign/$token': typeof SignTokenRoute
   '/': typeof AppIndexRoute
   '/admin/accounts': typeof AppAdminAccountsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
   '/admin/company': typeof AppAdminCompanyRoute
   '/admin/employee-import': typeof AppAdminEmployeeImportRoute
   '/admin/exam-mapping': typeof AppAdminExamMappingRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/sign/$token': typeof SignTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/admin/accounts': typeof AppAdminAccountsRoute
+  '/_app/admin/audit': typeof AppAdminAuditRoute
   '/_app/admin/company': typeof AppAdminCompanyRoute
   '/_app/admin/employee-import': typeof AppAdminEmployeeImportRoute
   '/_app/admin/exam-mapping': typeof AppAdminExamMappingRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/service-records'
     | '/sign/$token'
     | '/admin/accounts'
+    | '/admin/audit'
     | '/admin/company'
     | '/admin/employee-import'
     | '/admin/exam-mapping'
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/'
     | '/admin/accounts'
+    | '/admin/audit'
     | '/admin/company'
     | '/admin/employee-import'
     | '/admin/exam-mapping'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/sign/$token'
     | '/_app/'
     | '/_app/admin/accounts'
+    | '/_app/admin/audit'
     | '/_app/admin/company'
     | '/_app/admin/employee-import'
     | '/_app/admin/exam-mapping'
@@ -367,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/accounts'
       fullPath: '/admin/accounts'
       preLoaderRoute: typeof AppAdminAccountsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/audit': {
+      id: '/_app/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AppAdminAuditRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/admin/company': {
@@ -477,6 +496,7 @@ interface AppRouteChildren {
   AppServiceRecordsRoute: typeof AppServiceRecordsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAdminAccountsRoute: typeof AppAdminAccountsRoute
+  AppAdminAuditRoute: typeof AppAdminAuditRoute
   AppAdminCompanyRoute: typeof AppAdminCompanyRoute
   AppAdminEmployeeImportRoute: typeof AppAdminEmployeeImportRoute
   AppAdminExamMappingRoute: typeof AppAdminExamMappingRoute
@@ -500,6 +520,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppServiceRecordsRoute: AppServiceRecordsRoute,
   AppIndexRoute: AppIndexRoute,
   AppAdminAccountsRoute: AppAdminAccountsRoute,
+  AppAdminAuditRoute: AppAdminAuditRoute,
   AppAdminCompanyRoute: AppAdminCompanyRoute,
   AppAdminEmployeeImportRoute: AppAdminEmployeeImportRoute,
   AppAdminExamMappingRoute: AppAdminExamMappingRoute,

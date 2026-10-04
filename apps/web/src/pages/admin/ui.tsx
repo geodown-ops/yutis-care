@@ -1,6 +1,7 @@
 /* Small pieces the tenant admin screens share. */
-import { Alert, Badge, Button, Group, Modal, Stack, Text, Title } from '@mantine/core';
-import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
+import { Alert, Badge, Button, Group, Modal, Stack, Text, Title, type ButtonProps } from '@mantine/core';
+import { IconAlertTriangle, IconDownload, IconInfoCircle } from '@tabler/icons-react';
+import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { adminProblem } from './problems';
 
@@ -62,5 +63,16 @@ export function FormActions({ busy, onCancel, submitLabel = '儲存', disabled }
       <Button variant="default" onClick={onCancel}>取消</Button>
       <Button type="submit" loading={busy} disabled={disabled}>{submitLabel}</Button>
     </Group>
+  );
+}
+
+/** Downloads a file from the API (e.g. an import template); a refusal shows under the button. */
+export function DownloadButton({ download, children, ...props }: { download: () => Promise<void>; children: ReactNode } & Omit<ButtonProps, 'children'>) {
+  const run = useMutation({ mutationFn: download });
+  return (
+    <Stack gap={4} align="flex-start">
+      <Button variant="default" leftSection={<IconDownload size={16} />} {...props} loading={run.isPending} onClick={() => run.mutate()}>{children}</Button>
+      {run.isError && <Text size="xs" c="var(--yutis-bad)" role="alert">{adminProblem(run.error)}</Text>}
+    </Stack>
   );
 }

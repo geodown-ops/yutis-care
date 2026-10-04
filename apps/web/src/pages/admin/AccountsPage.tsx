@@ -123,7 +123,11 @@ function AccountFormView({ account, tree, isSelf, onDone }: { account: StaffAcco
   return (
     <form onSubmit={submit} noValidate>
       <Stack gap="sm">
-        {!account && <Text size="sm" c="dimmed">對方第一次以這個 Email 登入時完成綁定。目前不會寄出邀請信，請另外通知對方登入網址 {window.location.origin}。</Text>}
+        {!account && (
+          <Text size="sm" c="dimmed">
+            系統會寄邀請信到這個 Email，內含登入網址 {window.location.origin}；對方第一次以這個 Email 登入時完成綁定。對方沒收到信時（測試與示範環境不會實際寄出），請直接把登入網址告訴對方。
+          </Text>
+        )}
         <Group grow align="flex-start">
           <TextInput label="姓名" required value={f.name} onChange={text('name')} maxLength={100} error={show('name')} data-autofocus />
           <TextInput label="Email" required={!account} type="email" value={f.email} onChange={text('email')} disabled={!!account} error={show('email')}

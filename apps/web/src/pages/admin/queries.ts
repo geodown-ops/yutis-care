@@ -1,11 +1,11 @@
 /* Tenant admin (租戶管理) reads and uploads. Everything here needs the tenant-admin feature. */
 import { data } from '@yutis/api-client';
-import { queryOptions } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 import { api } from '../../api';
-import type { LegalEntity } from './org';
+import { auditParams, type AuditSearch } from './audit';
+import { downloadFile } from './download';
 
-// The generated type lacks sites' address and departments (see org.ts).
-export const orgQuery = queryOptions({ queryKey: ['admin', 'org'], queryFn: async () => (await data(api.GET('/api/admin/org'))) as unknown as LegalEntity[] });
+export const orgQuery = queryOptions({ queryKey: ['admin', 'org'], queryFn: () => data(api.GET('/api/admin/org')) });
 
 export const staffAccountsQuery = queryOptions({ queryKey: ['admin', 'users'], queryFn: () => data(api.GET('/api/admin/users')) });
 
@@ -15,6 +15,28 @@ export const ruleSetsQuery = queryOptions({ queryKey: ['admin', 'rule-sets'], qu
 
 export const ruleSetQuery = (id: string) =>
   queryOptions({ queryKey: ['admin', 'rule-sets', id], queryFn: () => data(api.GET('/api/admin/rule-sets/{id}', { params: { path: { id } } })), staleTime: Infinity });
+
+export const phrasesQuery = queryOptions({ queryKey: ['admin', 'phrases'], queryFn: () => data(api.GET('/api/admin/phrases')) });
+
+export const signOffRolesQuery = queryOptions({ queryKey: ['admin', 'sign-off-roles'], queryFn: () => data(api.GET('/api/admin/sign-off-roles')) });
+
+/**
+ * One page of the audit log. Every search is itself written to the audit log, so this only runs when the admin searches
+ * or turns the page: never again on window focus, reconnect or a remount with the same filters (hover preload runs no
+ * query, as the route has no loader for it).
+ */
+export const auditQuery = (search: AuditSearch) => queryOptions({
+  queryKey: ['admin', 'audit', search],
+  queryFn: () => data(api.GET('/api/admin/audit', { params: { query: auditParams(search) } })),
+  placeholderData: keepPreviousData,
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
+/** Blank import files with the header row the import reads (bold = required). */
+export const downloadOrgTemplate = () => downloadFile(api.GET('/api/admin/org/import-template', { parseAs: 'blob' }), '組織架構匯入範本.xlsx');
+export const downloadEmployeeTemplate = () => downloadFile(api.GET('/api/admin/employees/import-template', { parseAs: 'blob' }), '員工主檔匯入範本.xlsx');
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 

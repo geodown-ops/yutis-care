@@ -10,7 +10,7 @@ const BY_CODE: Record<string, string> = {
   last_tenant_admin: '租戶至少要保留一位啟用中的租戶管理員。',
   unknown_site: '有負責廠區已不存在，請重新整理後再選一次。',
   validation_failed: '有欄位格式不正確，請檢查後再送出。',
-  not_draft: '這個版本已經發布或停用，不能再發布。',
+  not_draft: '這個版本已經發布或停用，只有草稿能修改、刪除或發布。請重新整理。',
   invalid_file: '讀不到這個檔案，請上傳 .xlsx 格式的 Excel 檔。',
   import_invalid: '檔案有錯誤，沒有匯入任何資料。請修正下列問題後重新上傳。',
   not_found: '找不到這筆資料，可能已被其他人刪除。請重新整理。',
