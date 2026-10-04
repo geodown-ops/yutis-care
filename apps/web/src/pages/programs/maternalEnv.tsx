@@ -13,11 +13,11 @@ import {
   type EnvAssessment, type HazardAnswer, type HazardDraft,
 } from './maternal';
 import { envAssessmentsQuery } from './maternalQueries';
-import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
+import { DateField, DepartmentSelect, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
 
-export function LevelBadge({ level }: { level: string | null | undefined }) {
+export function LevelBadge({ level }: { level: MatLevel | null | undefined }) {
   if (!level) return <Text span size="sm" c="dimmed">未評估</Text>;
-  return <ToneBadge tone={LEVEL_TONE[level as MatLevel] ?? 'info'}>{level}</ToneBadge>;
+  return <ToneBadge tone={LEVEL_TONE[level]}>{level}</ToneBadge>;
 }
 
 export function MaternalEnvTab({ envs }: { envs: UseQueryResult<EnvAssessment[]> }) {
@@ -119,6 +119,7 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
   const today = todayIso();
   const [assessedOn, setAssessedOn] = useState(today);
   const [siteId, setSiteId] = useState<string | null>(sites[0]?.id ?? null);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [area, setArea] = useState('');
   const [shiftType, setShiftType] = useState<string>(SHIFT_TYPES[0]);
   const [hazards, setHazards] = useState<Record<string, HazardDraft>>(emptyHazards);
@@ -127,7 +128,7 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
   const problem = !assessedOn ? '請填寫評估日期。' : assessedOn > today ? '評估日期不能晚於今天。' : !siteId ? '請選擇廠區。' : !area.trim() ? '請填寫評估區域。' : null;
   const save = useMutation({
     mutationFn: () => data(api.POST('/api/programs/maternal/env-assessments', {
-      body: { siteId: siteId!, area: area.trim(), shiftType, assessedOn, hazards: hazardsBody(hazards) },
+      body: { siteId: siteId!, departmentId, area: area.trim(), shiftType, assessedOn, hazards: hazardsBody(hazards) },
     })),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: envAssessmentsQuery.queryKey }); onDone(); },
   });
@@ -137,7 +138,8 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
     <Stack gap="md">
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
         <DateField label="評估日期" required value={assessedOn} max={today} onChange={e => setAssessedOn(e.currentTarget.value)} />
-        <Select label="廠區" required value={siteId} onChange={setSiteId} data={sites.map(s => ({ value: s.id, label: s.name }))} allowDeselect={false} />
+        <Select label="廠區" required value={siteId} onChange={v => { setSiteId(v); setDepartmentId(null); }} data={sites.map(s => ({ value: s.id, label: s.name }))} allowDeselect={false} />
+        <DepartmentSelect siteId={siteId} value={departmentId} onChange={setDepartmentId} />
         <TextInput label="評估區域" required placeholder="建物名稱、樓別" maxLength={100} value={area} onChange={e => setArea(e.currentTarget.value)}
           error={tried && !area.trim() ? '請填寫評估區域' : undefined} />
         <div>

@@ -9,6 +9,8 @@ import { AnchorLink } from '../../links';
 import { canAccess, type Access } from '../../nav';
 import { useMe } from '../../session';
 import { problemText } from '../states';
+import { orgQuery } from './directory';
+import { siteDepartments } from './lists';
 
 /* Mirrors the route decorators in apps/api/src/programs (maternal-violence.controller.ts, advice.controller.ts). */
 /** Maternal cases, interviews and violence incidents (@Clinical). */
@@ -38,6 +40,17 @@ export function ToneBadge({ tone, children }: { tone: Tone; children: ReactNode 
   return <Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none', fontWeight: 600 } }}>{children}</Badge>;
 }
 
+/** Optional department of the chosen site, from the organisation tree (GET /api/org). */
+export function DepartmentSelect({ siteId, value, onChange }: { siteId: string | null; value: string | null; onChange: (id: string | null) => void }) {
+  const org = useQuery(orgQuery);
+  const departments = siteDepartments(org.data ?? [], siteId);
+  return (
+    <Select label="部門" clearable searchable value={value} onChange={onChange} data={departments.map(d => ({ value: d.id, label: d.name }))}
+      placeholder={org.isPending ? '載入中…' : departments.length ? '不指定' : '這個廠區沒有部門'} disabled={!departments.length}
+      error={org.isError ? problemText(org.error) : undefined} nothingFoundMessage="找不到這個部門" />
+  );
+}
+
 /** A person in a table: a link to their profile for roles that may open it, plain text otherwise. */
 export function PersonLink({ employeeId, name, empNo }: { employeeId: string; name: string; empNo?: string }) {
   const me = useMe();
@@ -61,6 +74,15 @@ export function saveProblem(err: unknown): string {
     if (err.code === 'employee_not_found') return '找不到這位員工，可能已被刪除。';
     if (err.code === 'already_confirmed') return '員工已確認這份紀錄，不需要再寄連結。';
     if (err.code === 'not_a_manager') return '收件人必須是在職的部門主管帳號。';
+    if (err.code === 'unknown_department') return '所選部門不屬於這個廠區，請重新選擇。';
+    if (err.code === 'unknown_sign_off_role') return '簽核人員的類別必須是租戶設定的簽核角色。';
+    if (err.code === 'no_signers') return '請先加入至少一位簽核人員再送出。';
+    if (err.code === 'not_draft') return '這份紀錄已送出簽核，不能再修改或刪除。請重新整理。';
+    if (err.code === 'not_in_sign_off') return '這份紀錄目前不在簽核中。請重新整理。';
+    if (err.code === 'already_signed') return '這位簽核人員已經簽核，不需要重寄。';
+    if (err.code === 'not_suspected') return '只有疑似有危害的問卷可以列管。';
+    if (err.code === 'interview_date_required') return '面談狀態為已面談時，請填面談日期。';
+    if (err.code === 'unknown_staff') return '找不到這位醫師的帳號，可能已停用。';
     if ([403, 404, 503].includes(err.status)) return problemText(err);
   }
   return '暫時無法儲存，請稍後再試。';
