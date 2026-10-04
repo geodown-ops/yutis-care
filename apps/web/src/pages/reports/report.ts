@@ -65,6 +65,12 @@ export function exportState(e: Pick<ExportJob, 'status' | 'expiresAt'>, now: Dat
   return e.expiresAt && new Date(e.expiresAt) > now ? 'ready' : 'expired';
 }
 
+/** The report an export is of; the API names it from the request, before the file exists. */
+export const exportTitle = (e: Pick<ExportJob, 'title'>) => e.title || '統計報表';
+
+/** The name to save a download under: the worker's file name, else the report's title with the format. */
+export const exportFileName = (e: Pick<ExportJob, 'title' | 'fileName' | 'format'>) => e.fileName ?? `${exportTitle(e)}.${e.format}`;
+
 export const isPending = (e: Pick<ExportJob, 'status'>) => e.status === 'queued' || e.status === 'running';
 
 /** Minutes after which a queued export is worth a hint (the worker builds files in seconds). */

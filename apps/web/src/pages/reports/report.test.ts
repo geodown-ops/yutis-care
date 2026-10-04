@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cellText, chartOf, exportState, groupCatalogue, pickReport, pollInterval, type ExportJob, type ReportType } from './report';
+import { cellText, chartOf, exportFileName, exportState, exportTitle, groupCatalogue, pickReport, pollInterval, type ExportJob, type ReportType } from './report';
 
 const TYPES: ReportType[] = [
   { kind: 'health', type: 'grade', title: '健管級數占比分析' },
@@ -58,7 +58,15 @@ describe('chartOf', () => {
 describe('exports', () => {
   const now = new Date('2026-10-04T10:00:00Z');
   const job = (status: ExportJob['status'], requestedAt: string, expiresAt: string | null = null): ExportJob =>
-    ({ id: status + requestedAt, status, format: 'xlsx', fileName: null, requestedAt, expiresAt });
+    ({ id: status + requestedAt, kind: 'health', type: 'grade', title: '健管級數占比分析', status, format: 'xlsx', fileName: null, requestedAt, expiresAt });
+
+  it('names every export by its report', () => {
+    const queued = job('queued', '2026-10-04T09:59:00Z');
+    expect(exportTitle(queued)).toBe('健管級數占比分析');
+    expect(exportFileName(queued)).toBe('健管級數占比分析.xlsx');
+    expect(exportFileName({ ...queued, format: 'pdf', fileName: '健管級數占比分析_桃園廠.pdf' })).toBe('健管級數占比分析_桃園廠.pdf');
+    expect(exportTitle({ title: '' })).toBe('統計報表');
+  });
 
   it('tells ready from expired files', () => {
     expect(exportState(job('done', '2026-10-04T09:00:00Z', '2026-10-05T09:00:00Z'), now)).toBe('ready');

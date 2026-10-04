@@ -3,7 +3,6 @@ import { Box, Button, Card, Chip, Grid, Group, Select, SimpleGrid, Skeleton, Sta
 import { IconEyeOff, IconFileSpreadsheet, IconFileTypePdf } from '@tabler/icons-react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { StatCard, type TileTone } from '@yutis/ui';
-import { useState } from 'react';
 import { useMe } from '../../session';
 import { CardNote, problemText } from '../states';
 import { ExportsCard } from './ExportsCard';
@@ -24,8 +23,6 @@ export function ReportsPage({ search, onSearch }: { search: ReportsSearch; onSea
   const current = pickReport(groups, search.kind, search.type);
   const sites = [...me.sites, ...me.breakGlassSites.filter(b => !me.sites.some(s => s.id === b.id))];
   const siteId = sites.some(s => s.id === search.site) ? search.site : undefined;
-  // Titles of exports asked for on this visit; the export list itself does not say which report a file is.
-  const [titles, setTitles] = useState<Record<string, string>>({});
 
   return (
     <Stack gap="lg">
@@ -52,24 +49,20 @@ export function ReportsPage({ search, onSearch }: { search: ReportsSearch; onSea
 
       {current ? (
         <ReportCard key={`${current.kind}/${current.type}`} report={current} siteId={siteId}
-          scope={siteId ? sites.find(s => s.id === siteId)!.name : sites.map(s => s.name).join('、') || '尚未指派負責廠區'}
-          onExported={(id, title) => setTitles(t => ({ ...t, [id]: title }))} />
+          scope={siteId ? sites.find(s => s.id === siteId)!.name : sites.map(s => s.name).join('、') || '尚未指派負責廠區'} />
       ) : <Card><CardNote>目前沒有可用的報表。</CardNote></Card>}
 
-      <ExportsCard titles={titles} />
+      <ExportsCard />
     </Stack>
   );
 }
 
-function ReportCard({ report: rt, siteId, scope, onExported }: { report: ReportType; siteId?: string; scope: string; onExported: (id: string, title: string) => void }) {
+function ReportCard({ report: rt, siteId, scope }: { report: ReportType; siteId?: string; scope: string }) {
   const qc = useQueryClient();
   const report = useQuery({ ...siteReportQuery(rt.kind, rt.type, siteId), placeholderData: keepPreviousData });
   const exp = useMutation({
     mutationFn: (format: 'xlsx' | 'pdf') => requestExport(rt.kind, rt.type, format, siteId),
-    onSuccess: (job, format) => {
-      onExported(job.id, `${rt.title}.${format}`);
-      void qc.invalidateQueries({ queryKey: exportsQuery.queryKey });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: exportsQuery.queryKey }),
   });
 
   return (
