@@ -30,6 +30,11 @@ resource "google_monitoring_uptime_check_config" "web" {
     type   = "uptime_url"
     labels = { project_id = var.project_id, host = local.probe_host }
   }
+  # A new host replaces the check, and Google refuses to delete one an alert policy still uses: create the new check,
+  # repoint the policy, then delete the old one.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_monitoring_alert_policy" "uptime" {

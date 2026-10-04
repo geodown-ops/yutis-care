@@ -6,7 +6,7 @@ import pg from 'pg';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import type { ApiConfig } from '../config.js';
 import { KmsTenantCrypto, LocalTenantCrypto, TENANT_CRYPTO, UnconfiguredTenantCrypto, type TenantCrypto } from './crypto.js';
-import { KmsClient, MetadataTokenSource } from './gcp.js';
+import { googleTokenSource, KmsClient } from './gcp.js';
 import { ApiExceptionFilter } from './errors.js';
 import { createMailer, MAILER, Notifier, type Mailer } from './mail.js';
 
@@ -82,7 +82,7 @@ export function tenantCrypto(config: Pick<ApiConfig, 'databaseUrl' | 'cryptoKms'
   if (config.cryptoKms) {
     // Its own small pool: requests already hold a connection from the main pool while they encrypt.
     const keyPool = new pg.Pool({ connectionString: config.databaseUrl, max: 2 });
-    return new KmsTenantCrypto(createDb(keyPool), new KmsClient(new MetadataTokenSource()));
+    return new KmsTenantCrypto(createDb(keyPool), new KmsClient(googleTokenSource()));
   }
   return config.cryptoLocalKey ? new LocalTenantCrypto(config.cryptoLocalKey) : new UnconfiguredTenantCrypto();
 }

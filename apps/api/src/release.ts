@@ -1,13 +1,13 @@
 /*
- * The release job (`node dist/release.js`), run once per deployment before the new revisions take traffic, as the
- * table owner (DATABASE_URL). Idempotent:
+ * First step of the release job (deploy/release.sh), run once per deployment before the new revisions take traffic, as
+ * the table owner (DATABASE_URL). Idempotent:
  *
  *   1. apply migrations;
  *   2. create or update the API, worker and platform API login roles (passwords from Secret Manager), each a plain
  *      member of yutis_app, yutis_worker or yutis_platform, so Row-Level Security always applies to them;
  *   3. install pg-boss's schema and queues;
  *   4. create the first platform staff (營運) from PLATFORM_ADMIN_EMAILS and the default plan, if missing;
- *   5. on the demo site only, load the fictional demo tenant.
+ *   5. on the demo site only, create the fictional demo tenant (release.sh then fills it with the prototype's data).
  *
  * On the demo site, RESET_DEMO_DATABASE=true first drops everything, so the nightly reset starts from clean fictional
  * data. It refuses unless DEMO_SITE=true and the database holds no tenant other than the demo one.

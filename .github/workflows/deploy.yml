@@ -1,22 +1,20 @@
 name: Deploy
 
-# main → demo site automatically. Production only by hand (Actions → Deploy → Run workflow → production), and the
-# "production" GitHub environment should require a reviewer. Each GitHub environment holds the variables Terraform
-# prints as github_variables. Nothing runs until the repository variable DEPLOY_ENABLED is "true".
+# By hand only (Actions → Deploy → Run workflow); the "production" GitHub environment should require a reviewer. The
+# demo site runs on Railway, which deploys main by itself; pick "demo" here only for a GCP demo project. Each GitHub
+# environment holds the variables Terraform prints as github_variables. Nothing runs until the repository variable DEPLOY_ENABLED is "true".
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
         description: Where to deploy
         type: choice
-        options: [demo, production]
-        default: demo
+        options: [production, demo]
+        default: production
 
 concurrency:
-  group: deploy-${{ inputs.environment || 'demo' }}
+  group: deploy-${{ inputs.environment }}
   cancel-in-progress: false
 
 permissions:
@@ -28,7 +26,7 @@ jobs:
     if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
-      name: ${{ inputs.environment || 'demo' }}
+      name: ${{ inputs.environment }}
       url: ${{ vars.SITE_URL }}
     env:
       REGION: ${{ vars.GCP_REGION }}
