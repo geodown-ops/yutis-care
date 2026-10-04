@@ -5,11 +5,10 @@ import { api } from '../../api';
 import { workloadAssessmentsQuery } from '../../queries';
 import type { Assessment, FatigueBody, InterviewBody, OverloadBody } from './workload';
 
-/** Work-arrangement notices sent to me (部門主管). Reading marks them read, so it is fetched once per visit. */
+/** Work-arrangement notices sent to me (部門主管). Reading marks them read, so it is fetched once per visit, not on focus. */
 export const myNoticesQuery = queryOptions({
   queryKey: ['notices', 'mine'],
   queryFn: () => data(api.GET('/api/programs/notices')),
-  staleTime: Infinity,
   refetchOnWindowFocus: false,
 });
 
