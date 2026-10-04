@@ -39,6 +39,21 @@ export type PlanUpdate = PlatformPaths['/platform-api/plans/{id}']['patch']['req
 
 export const planProblems = (f: PlanForm): Problems<PlanForm> => withoutEmpty({ name: textProblem(f.name, '方案名稱', 100) });
 
+/** POST /platform-api/plans: a code that never changes and a name. Pricing waits for the billing model, so none is sent. */
+export interface NewPlanForm {
+  code: string;
+  name: string;
+}
+
+const PLAN_CODE = /^[a-z0-9-]{1,40}$/;
+
+export const newPlanProblems = (f: NewPlanForm, codes: readonly string[]): Problems<NewPlanForm> => withoutEmpty({
+  code: !f.code.trim() ? '請輸入方案代碼'
+    : !PLAN_CODE.test(f.code.trim()) ? '代碼只能用小寫英文、數字與 -，最多 40 字'
+    : codes.includes(f.code.trim()) ? '已有這個代碼的方案' : undefined,
+  name: textProblem(f.name, '方案名稱', 100),
+});
+
 /** Only what changed (the API refuses an empty change); null when nothing did. */
 export function planUpdate(plan: Pick<Plan, 'name' | 'active'>, f: PlanForm): PlanUpdate | null {
   const body: PlanUpdate = {

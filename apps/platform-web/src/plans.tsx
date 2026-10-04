@@ -1,6 +1,6 @@
 /*
- * Plans (方案) where they are chosen: the plan picker, and a small manager to rename a plan or stop offering it
- * (PATCH /platform-api/plans/{id}). The code never changes. A deactivated plan can no longer be chosen for onboarding
+ * Plans (方案) where they are chosen: the plan picker, and a small manager to add a plan (POST /platform-api/plans), rename
+ * one or stop offering it (PATCH /platform-api/plans/{id}). The code never changes. A deactivated plan can no longer be chosen for onboarding
  * or a new period; subscriptions already on it carry on.
  */
 import { Button, Card, Group, Select, Stack, Switch, Text, TextInput } from '@mantine/core';
@@ -9,7 +9,7 @@ import { data } from '@yutis/api-client';
 import { useState } from 'react';
 import { api, plansQuery, type Plan } from './api';
 import { ErrorAlert, ToneBadge } from './components';
-import { planProblems, planUpdate, type PlanForm, type PlanUpdate } from './forms';
+import { newPlanProblems, planProblems, planUpdate, type NewPlanForm, type PlanForm, type PlanUpdate } from './forms';
 import { useCan } from './permissions';
 
 /**
@@ -46,6 +46,7 @@ export function PlanSelect({ value, onChange, error, onManage }: {
 export function PlanManager({ onBack }: { onBack?: () => void }) {
   const plans = useQuery(plansQuery);
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   return (
     <Stack gap="sm">
       {plans.error && <ErrorAlert error={plans.error} />}
@@ -62,6 +63,9 @@ export function PlanManager({ onBack }: { onBack?: () => void }) {
           </Group>
         </Group>
       )))}
+      {adding
+        ? <PlanCreator codes={(plans.data ?? []).map(p => p.code)} onClose={() => setAdding(false)} />
+        : <Group><Button variant="light" size="xs" onClick={() => setAdding(true)} disabled={editing != null || plans.isPending}>新增方案</Button></Group>}
       <Text size="xs" c="dimmed">方案代碼不能修改。停用的方案不能再用於開通或新的訂閱期間，已在使用的訂閱不受影響。</Text>
       {onBack && <Group justify="flex-end"><Button variant="default" onClick={onBack}>返回</Button></Group>}
     </Stack>
@@ -101,6 +105,40 @@ function PlanEditor({ plan, onClose }: { plan: Plan; onClose: () => void }) {
         <Group justify="flex-end" gap="sm">
           <Button variant="default" size="xs" onClick={onClose}>取消</Button>
           <Button size="xs" loading={save.isPending} onClick={submit}>儲存</Button>
+        </Group>
+      </Stack>
+    </Card>
+  );
+}
+
+/** A new plan: code and name only; it is active at once. Prices are set once the billing model is decided. */
+function PlanCreator({ codes, onClose }: { codes: string[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState<NewPlanForm>({ code: '', name: '' });
+  const [submitted, setSubmitted] = useState(false);
+  const create = useMutation({
+    mutationFn: (f: NewPlanForm) => data(api.POST('/platform-api/plans', { body: { code: f.code.trim(), name: f.name.trim() } })),
+    onSuccess: plan => {
+      qc.setQueryData(plansQuery.queryKey, list => [...(list ?? []), plan].sort((a, b) => a.code.localeCompare(b.code)));
+      onClose();
+    },
+  });
+  const problems = newPlanProblems(form, codes);
+  const submit = () => {
+    setSubmitted(true);
+    if (!Object.keys(problems).length) create.mutate(form);
+  };
+  return (
+    <Card withBorder padding="sm" radius="md">
+      <Stack gap="sm">
+        <TextInput label="方案代碼" description="小寫英文、數字與 -，建立後不能修改" withAsterisk maxLength={40} data-autofocus ff="monospace"
+          value={form.code} onChange={e => { const code = e.currentTarget.value; setForm(f => ({ ...f, code })); }} error={submitted && problems.code} />
+        <TextInput label="方案名稱" withAsterisk maxLength={100} value={form.name}
+          onChange={e => { const name = e.currentTarget.value; setForm(f => ({ ...f, name })); }} error={submitted && problems.name} />
+        {create.error && <ErrorAlert error={create.error} />}
+        <Group justify="flex-end" gap="sm">
+          <Button variant="default" size="xs" onClick={onClose}>取消</Button>
+          <Button size="xs" loading={create.isPending} onClick={submit}>新增</Button>
         </Group>
       </Stack>
     </Card>

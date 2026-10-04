@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planProblems, planUpdate } from './forms';
+import { newPlanProblems, planProblems, planUpdate } from './forms';
 
 describe('plan editing', () => {
   const plan = { name: '標準方案', active: true };
@@ -16,5 +16,16 @@ describe('plan editing', () => {
     expect(planProblems({ name: '  ', active: true }).name).toBeTruthy();
     expect(planProblems({ name: '標準方案', active: false })).toEqual({});
     expect(planProblems({ name: 'x'.repeat(101), active: true }).name).toBeTruthy();
+  });
+});
+
+describe('new plans', () => {
+  it('needs a new lower-case code and a name', () => {
+    expect(newPlanProblems({ code: 'pro-2027', name: '專業方案' }, ['standard'])).toEqual({});
+    expect(newPlanProblems({ code: '', name: '專業方案' }, []).code).toBe('請輸入方案代碼');
+    expect(newPlanProblems({ code: 'Pro 2027', name: '專業方案' }, []).code).toMatch(/小寫/);
+    expect(newPlanProblems({ code: 'x'.repeat(41), name: '專業方案' }, []).code).toMatch(/40/);
+    expect(newPlanProblems({ code: 'standard', name: '標準' }, ['standard']).code).toBe('已有這個代碼的方案');
+    expect(newPlanProblems({ code: 'pro', name: ' ' }, []).name).toBeTruthy();
   });
 });
