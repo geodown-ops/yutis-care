@@ -21,12 +21,14 @@ import { downloadCsv, NO_ORG_FILTER, rowNames, type OrgFilter } from './lists';
 import { saveProblem, staffOptionRenderer, ToneBadge, useModalSize } from './maternalViolenceCommon';
 import {
   adviceSummary, ASSESS_COLUMNS, batchLog, burnoutLabel, canSchedule, cbiAnswered, cbiDraftFrom, cbiResult, CBI_PERSONAL, CBI_FREQ, CBI_WORK,
-  DIAGNOSIS, FATIGUE, filterAssessments, GUIDANCE, interviewBody, interviewDone, interviewDraft, interviewProblems, interviewRows, INTERVIEW_STATUSES,
-  MENTAL_CONCERN, missingSteps, nextInterviewLabel, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, riskLevelOf, workloadCounts,
+  DIAGNOSIS, FATIGUE, filterAssessments, GUIDANCE, interviewBody, interviewDone, interviewDraft, interviewProblems, interviewRows, interviewSavedText, INTERVIEW_STATUSES,
+  MENTAL_CONCERN, missingSteps, nextInterviewLabel, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, riskLevelOf, scheduledText, workloadCounts,
   type Assessment, type CbiDraft, type Interview, type InterviewDraft, type InterviewFilter, type InterviewStatus, type OverloadBody, type RiskFilter,
 } from './workload';
 import { LoadBadge, RiskBadge, WorkloadMatrix } from './workloadMatrix';
-import { assessmentDetailQuery, patchInterview, useCreateAssessments, useRemindAssessments, useSaveStep, useScheduleInterviews } from './workloadQueries';
+import {
+  assessmentDetailQuery, patchInterview, useCreateAssessments, useRemindAssessments, useSaveStep, useScheduleInterviews, type Saved, type Scheduled,
+} from './workloadQueries';
 
 export type WorkloadTab = 'assess' | 'interview' | 'log';
 
@@ -102,7 +104,7 @@ export function WorkloadPage({ tab, onTab }: { tab: WorkloadTab; onTab: (t: Work
         {target && <RiskDetail a={target} onClose={close} onInterview={() => setDialog({ kind: 'interview', id: target.id })} />}
       </Modal>
       <Modal opened={dialog?.kind === 'interview' && !!target} onClose={close} title={target ? `面談結果及處理措施 · ${target.name}` : ''} {...xl} scrollAreaComponent={ScrollArea.Autosize}>
-        {target && <InterviewEditor key={target.id} a={target} onCancel={close} onSaved={a => { close(); setNotice(`已儲存 ${a.name} 的面談：${a.interview?.status ?? ''}。`); }} />}
+        {target && <InterviewEditor key={target.id} a={target} onCancel={close} onSaved={s => { close(); setNotice(interviewSavedText(s.assessment.name, s.assessment.interview?.status, s.emailed)); }} />}
       </Modal>
       <Modal opened={dialog?.kind === 'dispatch'} onClose={close} title="發送問卷：過勞量表與工時調查" {...xl} scrollAreaComponent={ScrollArea.Autosize}>
         {dialog?.kind === 'dispatch' && <DispatchForm list={list} onCancel={close} onCreated={n => { close(); onTab('assess'); setNotice(`已發送 ${n} 份過勞量表與工時調查，員工會在員工端看到待填問卷。`); }} />}
@@ -110,7 +112,7 @@ export function WorkloadPage({ tab, onTab }: { tab: WorkloadTab; onTab: (t: Work
       <Modal opened={dialog?.kind === 'schedule'} onClose={close} title="安排面談">
         {dialog?.kind === 'schedule' && (
           <ScheduleForm rows={list.filter(a => picked.has(a.id) && canSchedule(a))} onCancel={close}
-            onDone={(n, failed) => { close(); setPicked(new Set(failed)); setNotice(failed.length ? `已安排 ${n} 人，${failed.length} 人沒有儲存成功，請再試一次。` : `已安排 ${n} 人的面談。`); }} />
+            onDone={r => { close(); setPicked(new Set(r.failed)); setNotice(scheduledText(r.saved, r.failed.length, r.emailed.map(id => list.find(a => a.id === id)?.name ?? '一位員工'))); }} />
         )}
       </Modal>
     </Stack>
@@ -420,7 +422,7 @@ function CbiForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void
   const set = (part: 'p' | 'w', i: number, v: string | null) => setDraft(d => ({ ...d, [part]: d[part].map((x, j) => (j === i ? (v == null ? null : Number(v)) : x)) }));
   const submit = () => {
     const body = mode === 'answers' ? (result ? { cbi: { p: draft.p as number[], w: draft.w as number[] } } : null) : scoresOk ? { personalBurnout: pf, workBurnout: wf } : null;
-    if (body) save.mutate({ step: 'fatigue', id: a.id, body }, { onSuccess: onSaved });
+    if (body) save.mutate({ step: 'fatigue', id: a.id, body }, { onSuccess: r => onSaved(r.assessment) });
   };
   const question = (part: 'p' | 'w', i: number, text: string, scale: readonly string[]) => (
     <Box key={`${part}${i}`} py={8} style={{ borderTop: '1px solid var(--yutis-line)' }}>
@@ -493,7 +495,7 @@ function OverloadForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () =>
       <Group justify="flex-end">
         <Button variant="default" onClick={onCancel}>取消</Button>
         <Button disabled={!ok} loading={save.isPending}
-          onClick={() => ok && save.mutate({ step: 'overload', id: a.id, body: { overtime1m: m1, overtime6mAvg: avg6, workPatterns: patterns as OverloadBody['workPatterns'] } }, { onSuccess: onSaved })}>儲存</Button>
+          onClick={() => ok && save.mutate({ step: 'overload', id: a.id, body: { overtime1m: m1, overtime6mAvg: avg6, workPatterns: patterns as OverloadBody['workPatterns'] } }, { onSuccess: r => onSaved(r.assessment) })}>儲存</Button>
       </Group>
     </Stack>
   );
@@ -520,7 +522,7 @@ function useDoctorOptions(current?: { id: string | null; name: string | null }) 
  * The interview form starts from the full record (GET /assessments/{id}): the guidance and notes are medical and the
  * list leaves them out. A new interview has nothing to load.
  */
-function InterviewEditor({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void; onSaved: (a: Assessment) => void }) {
+function InterviewEditor({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void; onSaved: (s: Saved) => void }) {
   const detail = useQuery({ ...assessmentDetailQuery(a.id), enabled: !!a.interview });
   if (!a.interview) return <InterviewForm a={a} saved={null} onCancel={onCancel} onSaved={onSaved} />;
   if (detail.isPending) return <Stack gap="sm"><Skeleton h={36} /><Skeleton h={220} /><Skeleton h={120} /></Stack>;
@@ -535,7 +537,7 @@ function InterviewEditor({ a, onCancel, onSaved }: { a: Assessment; onCancel: ()
   return <InterviewForm a={a} saved={detail.data.interview} onCancel={onCancel} onSaved={onSaved} />;
 }
 
-function InterviewForm({ a, saved, onCancel, onSaved }: { a: Assessment; saved: Interview | null; onCancel: () => void; onSaved: (a: Assessment) => void }) {
+function InterviewForm({ a, saved, onCancel, onSaved }: { a: Assessment; saved: Interview | null; onCancel: () => void; onSaved: (s: Saved) => void }) {
   const qc = useQueryClient();
   const doctors = useDoctorOptions({ id: saved?.doctorUserId ?? null, name: saved?.doctorName ?? null });
   const options = useQuery(programmeOptionsQuery);
@@ -646,13 +648,13 @@ function Section({ title, note, children }: { title: string; note: string; child
 }
 
 /*
- * Saving 已安排 with a date (or a new date) emails the employee the date on a site that sends mail; the answer does
- * not say whether it went out, so the screen never says it did.
+ * Saving 已安排 with a date (or a new date) emails the employee the date on a site that sends mail; the answer says
+ * whether this save did (InterviewSavedDto.emailed), and the notice after saving says so only then.
  */
-const SCHEDULE_EMAIL_NOTE = '系統會寄面談日期通知給有 Email 的員工（信中不提是哪個計畫，改期會再寄）；這裡無法確認信是否寄達，必要時請另行通知。';
+const SCHEDULE_EMAIL_NOTE = '系統會寄面談日期通知給有 Email 的員工（信中不提是哪個計畫，改期會再寄）；儲存後沒有說已寄通知的，請另行通知員工。';
 
 /** 面談通知: mark the interview 已安排 with a date and physician; the API emails the employee the date. */
-function ScheduleForm({ rows, onCancel, onDone }: { rows: Assessment[]; onCancel: () => void; onDone: (saved: number, failed: string[]) => void }) {
+function ScheduleForm({ rows, onCancel, onDone }: { rows: Assessment[]; onCancel: () => void; onDone: (r: Scheduled) => void }) {
   const doctors = useDoctorOptions();
   const [on, setOn] = useState(addDays(todayIso(), 7));
   const [doctor, setDoctor] = useState<string | null>(doctors.mine);
@@ -670,7 +672,7 @@ function ScheduleForm({ rows, onCancel, onDone }: { rows: Assessment[]; onCancel
         <Button disabled={!on || !rows.length} loading={schedule.isPending}
           onClick={() => schedule.mutate(
             { ids: rows.map(a => a.id), body: { status: '已安排', interviewedOn: on, doctorUserId: doctor } },
-            { onSuccess: r => onDone(r.saved, r.failed) },
+            { onSuccess: onDone },
           )}>安排面談</Button>
       </Group>
     </Stack>

@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { csvText } from './lists';
 import {
   adviceSummary, ASSESS_COLUMNS, batchLog, burnoutLabel, canSchedule, cbiDraftFrom, cbiResult, emptyCbi, filterAssessments, hasMeasures, interviewBody, interviewDraft,
-  interviewProblems, interviewRows, missingSteps, nextInterviewLabel, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, workloadCounts, workloadView,
+  interviewProblems, interviewRows, interviewSavedText, missingSteps, nextInterviewLabel, noRiskReason, openAssessmentEmployees, readEvaluation, remindable,
+  scheduledText, workloadCounts, workloadView,
   type Assessment, type Interview, type InterviewAdvice,
 } from './workload';
 
@@ -232,5 +233,20 @@ describe('interview form', () => {
     expect(nextInterviewLabel({ nextInterview: true, nextOn: '2026-11-01' })).toBe('2026/11/01');
     expect(nextInterviewLabel({ nextInterview: true, nextOn: null })).toBe('日期未定');
     expect(nextInterviewLabel({ nextInterview: false, nextOn: null })).toBe('不安排');
+  });
+});
+
+describe('interview saved notices', () => {
+  it('says the employee was emailed the date only when the save did', () => {
+    expect(interviewSavedText('王小明', '已安排', true)).toBe('已儲存 王小明 的面談：已安排。已寄面談日期通知給員工。');
+    expect(interviewSavedText('王小明', '已安排', false)).toBe('已儲存 王小明 的面談：已安排。');
+  });
+
+  it('names who was emailed after scheduling several interviews', () => {
+    expect(scheduledText(3, 0, [])).toBe('已安排 3 人的面談。');
+    expect(scheduledText(2, 1, [])).toBe('已安排 2 人，1 人沒有儲存成功，請再試一次。');
+    expect(scheduledText(3, 0, ['王小明', '林小美'])).toBe('已安排 3 人的面談。已寄面談日期通知給王小明、林小美。');
+    const many = Array.from({ length: 12 }, (_, i) => `員工${i + 1}`);
+    expect(scheduledText(12, 0, many)).toBe(`已安排 12 人的面談。已寄面談日期通知給${many.slice(0, 10).join('、')} 等 12 人。`);
   });
 });

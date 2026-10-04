@@ -52,7 +52,7 @@ export function RemindModal({ opened, rows, what, send, onClose, onDone }: {
           <Button variant="default" onClick={close}>取消</Button>
           <Button loading={send.isPending} disabled={!rows.length}
             onClick={() => send.mutate(rows.map(r => r.id), {
-              onSuccess: r => { send.reset(); onDone(reminderText(r.emailed, r.noEmail.map(id => names.get(id) ?? '一位員工'))); },
+              onSuccess: r => { send.reset(); onDone(reminderText(r, r.noEmail.map(id => names.get(id) ?? '一位員工'))); },
             })}>
             寄出
           </Button>

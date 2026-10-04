@@ -238,6 +238,23 @@ export function interviewBody(d: InterviewDraft): InterviewBody {
   };
 }
 
+/*
+ * After an interview save. InterviewSavedDto.emailed is true only when this save sent the employee the interview date
+ * and the mail service really sends; otherwise nothing is said about email.
+ */
+const EMAILED_DATE = '已寄面談日期通知給員工。';
+
+export function interviewSavedText(name: string, status: InterviewStatus | undefined, emailed: boolean): string {
+  return `已儲存 ${name} 的面談：${status ?? ''}。${emailed ? EMAILED_DATE : ''}`;
+}
+
+/** After 安排面談 for several people: who was saved, who was not, and who was emailed the date (by name). */
+export function scheduledText(saved: number, failed: number, emailed: readonly string[]): string {
+  const done = failed ? `已安排 ${saved} 人，${failed} 人沒有儲存成功，請再試一次。` : `已安排 ${saved} 人的面談。`;
+  if (!emailed.length) return done;
+  return `${done}已寄面談日期通知給${emailed.slice(0, 10).join('、')}${emailed.length > 10 ? ` 等 ${emailed.length} 人` : ''}。`;
+}
+
 /** The 工作安排 cell: 工作區分 and the measures under it. */
 export function adviceSummary(w: InterviewAdvice | null): { fitness: string; measures: string } | null {
   if (!w) return null;

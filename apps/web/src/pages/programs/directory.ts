@@ -13,13 +13,6 @@ export const doctorsQuery = queryOptions({
   staleTime: 10 * 60_000,
 });
 
-/** Active 部門主管 accounts with their work email, to tell managers with the same name apart. */
-export const managerStaffQuery = queryOptions({
-  queryKey: ['directory', 'staff', '部門主管'],
-  queryFn: () => data(api.GET('/api/staff', { params: { query: { roles: '部門主管' } } })),
-  staleTime: 10 * 60_000,
-});
-
 /** Every active staff account with its work email, to fill in sign-off signers. */
 export const staffQuery = queryOptions({
   queryKey: ['directory', 'staff', 'all'],

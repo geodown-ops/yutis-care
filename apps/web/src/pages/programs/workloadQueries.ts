@@ -54,12 +54,18 @@ type Step =
   | { step: 'overload'; id: string; body: OverloadBody }
   | { step: 'interview'; id: string; body: InterviewBody };
 
-function put(s: Step): Promise<Assessment> {
+/** A saved step; an interview save also says whether it emailed the employee the date (InterviewSavedDto.emailed). */
+export interface Saved { assessment: Assessment; emailed: boolean }
+
+async function put(s: Step): Promise<Saved> {
   const params = { path: { id: s.id } };
   switch (s.step) {
-    case 'fatigue': return data(api.PUT('/api/programs/workload/assessments/{id}/fatigue', { params, body: s.body }));
-    case 'overload': return data(api.PUT('/api/programs/workload/assessments/{id}/overload', { params, body: s.body }));
-    case 'interview': return data(api.PUT('/api/programs/workload/assessments/{id}/interview', { params, body: s.body }));
+    case 'fatigue': return { assessment: await data(api.PUT('/api/programs/workload/assessments/{id}/fatigue', { params, body: s.body })), emailed: false };
+    case 'overload': return { assessment: await data(api.PUT('/api/programs/workload/assessments/{id}/overload', { params, body: s.body })), emailed: false };
+    case 'interview': {
+      const { emailed, ...assessment } = await data(api.PUT('/api/programs/workload/assessments/{id}/interview', { params, body: s.body }));
+      return { assessment, emailed };
+    }
   }
 }
 
@@ -71,27 +77,33 @@ export function useSaveStep() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: put,
-    onSuccess: (saved, s) => {
-      replace(qc, saved);
+    onSuccess: ({ assessment }, s) => {
+      replace(qc, assessment);
       void qc.invalidateQueries({ queryKey: s.step === 'interview' ? ['work-advice'] : ['cases'] });
     },
   });
 }
 
-/** 安排面談 for several people at once: one PUT each, in turn; reports who could not be saved. */
+/** Assessment ids that could not be saved, and those whose employee was emailed the date. */
+export interface Scheduled { saved: number; failed: string[]; emailed: string[] }
+
+/** 安排面談 for several people at once: one PUT each, in turn. */
 export function useScheduleInterviews() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ ids, body }: { ids: string[]; body: InterviewBody }) => {
+    mutationFn: async ({ ids, body }: { ids: string[]; body: InterviewBody }): Promise<Scheduled> => {
       const failed: string[] = [];
+      const emailed: string[] = [];
       for (const id of ids) {
         try {
-          replace(qc, await put({ step: 'interview', id, body }));
+          const saved = await put({ step: 'interview', id, body });
+          replace(qc, saved.assessment);
+          if (saved.emailed) emailed.push(id);
         } catch {
           failed.push(id);
         }
       }
-      return { saved: ids.length - failed.length, failed };
+      return { saved: ids.length - failed.length, failed, emailed };
     },
   });
 }
