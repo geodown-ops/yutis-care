@@ -9,6 +9,16 @@ domain="${2:-care.yutis.com.tw}"
 me="$(gcloud config get-value account 2>/dev/null)"
 cd "$(dirname "$0")/terraform/production"
 
+# Cloud Shell no longer ships Terraform: keep a copy in ~/bin (the home directory survives between sessions).
+if ! command -v terraform >/dev/null 2>&1; then
+  version=1.13.4
+  mkdir -p "$HOME/bin"
+  curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/$version/terraform_${version}_linux_amd64.zip"
+  unzip -oq /tmp/terraform.zip terraform -d "$HOME/bin"
+  rm /tmp/terraform.zip
+  export PATH="$HOME/bin:$PATH"
+fi
+
 gcloud config set project "$project" >/dev/null
 if [ "$(gcloud billing projects describe "$project" --format='value(billingEnabled)')" != "True" ]; then
   echo "專案 $project 還沒有連結帳單帳戶：請到 帳單 → 我的專案 連結後再執行。" >&2
