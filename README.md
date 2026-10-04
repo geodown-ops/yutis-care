@@ -16,6 +16,8 @@
 | `apps/portal` | 員工端（手機優先，網址 `/me`） |
 | `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
 | `prototype` | 可操作的純前端雛形（需求規格） |
+| `deploy` | 容器映像（後端、前端 nginx） |
+| `infra` | 正式站與示範站的 Terraform 與上線手冊，見 [infra/README.md](infra/README.md) |
 
 ## 開發
 
@@ -86,6 +88,10 @@ pnpm --filter @yutis/platform-api dev                      # http://localhost:30
 - 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
 - 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。
+
+## 部署
+
+正式站 `care.yutis.com.tw` 與示範站 `demo.care.yutis.com.tw` 是兩個獨立的 GCP 專案，以 Terraform 建立、GitHub Actions 部署（`main` → 示範站自動；正式站手動並需核准）。步驟、需要準備的帳號與 DNS、以及正式營運前還缺的功能，見 [infra/README.md](infra/README.md)。
 
 ---
 
