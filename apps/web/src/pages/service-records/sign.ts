@@ -1,27 +1,32 @@
-/* The public signing link (GET/POST /api/sign/:token): reading its document and explaining failures. */
+/* The public signing link (GET/POST /api/sign/:token): which document it opens, and explaining failures. */
 import { ApiRequestError, type Schemas } from '@yutis/api-client';
 
-export type SignDocument = Schemas['AcknowledgementDto'];
+export type SignDocument = Schemas['SignDocumentDto'];
+export type ServiceSignContent = Schemas['ServiceSignContentDto'];
+export type ReviewSignContent = Schemas['ReviewSignContentDto'];
 
-export interface ServiceSignDocument {
-  serviceOn: string | undefined;
-  site: string | undefined;
-  record: unknown;
-  signer: { role: string; name: string };
-}
+/** What the page shows for a link. */
+export type SignView =
+  /** A 附表八 service record to sign off. */
+  | { kind: 'service'; content: ServiceSignContent }
+  /** A 不法侵害預防措施查核及評估 to sign off. */
+  | { kind: 'review'; content: ReviewSignContent }
+  /** An employee confirming a record about them: that happens in the employee portal (/me/sign/). */
+  | { kind: 'employee' }
+  /** The record behind the link is gone. */
+  | { kind: 'missing' };
 
-const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
-
-/**
- * A 附表八 sign-off carries `{ serviceOn, site, record, signer }`. The same endpoint also opens employee confirmations
- * (their links live under /me/sign/), which have none of these: null then.
- */
-export function readSignDocument(doc: SignDocument): ServiceSignDocument | null {
+/** `document` says which content a link carries; the check on the content's own fields keeps a mismatch out. */
+export function signView(doc: Pick<SignDocument, 'kind' | 'document' | 'content'>): SignView {
+  if (doc.kind === 'acknowledgement' || doc.document === 'employee_acknowledgements') return { kind: 'employee' };
   const c = doc.content;
-  const signer = (c.signer && typeof c.signer === 'object' ? c.signer : null) as Record<string, unknown> | null;
-  if (!signer || !('record' in c)) return null;
-  return { serviceOn: str(c.serviceOn), site: str(c.site), record: c.record, signer: { role: str(signer.role) ?? '', name: str(signer.name) ?? '' } };
+  if (doc.document === 'service_records' && c && 'record' in c) return { kind: 'service', content: c };
+  if (doc.document === 'violence_reviews' && c && 'items' in c) return { kind: 'review', content: c };
+  return { kind: 'missing' };
 }
+
+/** Where an employee's confirmation link is opened. */
+export const employeeSignPath = (token: string) => `/me/sign/${encodeURIComponent(token)}`;
 
 export function signProblem(err: unknown): string {
   if (err instanceof ApiRequestError) {

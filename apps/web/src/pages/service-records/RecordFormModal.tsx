@@ -4,26 +4,33 @@ import { IconPlus, IconQuote, IconX } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { canAccess } from '../../nav';
-import { useMe } from '../../session';
-import { createRecord, PHRASE_CATEGORIES, serviceRecordsQuery, servicePhrasesQuery, submitRecord, updateRecord } from './queries';
+import { useMe, useTenant } from '../../session';
+import { staffQuery } from '../nurse/queries';
+import { SERVICE_ROLES, staffOptions } from '../nurse/staff';
+import { createRecord, orgQuery, PHRASE_CATEGORIES, serviceRecordsQuery, servicePhrasesQuery, signOffRolesQuery, submitRecord, updateRecord } from './queries';
 import { SectionTitle } from './parts';
-import { formErrors, SECTIONS, serviceProblem, toBody, type Headcount, type ServiceForm, type ServiceRecord, type SignLink } from './records';
+import {
+  departmentNames, formErrors, linksAreEmailed, roleOptions, SECTIONS, serviceProblem, toBody, unitForSite,
+  type Headcount, type ServiceForm, type ServiceRecord, type SignLink,
+} from './records';
 
 export type FormMode = 'new' | 'edit' | 'copy';
 
 const TITLE: Record<FormMode, string> = { new: '新增勞工健康服務執行紀錄表', edit: '編輯勞工健康服務執行紀錄表', copy: '複製勞工健康服務執行紀錄表' };
 
 /** Create or edit a draft; "送出簽核" saves first, then sends the sign-off links. */
-export function RecordFormModal({ mode, recordId, initial, roleSuggestions, categorySuggestions, onClose, onSubmitted }: {
+export function RecordFormModal({ mode, recordId, initial, executorName, categorySuggestions, onClose, onSubmitted }: {
   mode: FormMode;
   recordId?: string;
   initial: ServiceForm;
-  roleSuggestions: string[];
+  /** The executor's name as the record has it (they may no longer be in the staff list). */
+  executorName?: string | null;
   categorySuggestions: string[];
   onClose: () => void;
   onSubmitted: (links: SignLink[]) => void;
 }) {
   const me = useMe();
+  const emailed = linksAreEmailed(useTenant());
   const qc = useQueryClient();
   const phone = useMediaQuery('(max-width: 48em)');
   const [f, setF] = useState<ServiceForm>(initial);
@@ -31,12 +38,18 @@ export function RecordFormModal({ mode, recordId, initial, roleSuggestions, cate
   const [confirming, setConfirming] = useState(false);
   // Once saved, later saves update that record (e.g. when submitting fails after the save went through).
   const [savedId, setSavedId] = useState(recordId);
-  const errors = formErrors(f);
+  const roles = useQuery(signOffRolesQuery);
+  const staff = useQuery(staffQuery(SERVICE_ROLES));
+  const org = useQuery(orgQuery);
+  const errors = formErrors(f, roles.data);
   const valid = Object.keys(errors).length === 0;
   const shown = tried ? errors : {};
   const sites = [...me.sites, ...me.breakGlassSites.filter(b => !me.sites.some(s => s.id === b.id))];
   const clinical = canAccess(me, { feature: 'employees', data: 'medical' });
   const phrases = useQuery({ ...servicePhrasesQuery, enabled: clinical });
+  const executors = staffOptions(staff.data, me.id, [{ id: f.executorUserId, name: executorName ?? (f.executorUserId === me.id ? me.name : null) }]);
+  const signerRoles = roleOptions(roles.data ?? [], f.signers.map(s => s.role));
+  const departments = departmentNames(org.data ?? [], [f.siteId]);
 
   const set = <K extends keyof ServiceForm>(k: K, v: ServiceForm[K]) => setF(prev => ({ ...prev, [k]: v }));
   const setCount = (k: keyof Headcount, v: string | number) => setF(prev => ({ ...prev, headcount: { ...prev.headcount, [k]: typeof v === 'number' ? v : 0 } }));
@@ -73,12 +86,14 @@ export function RecordFormModal({ mode, recordId, initial, roleSuggestions, cate
               <TextInput type="time" label="結束時間" required value={f.to} error={shown.to} onChange={e => set('to', e.currentTarget.value)} style={{ flex: 1 }} />
             </Group>
           </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Select label="地點" required data={sites.map(s => ({ value: s.id, label: s.name }))} value={f.siteId || null} error={shown.siteId}
-              onChange={v => set('siteId', v ?? '')} allowDeselect={false} />
-          </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
-            <TextInput label="執行人員" readOnly variant="filled" value={f.executorUserId === me.id ? me.name : '原執行人員'} />
+            <Select label="地點" required data={sites.map(s => ({ value: s.id, label: s.name }))} value={f.siteId || null} error={shown.siteId}
+              onChange={v => setF(prev => ({ ...prev, siteId: v ?? '', unit: v && org.data ? unitForSite(org.data, prev, v) : prev.unit }))} allowDeselect={false} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Select label="執行人員" required data={executors} value={f.executorUserId || null} allowDeselect={false} searchable
+              error={shown.executorUserId ?? (staff.isError ? '暫時無法載入人員名單' : undefined)} disabled={staff.isPending}
+              onChange={v => v && set('executorUserId', v)} />
           </Grid.Col>
         </Grid>
 
@@ -86,8 +101,9 @@ export function RecordFormModal({ mode, recordId, initial, roleSuggestions, cate
           <SectionTitle>一、作業場所基本資料</SectionTitle>
           <Stack gap="md" mt="sm">
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <TextInput label="事業單位" maxLength={100} value={f.unit} onChange={e => set('unit', e.currentTarget.value)} />
-              <TextInput label="部門名稱" maxLength={100} value={f.departmentName} onChange={e => set('departmentName', e.currentTarget.value)} />
+              <TextInput label="事業單位" description="預設為地點所屬的公司" maxLength={100} value={f.unit} onChange={e => set('unit', e.currentTarget.value)} />
+              <Autocomplete label="部門名稱" description="可選擇這個地點的部門，或自行輸入" maxLength={100} data={departments} value={f.departmentName}
+                onChange={v => set('departmentName', v)} />
             </SimpleGrid>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
               <CountPair label="行政人員" m={f.headcount.adminM} f={f.headcount.adminF} onM={v => setCount('adminM', v)} onF={v => setCount('adminF', v)} />
@@ -134,14 +150,19 @@ export function RecordFormModal({ mode, recordId, initial, roleSuggestions, cate
 
         <div>
           <SectionTitle>六、簽核人員</SectionTitle>
-          <Text size="xs" c="dimmed" mt={4} mb="sm">送出後，每位簽核人員會收到一次性的簽核連結。人員類別須為租戶設定的簽核角色。</Text>
+          <Text size="xs" c="dimmed" mt={4} mb="sm">
+            {emailed ? '送出後，系統會寄一次性的簽核連結到每位簽核人員的 Email。' : '送出後會為每位簽核人員產生一次性的簽核連結（這個環境不會實際寄出 Email）。'}
+            人員類別依租戶設定的簽核角色。
+          </Text>
+          {roles.isError && <Text size="xs" c="var(--yutis-bad)" mb="sm">暫時無法載入簽核角色，請稍後再試。</Text>}
           <Stack gap={8}>
             {f.signers.map((s, i) => {
               const patch = (p: Partial<typeof s>) => set('signers', f.signers.map((x, j) => (j === i ? { ...x, ...p } : x)));
               return (
                 <Group key={i} gap={8} wrap="nowrap" align="flex-start" p={8} style={{ background: 'var(--yutis-surface2)', borderRadius: 'var(--mantine-radius-md)' }}>
                   <SimpleGrid cols={{ base: 1, sm: 3 }} spacing={8} style={{ flex: 1 }}>
-                    <Autocomplete aria-label={`第 ${i + 1} 位簽核人員類別`} placeholder="人員類別，例如勞工健康服務醫師" data={roleSuggestions} maxLength={50} value={s.role} onChange={v => patch({ role: v })} />
+                    <Select aria-label={`第 ${i + 1} 位簽核人員類別`} placeholder="選擇人員類別" data={signerRoles} value={s.role || null} allowDeselect={false}
+                      disabled={roles.isPending} onChange={v => patch({ role: v ?? '' })} />
                     <TextInput aria-label={`第 ${i + 1} 位簽核人員姓名`} placeholder="姓名" maxLength={100} value={s.name} onChange={e => patch({ name: e.currentTarget.value })} />
                     <TextInput aria-label={`第 ${i + 1} 位簽核人員 Email`} placeholder="Email" type="email" value={s.email} onChange={e => patch({ email: e.currentTarget.value })} />
                   </SimpleGrid>
@@ -162,7 +183,7 @@ export function RecordFormModal({ mode, recordId, initial, roleSuggestions, cate
           {tried && !valid && <Text size="sm" c="var(--yutis-bad)" mb="sm" role="alert">請先修正標示的欄位。</Text>}
           {confirming ? (
             <Group justify="space-between" gap="sm">
-              <Text size="sm" fw={500}>送出後就不能再修改，系統會寄簽核連結給 {signerCount} 位簽核人員。確定送出？</Text>
+              <Text size="sm" fw={500}>送出後就不能再修改，系統會{emailed ? '寄簽核連結給' : '產生簽核連結給'} {signerCount} 位簽核人員。確定送出？</Text>
               <Group gap="sm">
                 <Button variant="default" onClick={() => setConfirming(false)} disabled={save.isPending}>返回修改</Button>
                 <Button onClick={() => run(true)} loading={save.isPending}>確定送出</Button>
