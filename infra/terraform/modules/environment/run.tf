@@ -260,7 +260,7 @@ resource "google_cloud_run_v2_service" "web" {
   }
 }
 
-# ---------------------------------------------------------------- release job (migrations, login roles, job queues)
+# ---------------------------------------------------------------- release job (deploy/release.sh: migrations, login roles, job queues, templates, demo data)
 
 resource "google_cloud_run_v2_job" "release" {
   project             = var.project_id
@@ -290,7 +290,7 @@ resource "google_cloud_run_v2_job" "release" {
       }
       containers {
         image   = local.placeholder_image
-        command = ["node", "apps/api/dist/release.js"]
+        command = ["sh", "deploy/release.sh"]
         env {
           name  = "NODE_ENV"
           value = "production"
@@ -304,12 +304,12 @@ resource "google_cloud_run_v2_job" "release" {
           value = join(",", var.platform_admin_emails)
         }
         dynamic "env" {
-          for_each = {
+          for_each = merge({
             DATABASE_URL         = "db-url-owner"
             APP_DB_PASSWORD      = "db-password-api"
             WORKER_DB_PASSWORD   = "db-password-worker"
             PLATFORM_DB_PASSWORD = "db-password-platform"
-          }
+          }, local.demo_secrets)
           content {
             name = env.key
             value_source {

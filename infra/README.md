@@ -14,7 +14,7 @@
 
 每個環境的內容（`infra/terraform/modules/environment`）：
 
-- **Cloud Run**：`api`（租戶 API）、`worker`（背景工作，固定一台）、`platform-api`（只在正式站）、`web`（nginx 提供三個前端）、`release` 工作（每次部署先跑：migration、建立資料庫登入角色、背景工作佇列）。
+- **Cloud Run**：`api`（租戶 API）、`worker`（背景工作，固定一台）、`platform-api`（只在正式站）、`web`（nginx 提供三個前端）、`release` 工作（每次部署先跑 `deploy/release.sh`：migration、建立資料庫登入角色、背景工作佇列、發布預設範本；示範站再載入虛構示範資料）。
 - **Cloud SQL** 只有內部 IP，服務透過 Cloud SQL 連線器存取。API、worker、平台 API 各自以只屬於 `yutis_app`／`yutis_worker`／`yutis_platform` 的登入角色連線（Row-Level Security 一定生效）；資料表擁有者 `yutis_owner` 只給 release 工作用。
 - **Secret Manager** 存資料庫連線字串與密碼（Terraform 產生，沒有人需要知道）。
 - **Cloud KMS** 金鑰環 `tenants`：平台 API 開通租戶時建立該租戶的金鑰，租戶 API 與 worker 只能用它加解密。
@@ -87,7 +87,7 @@ terraform apply
 
 - 前端目前用畫面內建的虛構資料與角色切換（`WEB_API_MODE=demo`），不需要後端就能完整展示；畫面串接 API 後改成 `live`，就會改用示範站資料庫裡的虛構示範租戶。
 - 示範租戶的子網域就是 `demo`，所以正式站的平台後台不允許開通名為 `demo` 的租戶。
-- 每晚 04:00 由 Cloud Scheduler 執行 `release` 工作並帶 `RESET_DEMO_DATABASE=true`，清空後重新載入虛構資料。這個重置只在 `DEMO_SITE=true` 而且資料庫裡沒有其他租戶時才會執行，正式站不可能被重置。
+- 每晚 04:00 由 Cloud Scheduler 執行 `release` 工作並帶 `RESET_DEMO_DATABASE=true`，清空後重新載入虛構資料（原型 `prototype/data.js` 的員工、健檢、四大計畫、事件與個案）。這個重置只在 `DEMO_SITE=true` 而且資料庫裡沒有其他租戶時才會執行，正式站不可能被重置。
 - 示範站可以不用密碼登入（例如 `nurse@demo.test`），請不要在示範站輸入任何真實個人資料。
 
 ## 登入與加密（正式站）
