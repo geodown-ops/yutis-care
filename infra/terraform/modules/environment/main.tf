@@ -241,7 +241,7 @@ resource "google_identity_platform_config" "this" {
   authorized_domains = distinct(concat([var.certificate_domain, "${var.project_id}.firebaseapp.com"], [for h in var.tenant_hosts : trimprefix(h, "*.")], local.platform && var.platform_sign_in ? [var.platform_host] : []))
   depends_on         = [google_project_service.apis]
   lifecycle {
-    # The platform API adds each tenant's own domain ({slug}.care.yutis.com.tw) when it onboards the tenant.
+    # The platform API adds each tenant's own domain ({slug}.care.yutis.net) when it onboards the tenant.
     ignore_changes = [authorized_domains]
   }
 }

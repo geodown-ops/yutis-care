@@ -9,7 +9,7 @@
 
 已定案（2026-10-03），前後端規劃見 [Yutis Care 前後端技術規劃](https://claude.ai/code/artifact/bde8e9aa-a55b-47cd-9915-ee20797d0ff3)：
 
-- 正式網域：`care.yutis.com.tw`。租戶後台 `{租戶}.care.yutis.com.tw`，員工端 `{租戶}.care.yutis.com.tw/me`，平台管理後台 `admin.care.yutis.com.tw`；`admin`、`api`、`www` 不給租戶當子網域。
+- 正式網域：`care.yutis.net`。租戶後台 `{租戶}.care.yutis.net`，員工端 `{租戶}.care.yutis.net/me`，平台管理後台 `admin.care.yutis.net`；`admin`、`api`、`www` 不給租戶當子網域。
 - 計費：要計費，但計費模式暫不開發。先保留資料結構（`plans`、`tenant_subscriptions`、`usage_counters`）與擴充點，目前沒有任何程式依它收費。
 - 簡訊：費用由營運商（Yutis）負擔，用平台自己的簡訊帳號；每則簡訊仍按租戶記入 `usage_counters`，供日後成本分析或計費。
 - 四大計畫不拆賣：每個租戶都可使用全部功能，沒有「啟用模組」開關，權限只看角色與負責廠區。

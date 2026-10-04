@@ -19,7 +19,7 @@ variable "environment" {
 }
 
 variable "certificate_domain" {
-  description = "The certificate covers this name and *.this name (care.yutis.com.tw in production, demo.care.yutis.com.tw on the demo site)."
+  description = "The certificate covers this name and *.this name (care.yutis.net in production, demo.care.yutis.net on the demo site)."
   type        = string
 }
 
@@ -29,9 +29,9 @@ variable "tenant_hosts" {
 }
 
 variable "tenant_base_domain" {
-  description = "Tenants are {slug}.{this}. The demo site uses the production base domain with its single tenant \"demo\", so demo.care.yutis.com.tw resolves to it."
+  description = "Tenants are {slug}.{this}. The demo site uses the production base domain with its single tenant \"demo\", so demo.care.yutis.net resolves to it."
   type        = string
-  default     = "care.yutis.com.tw"
+  default     = "care.yutis.net"
 }
 
 variable "platform_host" {
@@ -128,7 +128,7 @@ variable "alert_email" {
 }
 
 variable "email_from" {
-  description = "Sender of invitations and sign-off links through Resend, e.g. \"Yutis Care <noreply@care.yutis.com.tw>\"; empty = emails are only logged. Verify the domain in Resend and add the API key to the resend-api-key secret first."
+  description = "Sender of invitations and sign-off links through Resend, e.g. \"Yutis Care <noreply@care.yutis.net>\"; empty = emails are only logged. Verify the domain in Resend and add the API key to the resend-api-key secret first."
   type        = string
   default     = ""
 }

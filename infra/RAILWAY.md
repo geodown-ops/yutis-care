@@ -4,7 +4,7 @@
 
 | | 正式站 `yutis-care-prod` | 示範站 `yutis-care-demo` |
 |---|---|---|
-| 網址 | `*.care.yutis.com.tw`（租戶、`/me` 員工端、`admin.` 平台管理後台） | 目前 `web-demo-7e93.up.railway.app`，之後 `demo.care.yutis.com.tw` |
+| 網址 | `*.care.yutis.net`（租戶、`/me` 員工端、`admin.` 平台管理後台） | 目前 `web-demo-7e93.up.railway.app`，之後 `demo.care.yutis.net` |
 | 登入 | Identity Platform（SSO + MFA）；平台人員用 Google 帳號 | 示範登入（不需密碼） |
 | 加密 | Cloud KMS，每個租戶一把金鑰 | 一把示範用金鑰（變數） |
 | 備份 | Railway 每日備份（Pro 方案）＋每晚加密匯出 | 不需要 |
@@ -32,7 +32,7 @@
 NODE_ENV=production
 PORT=3000
 TRUST_PROXY=true
-TENANT_BASE_DOMAIN=care.yutis.com.tw
+TENANT_BASE_DOMAIN=care.yutis.net
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 APP_DB_PASSWORD=…
 WORKER_DB_PASSWORD=…
@@ -59,7 +59,7 @@ TENANT_CRYPTO_LOCAL_KEY=32 bytes 的 base64
 NODE_ENV=production
 PORT=3001
 TRUST_PROXY=true
-TENANT_BASE_DOMAIN=care.yutis.com.tw
+TENANT_BASE_DOMAIN=care.yutis.net
 PLATFORM_DATABASE_URL=postgresql://yutis_platform_api:${{api.PLATFORM_DB_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{Postgres.PGDATABASE}}
 GCP_PROJECT_ID=GCP 專案 id
 KMS_KEY_RING=projects/<GCP 專案 id>/locations/asia-east1/keyRings/tenants
@@ -77,16 +77,16 @@ GOOGLE_SERVICE_ACCOUNT_KEY=服務帳號 yutis-platform 的 JSON 金鑰
 
 正式站仍需要一個 GCP 專案，但只開 Identity Platform 與 Cloud KMS，不建 Cloud Run 或 Cloud SQL：
 
-1. 啟用 Identity Platform，開啟多租戶（Settings → Security → Allow tenants），並在專案層級（不是租戶）啟用 Google 登入提供者，給平台人員用；授權網域加上 `admin.care.yutis.com.tw`。
+1. 啟用 Identity Platform，開啟多租戶（Settings → Security → Allow tenants），並在專案層級（不是租戶）啟用 Google 登入提供者，給平台人員用；授權網域加上 `admin.care.yutis.net`。
 2. 在 `asia-east1` 建立 KMS 金鑰環 `tenants`。
 3. 兩個服務帳號，各建一把 JSON 金鑰放進 Railway：
    - `yutis-api`（api、worker）：金鑰環上的 `roles/cloudkms.cryptoKeyEncrypterDecrypter`，專案的 `roles/identityplatform.viewer`。
    - `yutis-platform`（platform-api）：金鑰環上的 `roles/cloudkms.admin`，專案的 `roles/identityplatform.admin`。
-4. API 金鑰（瀏覽器用）：限制 HTTP referrer 為 `https://*.care.yutis.com.tw/*`，API 限制為 Identity Toolkit 與 Token Service。
+4. API 金鑰（瀏覽器用）：限制 HTTP referrer 為 `https://*.care.yutis.net/*`，API 限制為 Identity Toolkit 與 Token Service。
 
 ## 網域與 DNS
 
-在 `web` 服務 → Settings → Networking 新增自訂網域 `*.care.yutis.com.tw`（正式站）與 `demo.care.yutis.com.tw`（示範站），依 Railway 顯示的紀錄在 DNS 新增 CNAME 與驗證用的 TXT，Railway 會自動簽發憑證。
+在 `web` 服務 → Settings → Networking 新增自訂網域 `*.care.yutis.net`（正式站）與 `demo.care.yutis.net`（示範站），依 Railway 顯示的紀錄在 DNS 新增 CNAME 與驗證用的 TXT，Railway 會自動簽發憑證。
 
 ## 跟 GCP 部署的差異
 

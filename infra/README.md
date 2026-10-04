@@ -6,7 +6,7 @@
 
 | | 正式站 | 示範站 |
 |---|---|---|
-| 網址 | 租戶 `{租戶}.care.yutis.com.tw`、員工端 `/me`、平台管理後台 `admin.care.yutis.com.tw` | `demo.care.yutis.com.tw`、員工端 `demo.care.yutis.com.tw/me` |
+| 網址 | 租戶 `{租戶}.care.yutis.net`、員工端 `/me`、平台管理後台 `admin.care.yutis.net` | `demo.care.yutis.net`、員工端 `demo.care.yutis.net/me` |
 | 資料 | 客戶真實資料 | 只有虛構示範資料，每晚 04:00 自動重置 |
 | 登入 | 租戶 SSO（Identity Platform）+ MFA；平台人員經 Identity-Aware Proxy | 示範登入（不需密碼），只能進入虛構的示範租戶 |
 | 加密 | 每個租戶一把 Cloud KMS 金鑰 | 一把示範用金鑰（Secret Manager） |
@@ -28,7 +28,7 @@
 
 1. **GCP 帳單帳戶**，並建立兩個專案（名稱可自訂），例如 `yutis-care-prod`、`yutis-care-demo`，都連到帳單帳戶。
 2. **Terraform 狀態用的 Cloud Storage bucket**（建在正式站專案、asia-east1、開啟版本控制），例如 `yutis-care-tfstate`。
-3. **yutis.com.tw 的 DNS 管理權限**：要新增下面「DNS 紀錄」那幾筆。
+3. **yutis.net 的 DNS 管理權限**：要新增下面「DNS 紀錄」那幾筆。
 4. **平台人員的 Google Workspace 帳號或群組**：誰能進平台管理後台，以及誰第一次部署時拿到「營運」角色。
 5. **告警收件 Email**（選用）。
 6. **寄信服務 Resend 帳號**（員工邀請信、附表八簽核信）：在 Resend 驗證寄件網域（DNS 加 SPF／DKIM），建立 API 金鑰。第一次 `terraform apply` 後用 `printf %s 're_…' | gcloud secrets versions add resend-api-key --data-file=- --project yutis-care-prod` 存入，再在 `terraform.tfvars` 填 `email_from` 並重新 apply。沒填之前信只會記錄，不會寄出。
@@ -75,16 +75,16 @@ terraform apply
 
 | 名稱 | 類型 | 值 | 用途 |
 |---|---|---|---|
-| `_acme-challenge.care.yutis.com.tw` | CNAME | 見正式站 `dns_records` | 正式站憑證驗證（保留，續約要用） |
-| `*.care.yutis.com.tw` | A | 正式站 `load_balancer_ip` | 所有租戶與平台管理後台 |
-| `_acme-challenge.demo.care.yutis.com.tw` | CNAME | 見示範站 `dns_records` | 示範站憑證驗證 |
-| `demo.care.yutis.com.tw` | A | 示範站 `load_balancer_ip` | 示範站（比萬用字元優先） |
+| `_acme-challenge.care.yutis.net` | CNAME | 見正式站 `dns_records` | 正式站憑證驗證（保留，續約要用） |
+| `*.care.yutis.net` | A | 正式站 `load_balancer_ip` | 所有租戶與平台管理後台 |
+| `_acme-challenge.demo.care.yutis.net` | CNAME | 見示範站 `dns_records` | 示範站憑證驗證 |
+| `demo.care.yutis.net` | A | 示範站 `load_balancer_ip` | 示範站（比萬用字元優先） |
 
 憑證在 DNS 生效後通常數十分鐘內簽發。
 
 ### GitHub 設定
 
-- 每個環境填入 `github_variables` 的 7 個變數，另外可設 `SITE_URL`（示範站 `https://demo.care.yutis.com.tw`；正式站填一個租戶網址），部署完會檢查它是否正常。
+- 每個環境填入 `github_variables` 的 7 個變數，另外可設 `SITE_URL`（示範站 `https://demo.care.yutis.net`；正式站填一個租戶網址），部署完會檢查它是否正常。
 - 都設好後，在 repo 層級（Settings → Secrets and variables → Actions → Variables）新增 `DEPLOY_ENABLED` = `true`。在這之前部署流程不會執行。
 
 ## 部署
@@ -103,7 +103,7 @@ terraform apply
 
 ## 登入與加密（正式站）
 
-- **登入**：每個租戶在 Identity Platform 有自己的登入租戶，平台後台開通時自動建立，並把 `{租戶}.care.yutis.com.tw` 加入授權網域。第一位租戶管理員會收到 Identity Platform 寄出的登入連結信（開到 `{租戶}.care.yutis.com.tw/login`）。客戶要用公司帳號登入（Entra ID、Google Workspace、其他 SAML／OIDC）時，在 GCP 主控台 → Identity Platform → 租戶 → 該租戶 → 新增提供者；登入頁會自動出現那個按鈕。租戶 API 會確認 ID token 來自這個子網域自己的登入租戶。
+- **登入**：每個租戶在 Identity Platform 有自己的登入租戶，平台後台開通時自動建立，並把 `{租戶}.care.yutis.net` 加入授權網域。第一位租戶管理員會收到 Identity Platform 寄出的登入連結信（開到 `{租戶}.care.yutis.net/login`）。客戶要用公司帳號登入（Entra ID、Google Workspace、其他 SAML／OIDC）時，在 GCP 主控台 → Identity Platform → 租戶 → 該租戶 → 新增提供者；登入頁會自動出現那個按鈕。租戶 API 會確認 ID token 來自這個子網域自己的登入租戶。
 - 邀請信的寄件名稱與內容在 Identity Platform → 設定 → 範本（建議改成中文、寄件者名稱 Yutis Care）。
 - **加密**：每個租戶一把 Cloud KMS 金鑰（開通時建立，每 90 天自動輪替）。租戶第一次寫入加密欄位時，租戶 API 產生資料金鑰並用 KMS 包裝存在 `tenant_keys`；之後每個程式只向 KMS 解開一次。銷毀租戶的 KMS 金鑰，該租戶的加密資料就再也無法讀取。
 
