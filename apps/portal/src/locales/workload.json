@@ -1,0 +1,197 @@
+{
+  "zh": {
+    "cbi": {
+      "title": "過勞量表",
+      "personal": "一、個人相關過勞",
+      "work": "二、工作相關過勞",
+      "freq": ["總是", "常常", "有時候", "不常", "從未或幾乎從未"],
+      "degree": ["很嚴重", "嚴重", "有一些", "輕微", "非常輕微"],
+      "p": [
+        "你常覺得疲勞嗎？",
+        "你常覺得身體上體力透支嗎？",
+        "你常覺得情緒上心力交瘁嗎？",
+        "你常會覺得「我快要撐不下去了」嗎？",
+        "你常覺得精疲力竭嗎？",
+        "你常常覺得虛弱，好像快要生病了嗎？"
+      ],
+      "w": [
+        "你的工作會令人情緒上心力交瘁嗎？",
+        "你的工作會讓你覺得快要累垮了嗎？",
+        "你的工作會讓你覺得挫折嗎？",
+        "工作一整天之後，你覺得精疲力竭嗎？",
+        "上班之前只要想到又要工作一整天，你就覺得沒力嗎？",
+        "上班時你會覺得每一刻都很難熬嗎？",
+        "不工作的時候，你有足夠的精力陪朋友或家人嗎？"
+      ]
+    },
+    "overload": {
+      "title": "工時與工作型態調查",
+      "m1": "近 1 個月加班時數",
+      "avg6": "近 2–6 個月平均加班時數",
+      "hours": "小時",
+      "hint": "可參考出勤紀錄或薪資單，填大約的數字即可；沒有加班請填 0。",
+      "invalid": "請填 0 到 744 之間的數字。",
+      "patternsTitle": "工作型態（可複選）",
+      "patternsHint": "都沒有的話，直接送出即可。",
+      "patterns": ["不規律的工作", "經常出差的工作", "輪班或夜班工作", "作業環境（異常溫度、噪音、時差）", "伴隨精神緊張的工作"]
+    },
+    "submit": "送出",
+    "done": "已送出，謝謝您的填寫。"
+  },
+  "en": {
+    "cbi": {
+      "title": "Burnout questionnaire (CBI)",
+      "personal": "Part 1: Personal burnout",
+      "work": "Part 2: Work-related burnout",
+      "freq": ["Always", "Often", "Sometimes", "Seldom", "Never or almost never"],
+      "degree": ["To a very high degree", "To a high degree", "Somewhat", "To a low degree", "To a very low degree"],
+      "p": [
+        "How often do you feel tired?",
+        "How often are you physically exhausted?",
+        "How often are you emotionally exhausted?",
+        "How often do you think: \"I can't take it anymore\"?",
+        "How often do you feel worn out?",
+        "How often do you feel weak and likely to get ill?"
+      ],
+      "w": [
+        "Is your work emotionally exhausting?",
+        "Do you feel burnt out because of your work?",
+        "Does your work frustrate you?",
+        "Do you feel worn out at the end of the working day?",
+        "Before work, are you exhausted just thinking about another day at work?",
+        "Do you feel that every working hour is hard to get through?",
+        "When you are not working, do you have enough energy for family and friends?"
+      ]
+    },
+    "overload": {
+      "title": "Working hours and work pattern survey",
+      "m1": "Overtime hours in the past month",
+      "avg6": "Average monthly overtime hours, past 2–6 months",
+      "hours": "hours",
+      "hint": "Check your attendance record or payslip. A rough number is fine; enter 0 if you had no overtime.",
+      "invalid": "Enter a number from 0 to 744.",
+      "patternsTitle": "Type of work (choose all that apply)",
+      "patternsHint": "If none apply, just submit.",
+      "patterns": ["Irregular work", "Frequent business travel", "Shift or night work", "Work environment (abnormal temperature, noise, time-zone changes)", "Work with mental tension"]
+    },
+    "submit": "Submit",
+    "done": "Submitted. Thank you."
+  },
+  "ja": {
+    "cbi": {
+      "title": "燃え尽き尺度（CBI）",
+      "personal": "1. 個人的な燃え尽き",
+      "work": "2. 仕事に関連した燃え尽き",
+      "freq": ["いつも", "よくある", "ときどき", "あまりない", "まったくない、またはほとんどない"],
+      "degree": ["非常に強く感じる", "強く感じる", "いくらか感じる", "少し感じる", "ほとんど感じない"],
+      "p": [
+        "疲れを感じることがよくありますか？",
+        "体力的に疲れ果てていると感じることがよくありますか？",
+        "精神的に疲れ果てていると感じることがよくありますか？",
+        "「もう耐えられない」と思うことがよくありますか？",
+        "くたくたに疲れていると感じることがよくありますか？",
+        "体が弱って、病気になりそうだと感じることがよくありますか？"
+      ],
+      "w": [
+        "仕事で精神的に疲れ果てますか？",
+        "仕事のせいで、もう限界だと感じますか？",
+        "仕事に挫折感を感じますか？",
+        "一日の仕事が終わると、くたくたに疲れていますか？",
+        "出勤前、また一日働くと考えるだけで気力がなくなりますか？",
+        "勤務中、一瞬一瞬がつらいと感じますか？",
+        "仕事をしていないとき、家族や友人と過ごす元気が十分にありますか？"
+      ]
+    },
+    "overload": {
+      "title": "労働時間と勤務形態の調査",
+      "m1": "直近1か月の残業時間",
+      "avg6": "直近2〜6か月の月平均残業時間",
+      "hours": "時間",
+      "hint": "勤怠記録や給与明細を参考に、おおよその数字で構いません。残業がない場合は 0 を入力してください。",
+      "invalid": "0〜744 の数字を入力してください。",
+      "patternsTitle": "勤務形態（複数選択可）",
+      "patternsHint": "当てはまるものがなければ、そのまま送信してください。",
+      "patterns": ["不規則な勤務", "出張の多い業務", "交替制勤務・深夜勤務", "作業環境（異常な温度、騒音、時差）", "精神的緊張を伴う業務"]
+    },
+    "submit": "送信",
+    "done": "送信しました。ご協力ありがとうございます。"
+  },
+  "vi": {
+    "cbi": {
+      "title": "Bảng câu hỏi về kiệt sức (CBI)",
+      "personal": "Phần 1: Kiệt sức cá nhân",
+      "work": "Phần 2: Kiệt sức liên quan đến công việc",
+      "freq": ["Luôn luôn", "Thường xuyên", "Thỉnh thoảng", "Hiếm khi", "Không bao giờ hoặc gần như không"],
+      "degree": ["Rất nhiều", "Nhiều", "Một phần", "Ít", "Rất ít"],
+      "p": [
+        "Bạn có thường cảm thấy mệt mỏi không?",
+        "Bạn có thường cảm thấy kiệt sức về thể chất không?",
+        "Bạn có thường cảm thấy kiệt sức về tinh thần không?",
+        "Bạn có thường nghĩ \"Tôi không chịu nổi nữa\" không?",
+        "Bạn có thường cảm thấy rã rời không?",
+        "Bạn có thường cảm thấy yếu ớt, như sắp bị ốm không?"
+      ],
+      "w": [
+        "Công việc có làm bạn kiệt sức về tinh thần không?",
+        "Công việc có làm bạn cảm thấy sắp kiệt quệ không?",
+        "Công việc có làm bạn thấy nản lòng không?",
+        "Sau cả ngày làm việc, bạn có cảm thấy kiệt sức không?",
+        "Trước giờ làm, chỉ nghĩ đến việc phải làm cả ngày là bạn đã thấy mệt không?",
+        "Trong giờ làm, bạn có thấy mỗi lúc đều khó chịu đựng không?",
+        "Khi không làm việc, bạn có đủ sức lực để dành cho gia đình và bạn bè không?"
+      ]
+    },
+    "overload": {
+      "title": "Khảo sát giờ làm và hình thức công việc",
+      "m1": "Số giờ làm thêm trong 1 tháng gần nhất",
+      "avg6": "Số giờ làm thêm trung bình mỗi tháng trong 2–6 tháng gần đây",
+      "hours": "giờ",
+      "hint": "Có thể xem bảng chấm công hoặc phiếu lương. Điền số gần đúng là được; nếu không làm thêm, hãy điền 0.",
+      "invalid": "Hãy điền số từ 0 đến 744.",
+      "patternsTitle": "Hình thức công việc (có thể chọn nhiều)",
+      "patternsHint": "Nếu không có mục nào, hãy gửi luôn.",
+      "patterns": ["Công việc không đều đặn", "Công việc thường xuyên đi công tác", "Làm theo ca hoặc ca đêm", "Môi trường làm việc (nhiệt độ bất thường, tiếng ồn, lệch múi giờ)", "Công việc gây căng thẳng tinh thần"]
+    },
+    "submit": "Gửi",
+    "done": "Đã gửi. Cảm ơn bạn."
+  },
+  "th": {
+    "cbi": {
+      "title": "แบบประเมินภาวะหมดไฟ (CBI)",
+      "personal": "ส่วนที่ 1: ความเหนื่อยล้าส่วนบุคคล",
+      "work": "ส่วนที่ 2: ความเหนื่อยล้าจากงาน",
+      "freq": ["เสมอ", "บ่อย", "บางครั้ง", "ไม่บ่อย", "ไม่เคยหรือแทบไม่เคย"],
+      "degree": ["มากที่สุด", "มาก", "ปานกลาง", "น้อย", "น้อยที่สุด"],
+      "p": [
+        "คุณรู้สึกเหนื่อยบ่อยไหม",
+        "คุณรู้สึกหมดแรงทางร่างกายบ่อยไหม",
+        "คุณรู้สึกหมดแรงทางจิตใจบ่อยไหม",
+        "คุณคิดบ่อยไหมว่า \"ฉันทนไม่ไหวแล้ว\"",
+        "คุณรู้สึกอ่อนล้าหมดแรงบ่อยไหม",
+        "คุณรู้สึกอ่อนแอเหมือนจะไม่สบายบ่อยไหม"
+      ],
+      "w": [
+        "งานของคุณทำให้หมดแรงทางจิตใจไหม",
+        "งานของคุณทำให้รู้สึกว่าใกล้จะหมดแรงไหม",
+        "งานของคุณทำให้รู้สึกท้อแท้ไหม",
+        "หลังทำงานมาทั้งวัน คุณรู้สึกหมดแรงไหม",
+        "ก่อนไปทำงาน แค่คิดว่าต้องทำงานอีกทั้งวันก็รู้สึกหมดแรงไหม",
+        "ระหว่างทำงาน คุณรู้สึกว่าทุกช่วงเวลาผ่านไปอย่างยากลำบากไหม",
+        "เวลาที่ไม่ได้ทำงาน คุณมีแรงพอสำหรับครอบครัวและเพื่อนไหม"
+      ]
+    },
+    "overload": {
+      "title": "แบบสำรวจชั่วโมงทำงานและลักษณะงาน",
+      "m1": "ชั่วโมงทำงานล่วงเวลาใน 1 เดือนที่ผ่านมา",
+      "avg6": "ชั่วโมงทำงานล่วงเวลาเฉลี่ยต่อเดือน ในช่วง 2–6 เดือนที่ผ่านมา",
+      "hours": "ชั่วโมง",
+      "hint": "ดูได้จากบันทึกเวลาทำงานหรือสลิปเงินเดือน ใส่ตัวเลขโดยประมาณได้ ถ้าไม่มีการทำงานล่วงเวลาให้ใส่ 0",
+      "invalid": "กรุณาใส่ตัวเลขตั้งแต่ 0 ถึง 744",
+      "patternsTitle": "ลักษณะงาน (เลือกได้หลายข้อ)",
+      "patternsHint": "ถ้าไม่มีข้อใดตรง ให้กดส่งได้เลย",
+      "patterns": ["งานที่ไม่เป็นเวลา", "งานที่ต้องเดินทางบ่อย", "งานกะหรืองานกะกลางคืน", "สภาพแวดล้อมการทำงาน (อุณหภูมิผิดปกติ เสียงดัง เขตเวลาต่างกัน)", "งานที่มีความตึงเครียดทางจิตใจ"]
+    },
+    "submit": "ส่ง",
+    "done": "ส่งแล้ว ขอบคุณที่ให้ความร่วมมือ"
+  }
+}

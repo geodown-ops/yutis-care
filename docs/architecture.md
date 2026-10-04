@@ -25,7 +25,7 @@
 | `packages/ui` | 設計 token、Mantine 主題、側欄外框與狀態元件，三個前端共用 | 已建立 |
 | `packages/api-client` | 租戶 API 呼叫函式；目前是 `/api/tenant`、`/api/me` 的暫定型別，之後由 OpenAPI 產生 | 已建立 |
 | `apps/web` | 租戶後台（React + Vite + Mantine + TanStack Router／Query），選單依角色顯示 | 骨架完成，示範資料 |
-| `apps/portal` | 員工端，`/me`，i18next 五種語言 | 骨架完成，示範資料 |
+| `apps/portal` | 員工端，`/me`，i18next 五種語言 | 已接租戶 API：共用登入頁、待辦、NMQ、過勞量表、工時與工作型態、紀錄確認、我的健康與下載、告知與同意紀錄；日文、越南文、泰文待母語者校對 |
 | `apps/platform-web` | 平台管理後台 | 骨架完成，示範資料 |
 | `prototype` | 原本的純前端雛形，作為可操作的需求規格 | 保留 |
 

@@ -1,3 +1,4 @@
+import type { TenantPaths } from '@yutis/api-client';
 import { NMQ_KEYS, type NmqScores } from '@yutis/domain';
 import type { TFunction } from 'i18next';
 
@@ -26,4 +27,14 @@ export function nmqComplete(a: NmqAnswers): boolean {
     const v = Number(raw);
     return raw !== undefined && Number.isInteger(v) && v >= 0 && v <= 5;
   });
+}
+
+export type NmqBody = TenantPaths['/api/portal/ergo/{id}']['put']['requestBody']['content']['application/json'];
+
+/** PUT /api/portal/ergo/{id}: every body part's score, and the two yes/no answers. */
+export function nmqBody(a: NmqAnswers): NmqBody {
+  if (!nmqComplete(a)) throw new Error('NMQ is incomplete');
+  // The API's score keys are NMQ_KEYS, so this object has exactly the keys the generated type lists.
+  const scores = Object.fromEntries(NMQ_KEYS.map(k => [k.key, Number(a.scores[k.key])])) as NmqBody['scores'];
+  return { scores, yesNo: { any: a.any!, injury: a.injury! } };
 }

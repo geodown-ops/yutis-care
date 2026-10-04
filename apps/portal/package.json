@@ -21,6 +21,7 @@
     "@tanstack/react-router": "^1.170.41",
     "@yutis/api-client": "workspace:*",
     "@yutis/domain": "workspace:*",
+    "@yutis/sign-in": "workspace:*",
     "@yutis/ui": "workspace:*",
     "i18next": "^26.4.2",
     "react": "^19.3.0",
