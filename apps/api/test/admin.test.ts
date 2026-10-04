@@ -354,13 +354,21 @@ describe('phrases and audit search', () => {
     const globex = (await call('globex', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie: await signIn('globex', 'admin@globex.test') })).json();
     expect(globex).toEqual({ total: 0, items: [] });
   });
-  it('lets tenant admins find an employee by name or number, with nothing but the id, number and name', async () => {
+  it('lets tenant admins find an employee by name, number or id, with nothing but the id, number, name and status', async () => {
     const cookie = await signIn('acme', 'admin@acme.test');
-    expect((await call('acme', 'GET', '/api/admin/employees?q=員工E101', { cookie })).json()).toEqual([{ id: expect.any(String), empNo: 'E101', name: '員工E101' }]);
+    expect((await call('acme', 'GET', '/api/admin/employees?q=員工E101', { cookie })).json()).toEqual([{ id: expect.any(String), empNo: 'E101', name: '員工E101', status: '在職' }]);
     const byNumber = (await call('acme', 'GET', '/api/admin/employees?q=e10', { cookie })).json();
     expect(byNumber.length).toBeGreaterThan(0);
     expect(byNumber.every((e: { empNo: string }) => e.empNo.startsWith('E10'))).toBe(true);
-    expect(Object.keys(byNumber[0]).sort()).toEqual(['empNo', 'id', 'name']);
+    expect(Object.keys(byNumber[0]).sort()).toEqual(['empNo', 'id', 'name', 'status']);
+    // An audit search reopened from a link names its employees by id, including those who have left.
+    const [first, second] = (await call('acme', 'GET', '/api/admin/employees?limit=2', { cookie })).json() as { id: string }[];
+    await owner.update(employees).set({ status: '離職' }).where(eq(employees.id, second!.id));
+    const byIds = (await call('acme', 'GET', `/api/admin/employees?ids=${second!.id},${first!.id}&limit=1`, { cookie })).json();
+    await owner.update(employees).set({ status: '在職' }).where(eq(employees.id, second!.id));
+    expect(byIds.map((e: { id: string; status: string }) => [e.id, e.status])).toEqual([[first!.id, '在職'], [second!.id, '離職']]);
+    expect((await call('acme', 'GET', `/api/admin/employees?ids=${first!.id}&ids=${second!.id}`, { cookie })).json()).toHaveLength(2);
+    expect((await call('acme', 'GET', '/api/admin/employees?ids=E101', { cookie })).statusCode).toBe(400);
     expect((await call('acme', 'GET', `/api/admin/employees?q=${encodeURIComponent('%')}`, { cookie })).json()).toEqual([]);
     expect((await call('acme', 'GET', '/api/admin/employees?limit=1', { cookie })).json()).toHaveLength(1);
     expect((await audits('employees')).filter(a => a.reason === 'admin employee search').length).toBeGreaterThan(0);

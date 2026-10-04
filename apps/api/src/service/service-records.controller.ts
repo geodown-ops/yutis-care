@@ -18,7 +18,7 @@ import { API_CONFIG } from '../core/database.js';
 import { Notifier } from '../core/mail.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { SIGN_LINK_DAYS } from '../programs/advice.controller.js';
-import { assertSitesInScope, mySiteIds } from '../programs/common.js';
+import { assertSitesInScope, departmentInSite, mySiteIds } from '../programs/common.js';
 import {
   assertSignOffRoles, deleteSigners, issueSignLink, replaceSigners, SignatureDto, signaturesOf, Signer, SignLinkDto, signOffRoles,
 } from './sign-off.js';
@@ -43,13 +43,16 @@ export const ServiceContent = z.object({
   /** 五、對前次建議改善事項之追蹤辦理情形 */
   followUp: z.string().max(10000).default(''),
 }).strict().refine(c => c.to > c.from, { message: 'to must be later than from', path: ['to'] });
-const ServiceRecord = z.object({ serviceOn: z.iso.date(), siteId: z.uuid(), content: ServiceContent, signers: z.array(Signer).min(1).max(10) }).strict();
+const ServiceRecord = z.object({
+  serviceOn: z.iso.date(), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), content: ServiceContent, signers: z.array(Signer).min(1).max(10),
+}).strict();
 
 class ServiceRecordDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ type: String, format: 'date' }) serviceOn!: string;
   @ApiProperty({ format: 'uuid' }) siteId!: string;
   @ApiProperty() siteName!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true, description: '服務的部門（表單上的部門名稱另存在 content.departmentName）' }) departmentId!: string | null;
   @ApiProperty({ enum: ['草稿', '簽核中', '已完成'] }) status!: string;
   @ApiProperty({ type: 'object', additionalProperties: true }) content!: unknown;
   @ApiProperty({ type: String, nullable: true, description: '執行人員（content.executorUserId）的姓名；帳號已刪除時為 null' }) executorName!: string | null;
@@ -87,7 +90,7 @@ export class ServiceRecordsController {
   async create(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<ServiceRecordDto> {
     const input = parse(ServiceRecord, body);
     await this.validate(ctx, input);
-    const [row] = await ctx.tx.insert(serviceRecords).values({ tenantId: ctx.tenant.id, serviceOn: input.serviceOn, siteId: input.siteId, content: input.content, createdBy: staff(ctx).userId }).returning();
+    const [row] = await ctx.tx.insert(serviceRecords).values({ tenantId: ctx.tenant.id, serviceOn: input.serviceOn, siteId: input.siteId, departmentId: input.departmentId, content: input.content, createdBy: staff(ctx).userId }).returning();
     await replaceSigners(ctx, 'service_records', row!.id, input.signers);
     await recordAudit(ctx, { action: 'create', subjectTable: 'service_records', subjectId: row!.id, dataCategory: 'work' });
     return (await this.load(ctx, [row!.id]))[0]!;
@@ -103,7 +106,9 @@ export class ServiceRecordsController {
     const current = await this.inScope(ctx, id);
     if (current.status !== '草稿') throw new ConflictException({ code: 'not_draft', message: 'Only drafts can be edited' });
     await this.validate(ctx, input);
-    await ctx.tx.update(serviceRecords).set({ serviceOn: input.serviceOn, siteId: input.siteId, content: input.content, updatedAt: new Date(), updatedBy: staff(ctx).userId }).where(eq(serviceRecords.id, id));
+    await ctx.tx.update(serviceRecords).set({
+      serviceOn: input.serviceOn, siteId: input.siteId, departmentId: input.departmentId, content: input.content, updatedAt: new Date(), updatedBy: staff(ctx).userId,
+    }).where(eq(serviceRecords.id, id));
     await replaceSigners(ctx, 'service_records', id, input.signers);
     await recordAudit(ctx, { action: 'update', subjectTable: 'service_records', subjectId: id, dataCategory: 'work' });
     return (await this.load(ctx, [id]))[0]!;
@@ -156,6 +161,7 @@ export class ServiceRecordsController {
 
   private async validate(ctx: RequestContext, input: z.infer<typeof ServiceRecord>) {
     await assertSitesInScope(ctx, input.siteId);
+    await departmentInSite(ctx, input.siteId, input.departmentId);
     const [executor] = await ctx.tx.select({ id: users.id }).from(users).where(and(eq(users.id, input.content.executorUserId), eq(users.active, true)));
     if (!executor) throw new BadRequestException({ code: 'unknown_staff', message: 'The executor must be active staff' });
     await assertSignOffRoles(ctx, input.signers);
@@ -175,7 +181,7 @@ export class ServiceRecordsController {
     const executorIds = [...new Set(rows.map(x => (x.r.content as { executorUserId?: string }).executorUserId).filter((v): v is string => Boolean(v)))];
     const executors = executorIds.length ? await ctx.tx.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, executorIds)) : [];
     return ids.map(id => rows.find(x => x.r.id === id)!).map(({ r, siteName }) => ({
-      id: r.id, serviceOn: r.serviceOn, siteId: r.siteId, siteName, status: r.status, content: r.content,
+      id: r.id, serviceOn: r.serviceOn, siteId: r.siteId, siteName, departmentId: r.departmentId, status: r.status, content: r.content,
       executorName: executors.find(u => u.id === (r.content as { executorUserId?: string }).executorUserId)?.name ?? null,
       signatures: sigs.get(r.id) ?? [],
     }));

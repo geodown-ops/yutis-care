@@ -175,7 +175,7 @@ export class ErgoController {
   async remind(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<RemindResultDto> {
     const { surveyIds } = parse(Remind, body ?? {});
     const sites = await mySiteIds(ctx);
-    if (!sites.length) return { emailed: 0, noEmail: [] };
+    if (!sites.length) return { emailed: 0, delivered: this.notifier.delivers, noEmail: [] };
     const pending = await ctx.tx.select({ id: ergoSurveys.id, employeeId: employees.id, name: employees.name, email: employees.email, lang: employees.lang })
       .from(ergoSurveys).innerJoin(employees, eq(employees.id, ergoSurveys.employeeId))
       .where(and(eq(ergoSurveys.dispatchId, id), eq(ergoSurveys.status, '未填寫'), inArray(employees.siteId, sites), surveyIds ? inArray(ergoSurveys.id, surveyIds) : undefined));
@@ -191,7 +191,7 @@ export class ErgoController {
         .where(inArray(ergoSurveys.id, reachable.map(p => p.id)));
       await recordAudit(ctx, reachable.map((p): AuditEntry => ({ action: 'update', subjectTable: 'ergo_surveys', subjectId: p.id, employeeId: p.employeeId, reason: 'fill-in reminder sent' })));
     }
-    return { emailed: reachable.length, noEmail: pending.filter(p => !p.email).map(p => p.employeeId) };
+    return { emailed: reachable.length, delivered: this.notifier.delivers, noEmail: pending.filter(p => !p.email).map(p => p.employeeId) };
   }
 
   @Put('surveys/:id/tracking')
