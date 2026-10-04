@@ -4,7 +4,7 @@
  * convenience only; the API enforces permissions.
  */
 import {
-  IconAdjustmentsHorizontal, IconArrowsExchange, IconBabyCarriage, IconBuilding, IconChartBar, IconClipboardHeart,
+  IconAdjustmentsHorizontal, IconArrowsExchange, IconBabyCarriage, IconBell, IconBuilding, IconChartBar, IconClipboardHeart,
   IconClockExclamation, IconFileImport, IconHeadset, IconHistory, IconLayoutDashboard, IconLogin2, IconShieldCheck,
   IconSitemap, IconStethoscope, IconStretching, IconUserPlus, IconUsers, IconUserShield,
 } from '@tabler/icons-react';
@@ -31,10 +31,11 @@ export const NAV: NavGroup[] = [
     { path: '/exams/import', label: '健檢匯入', icon: IconFileImport, access: { feature: 'employees', data: 'health' } },
   ] },
   { label: '職業衛生計畫', items: [
+    { path: '/programs/notices', label: '工作安排通知', icon: IconBell, access: { feature: 'programs', roles: ['部門主管'] } },
     { path: '/programs/ergo', label: '人因性危害', icon: IconStretching, access: PROGRAMS },
     { path: '/programs/workload', label: '異常工作負荷', icon: IconClockExclamation, access: PROGRAMS },
-    { path: '/programs/maternal', label: '母性健康保護', icon: IconBabyCarriage, access: PROGRAMS },
-    { path: '/programs/violence', label: '不法侵害預防', icon: IconShieldCheck, access: PROGRAMS },
+    { path: '/programs/maternal', label: '母性健康保護', icon: IconBabyCarriage, access: { feature: 'programs', roles: ['職護', '職醫', '職安衛人員', '人資'] } },
+    { path: '/programs/violence', label: '不法侵害預防', icon: IconShieldCheck, access: { feature: 'programs', roles: ['職護', '職醫', '職安衛人員'] } },
     { path: '/service-records', label: '勞工健康服務', icon: IconStethoscope, access: { feature: 'service-records', roles: ['職護', '職醫', '職安衛人員'] } },
   ] },
   { label: '分析', items: [{ path: '/reports', label: '統計報表', icon: IconChartBar, access: { feature: 'reports' } }] },
