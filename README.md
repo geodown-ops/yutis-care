@@ -95,7 +95,7 @@ pnpm dev:platform   # 平台後台 http://localhost:5182
 - 一定要用 `demo.localhost` 開租戶後台與員工端：Vite 把 `/api` 轉給 API 時保留 Host，API 由此找到租戶。API 不在 3000／3001 時不用另外設定：Vite 會讀 `apps/api/.env`、`apps/platform-api/.env` 的 `PORT`。
 - 登入頁依 `GET /api/tenant` 的登入方式顯示。本機與示範站是 `dev`：demo 租戶的登入頁有示範帳號（職護、職醫、職安衛、人資、主管、租戶管理員；員工端有示範員工），一鍵登入，取代以前的角色切換。正式站是 Identity Platform：SSO、Email 登入連結或密碼，取得 ID token 後換成 session cookie（`packages/sign-in`）。
 - 選單依 `GET /api/me` 的 `features` 與 `dataCategories` 顯示，只是方便；權限一律由 API 檢查。
-- 平台後台的 Vite 代理會替你加上 `X-Dev-Platform-User: ops@yutis.test`（`PLATFORM_DEV_USER=eng@yutis.test pnpm dev:platform` 換成其他角色）；正式環境由 IAP 提供身分，沒有登入頁。
+- 平台後台先讀 `GET /platform-api/sign-in-config`：`google`（Railway）顯示 Google 登入頁，之後每個請求帶 ID token；`iap`（Google Cloud）由 IAP 把關，沒有登入頁；`dev`（本機）由 Vite 代理加上 `X-Dev-Platform-User: ops@yutis.test`（`PLATFORM_DEV_USER=eng@yutis.test pnpm dev:platform` 換成其他角色）。
 - Email 一次性連結不用登入：附表八簽核是租戶後台的 `/sign/{token}`，員工確認紀錄是員工端的 `/me/sign/{token}`。本機 API 產生的連結沒有埠號，手動補上 `:5180` 或 `:5181`。
 - API 型別在 `packages/api-client/src/generated`，由兩份 `openapi.json` 產生，不要手改。
 

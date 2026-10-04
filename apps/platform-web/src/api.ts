@@ -1,11 +1,25 @@
 /*
- * The platform API (/platform-api, same origin). In production Identity-Aware Proxy signs every request, so the app
- * sends no credentials of its own; the dev server's proxy adds the local stand-in header (vite.config.ts).
+ * The platform API (/platform-api, same origin). Behind Identity-Aware Proxy every request is signed by IAP, and the
+ * dev server's proxy adds the local stand-in header (vite.config.ts). With Google sign-in (auth.ts) each request
+ * carries the signed-in person's ID token.
  */
 import { queryOptions } from '@tanstack/react-query';
 import { ApiRequestError, createPlatformApi, data, type PlatformSchemas } from '@yutis/api-client';
 
 export const api = createPlatformApi();
+
+let idToken: (() => Promise<string | null>) | null = null;
+
+/** Google sign-in: where each request's bearer token comes from (null to stop sending one). */
+export function sendIdTokens(source: (() => Promise<string | null>) | null) { idToken = source; }
+
+api.use({
+  async onRequest({ request }) {
+    const token = await idToken?.();
+    if (token) request.headers.set('Authorization', `Bearer ${token}`);
+    return request;
+  },
+});
 
 export type Tenant = PlatformSchemas['TenantDto'];
 export type TenantDetail = PlatformSchemas['TenantDetailDto'];
