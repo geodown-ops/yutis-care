@@ -17,6 +17,8 @@ const BY_CODE: Record<string, string> = {
   templates_missing: '還沒有可用的預設範本，請先到「預設範本」更新範本後再開通。',
   integration_unavailable: '金鑰、登入或郵件服務尚未設定完成，暫時無法開通租戶。',
   plan_exists: '這個方案代碼已經存在。',
+  plan_not_found: '找不到這個方案，可能已被刪除。',
+  period_overlap: '新的一期要晚於最近一期的開始日，請調整開始日。',
   announcement_not_found: '找不到這則公告，可能已被刪除。',
   platform_user_exists: '這個 Email 已經是平台人員。',
   platform_user_not_found: '找不到這位平台人員。',

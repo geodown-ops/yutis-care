@@ -6,6 +6,7 @@ import { data, type Schemas } from '@yutis/api-client';
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, clearSession, consentsQuery, profileQuery } from './api';
+import { forgetUnsaved } from './drafts';
 import { formatDate } from './dates';
 import { LanguageSelect } from './LanguageSelect';
 import { ErrorNote, LoadError, Page, Section } from './Page';
@@ -104,6 +105,7 @@ export function SignOutButton({ label }: { label?: string }) {
     onSettled: async () => {
       // Signed out on the server or not, this device should not keep showing the last person's data.
       clearSession(queryClient);
+      forgetUnsaved();
       await navigate({ to: '/login' });
     },
   });

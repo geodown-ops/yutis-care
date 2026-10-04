@@ -1,8 +1,9 @@
-import { isValidTenantSlug } from '@yutis/domain';
+import { DEMO_SITE_SUBDOMAIN, isAvailableTenantSubdomain } from '@yutis/domain';
 import { describe, expect, it } from 'vitest';
 import type { Subscription, Tenant, Usage } from './api';
 import {
-  DEMO_SITE_SUBDOMAIN, emptyNewTenantForm, matchesTenant, newTenantBody, newTenantProblems, pendingSetup, seatUsage, subdomainProblem,
+  currentPeriodIndex, dayAfter, dayBefore, latestPeriodNewEnd, newPeriodProblems, newPeriodToForm,
+  emptyNewTenantForm, matchesTenant, newTenantBody, newTenantProblems, pendingSetup, seatUsage, subdomainProblem,
   subscriptionBody, subscriptionProblems, subscriptionToForm, tenantOverview, usageTotals, type NewTenantForm,
 } from './tenants';
 
@@ -72,10 +73,9 @@ describe('pending setup', () => {
 });
 
 describe('subdomain check', () => {
-  it('accepts exactly what isValidTenantSlug accepts, except the demo site', () => {
-    const samples = ['acme', 'a', 'a1', 'acme-tw', 'demo2', 'x'.repeat(63), 'x'.repeat(64), '', '-acme', 'acme-', 'Acme', 'ac me', 'acme.tw', '台積', 'admin', 'api', 'www', 'www2'];
-    for (const s of samples) expect(subdomainProblem(s) === null, s).toBe(isValidTenantSlug(s));
-    expect(isValidTenantSlug(DEMO_SITE_SUBDOMAIN)).toBe(true);
+  it('accepts exactly what the domain lets a new tenant have, and says why the demo site is not', () => {
+    const samples = ['acme', 'a', 'a1', 'acme-tw', 'demo', 'demo2', 'x'.repeat(63), 'x'.repeat(64), '', '-acme', 'acme-', 'Acme', 'ac me', 'acme.tw', '台積', 'admin', 'api', 'www', 'www2'];
+    for (const s of samples) expect(subdomainProblem(s) === null, s).toBe(isAvailableTenantSubdomain(s));
     expect(subdomainProblem(DEMO_SITE_SUBDOMAIN)).toContain('展示網站');
   });
 
@@ -134,5 +134,49 @@ describe('new tenant form', () => {
       name: '北辰精密', subdomain: 'beichen', planCode: 'standard', subscriptionStatus: 'trial', seatLimit: 500,
       startsOn: '2026-10-04', endsOn: null, admin: { name: '林經理', email: 'lin@beichen.example' },
     });
+  });
+});
+
+describe('subscription periods', () => {
+  it('steps dates across month and year ends', () => {
+    expect(dayAfter('2026-12-31')).toBe('2027-01-01');
+    expect(dayBefore('2027-03-01')).toBe('2027-02-28');
+    expect(dayBefore('2028-03-01')).toBe('2028-02-29');
+  });
+
+  it('marks the current period as the API does: the newest that has started, else the earliest', () => {
+    const history = [subscription({ startsOn: '2027-01-01' }), subscription({ startsOn: '2026-01-01' }), subscription({ startsOn: '2025-01-01' })];
+    expect(currentPeriodIndex(history, '2026-10-04')).toBe(1);
+    expect(currentPeriodIndex(history, '2027-01-01')).toBe(0);
+    expect(currentPeriodIndex([subscription({ startsOn: '2026-11-01' })], '2026-10-04')).toBe(0);
+    expect(currentPeriodIndex([], '2026-10-04')).toBe(-1);
+  });
+
+  it('proposes a renewal starting the day after the latest period ends, on the same plan and seats', () => {
+    expect(newPeriodToForm(subscription({ planCode: 'pro', seatLimit: 300, status: 'trial', endsOn: '2026-12-31' }), '2026-10-04'))
+      .toEqual({ planCode: 'pro', status: 'active', seatLimit: 300, startsOn: '2027-01-01', endsOn: '' });
+    // Open-ended: from today; never on or before the latest period's start.
+    expect(newPeriodToForm(subscription({ endsOn: null, seatLimit: null }), '2026-10-04')).toMatchObject({ startsOn: '2026-10-04', seatLimit: '' });
+    expect(newPeriodToForm(subscription({ startsOn: '2026-11-01', endsOn: null }), '2026-10-04').startsOn).toBe('2026-11-02');
+    expect(newPeriodToForm(null, '2026-10-04')).toEqual({ planCode: '', status: 'active', seatLimit: '', startsOn: '2026-10-04', endsOn: '' });
+  });
+
+  it('refuses a period that does not start after the latest one, or a plan no longer offered', () => {
+    const latest = subscription({ startsOn: '2026-01-01' });
+    const form = newPeriodToForm(latest, '2026-10-04');
+    expect(newPeriodProblems(form, latest, ['standard'])).toEqual({});
+    expect(newPeriodProblems({ ...form, startsOn: '2026-01-01' }, latest, null).startsOn).toBe('要晚於最近一期的開始日（2026/01/01）');
+    expect(newPeriodProblems({ ...form, planCode: 'legacy' }, latest, ['standard']).planCode).toBe('這個方案已停用，請選擇其他方案');
+    // Plans not loaded yet: the API still checks.
+    expect(newPeriodProblems({ ...form, planCode: 'legacy' }, latest, null)).toEqual({});
+    expect(newPeriodProblems({ ...form, startsOn: '' }, latest, ['standard']).startsOn).toBeTruthy();
+  });
+
+  it('says where the latest period will end once the new one starts', () => {
+    expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01', endsOn: null }), '2026-11-01')).toBe('2026-10-31');
+    expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01', endsOn: '2026-12-31' }), '2026-11-01')).toBe('2026-10-31');
+    expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01', endsOn: '2026-12-31' }), '2027-01-01')).toBeNull();
+    expect(latestPeriodNewEnd(subscription({ startsOn: '2026-01-01' }), '2026-01-01')).toBeNull();
+    expect(latestPeriodNewEnd(null, '2026-11-01')).toBeNull();
   });
 });

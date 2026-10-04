@@ -1,33 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { ackFields } from './acknowledgement';
-import { burnoutLevel, examViews, surveyViews, workloadViews } from './health';
+import { ACK_FIELDS, ackFields } from './acknowledgement';
+import { asGrade, burnoutLevel, examView, missingOnTasks, missingReasons } from './health';
 
 describe('my health', () => {
-  it('reads exams and their graded items, skipping what it cannot read', () => {
-    const [exam, ...rest] = examViews([
-      {
-        examDate: '2026-09-02', clinic: '仁安健康管理診所', kind: '年度健檢', gradeTotal: 29, gradeMax: 4,
-        items: [
-          { code: 'B0111', name: '血壓－收縮壓', unit: 'mmHg', value: '168', grade: 3 },
-          { code: 'B0501', name: '尿蛋白', unit: '', value: '±', grade: 7 },
-          { name: 'no code' },
-        ],
-      },
-      { clinic: 'no date' },
-    ]);
-    expect(rest).toEqual([]);
-    expect(exam).toMatchObject({ examDate: '2026-09-02', gradeMax: 4 });
-    expect(exam!.items).toEqual([
-      { code: 'B0111', name: '血壓－收縮壓', unit: 'mmHg', value: '168', grade: 3 },
-      { code: 'B0501', name: '尿蛋白', unit: '', value: '±', grade: null },
-    ]);
+  it('shows exam grades 1–4 as badges and nothing for other numbers', () => {
+    const exam = examView({
+      examDate: '2026-09-02', clinic: '仁安健康管理診所', kind: '年度健檢', gradeTotal: 29, gradeMax: 4,
+      items: [
+        { code: 'B0111', name: '血壓－收縮壓', unit: 'mmHg', value: '168', grade: 3 },
+        { code: 'B0501', name: '尿蛋白', unit: '', value: '±', grade: 7 },
+        { code: 'B0104', name: 'BMI', unit: 'kg/m²', value: '22.1', grade: 0 },
+        { code: 'B0201', name: '空腹血糖', unit: 'mg/dL', value: null, grade: null },
+      ],
+    });
+    expect(exam).toMatchObject({ examDate: '2026-09-02', kind: '年度健檢', gradeMax: 4 });
+    expect(exam.items.map(i => i.grade)).toEqual([3, null, null, null]);
+    expect(exam.items[0]).toEqual({ code: 'B0111', name: '血壓－收縮壓', unit: 'mmHg', value: '168', grade: 3 });
+    expect([1, 2, 3, 4, 0, 5, 2.5, null].map(asGrade)).toEqual([1, 2, 3, 4, null, null, null, null]);
   });
 
-  it('reads NMQ and overwork results', () => {
-    expect(surveyViews([{ dispatch: 'B1', filledAt: '2026-08-31T04:00:00.000Z', maxScore: 5, suspectedHazard: true }]))
-      .toEqual([{ dispatch: 'B1', filledAt: '2026-08-31T04:00:00.000Z', maxScore: 5, suspectedHazard: true }]);
-    expect(workloadViews([{ sentOn: '2026-09-06', personalBurnout: 66.7, workBurnout: null, riskLevel: 2, advice: '需面談' }]))
-      .toEqual([{ sentOn: '2026-09-06', personalBurnout: 66.7, workBurnout: null, riskLevel: 2 }]);
+  it('says why an overwork result has no risk level, in reading order', () => {
+    expect(missingReasons({ missing: [] })).toEqual([]);
+    expect(missingReasons({ missing: ['exam', 'overload', 'cbi', 'cbi'] })).toEqual(['cbi', 'overload', 'exam']);
+    // The person can fill in their own questionnaires; a missing health check is for staff.
+    expect(missingOnTasks({ missing: ['overload'] })).toBe(true);
+    expect(missingOnTasks({ missing: ['exam'] })).toBe(false);
   });
 
   it('labels burnout scores with the domain cut-offs', () => {
@@ -41,11 +38,15 @@ describe('my health', () => {
 });
 
 describe('acknowledgements', () => {
-  it('shows the interview fields in form order, then anything else', () => {
-    const fields = ackFields({ extra: 'x', limits: ['不加班', ' '], agreedArrangement: '', fitAdvice: '可工作', interviewedOn: '2026-09-30', nested: { a: 1 } });
-    expect(fields.map(f => f.key)).toEqual(['interviewedOn', 'fitAdvice', 'limits', 'agreedArrangement', 'extra']);
+  it('shows every interview field in form order, blank text and empty lists as nothing written', () => {
+    const fields = ackFields({ interviewedOn: '2026-09-30', fitAdvice: '可工作', limits: ['不加班', ' '], agreedArrangement: ' ' });
+    expect(fields.map(f => f.key)).toEqual(['interviewedOn', 'fitAdvice', 'limits', 'agreedArrangement']);
+    expect(fields.map(f => f.key)).toEqual(ACK_FIELDS);
     expect(fields[0]).toEqual({ key: 'interviewedOn', value: '2026-09-30', date: true });
+    expect(fields[1]).toEqual({ key: 'fitAdvice', value: '可工作', date: false });
     expect(fields[2]!.value).toEqual(['不加班']);
     expect(fields[3]!.value).toBeNull();
+    expect(ackFields({ interviewedOn: '2026-09-30', fitAdvice: null, limits: [], agreedArrangement: null }).map(f => f.value))
+      .toEqual(['2026-09-30', null, null, null]);
   });
 });

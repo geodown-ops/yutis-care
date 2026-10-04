@@ -1,14 +1,16 @@
-import { Button, Card, Group, Input, NumberInput, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Button, Card, Group, Input, Modal, NumberInput, SegmentedControl, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ApiRequestError, data } from '@yutis/api-client';
 import { useState, type ReactNode } from 'react';
 import { api, plansQuery } from '../api';
-import { ErrorAlert, ToneAlert } from '../components';
+import { ErrorAlert, LoadError, ToneAlert } from '../components';
 import { errorMessage } from '../errors';
 import { todayInTaipei } from '../format';
 import { SUBSCRIPTION_STATUS } from '../labels';
 import { ButtonLink } from '../links';
+import { useCan } from '../permissions';
+import { PlanManager, PlanSelect } from '../plans';
 import { emptyNewTenantForm, newTenantBody, newTenantProblems, normalizeSubdomain, type NewTenantForm } from '../tenants';
 
 export const Route = createFileRoute('/tenants/new')({ component: NewTenantPage });
@@ -17,7 +19,18 @@ export const Route = createFileRoute('/tenants/new')({ component: NewTenantPage 
 const TENANT_DOMAIN = 'care.yutis.com.tw';
 
 function NewTenantPage() {
+  if (useCan('tenants:write')) return <NewTenantForm />;
+  return (
+    <Stack gap="lg" maw={760}>
+      <Title order={2}>新增租戶</Title>
+      <LoadError error={null} onRetry={() => {}} forbidden="你的平台角色不能開通租戶，目前只開放給營運角色。" />
+    </Stack>
+  );
+}
+
+function NewTenantForm() {
   const qc = useQueryClient();
+  const [managingPlans, setManagingPlans] = useState(false);
   const navigate = useNavigate();
   const [form, setForm] = useState(() => emptyNewTenantForm(todayInTaipei()));
   const [submitted, setSubmitted] = useState(false);
@@ -36,7 +49,9 @@ function NewTenantPage() {
   });
 
   const values = { ...form, planCode };
-  const problems = newTenantProblems(values);
+  // A plan deactivated from the plan manager while this form was open.
+  const planInactive = !!planCode && !!plans.data && !activePlans.some(p => p.code === planCode);
+  const problems = { ...newTenantProblems(values), ...(planInactive ? { planCode: '這個方案已停用，請選擇其他方案' } : {}) };
   const set = <K extends keyof NewTenantForm>(k: K, v: NewTenantForm[K]) => setForm(f => ({ ...f, [k]: v }));
   const err = (k: keyof NewTenantForm) => submitted && problems[k];
   const slug = normalizeSubdomain(form.subdomain);
@@ -64,10 +79,7 @@ function NewTenantPage() {
       </Section>
 
       <Section title="訂閱">
-        <Select label="方案" withAsterisk data={activePlans.map(p => ({ value: p.code, label: p.name }))} value={planCode || null}
-          onChange={v => set('planCode', v ?? '')} placeholder={plans.isPending ? '載入方案中' : '選擇方案'} disabled={plans.isPending}
-          allowDeselect={false} error={err('planCode')} nothingFoundMessage="沒有啟用中的方案" />
-        {plans.error && <ErrorAlert error={plans.error} />}
+        <PlanSelect value={planCode} onChange={v => set('planCode', v)} error={err('planCode')} onManage={() => setManagingPlans(true)} />
         <Input.Wrapper label="訂閱狀態" withAsterisk>
           <div>
             <SegmentedControl mt={4} value={form.subscriptionStatus} onChange={v => set('subscriptionStatus', v as NewTenantForm['subscriptionStatus'])}
@@ -94,6 +106,9 @@ function NewTenantPage() {
         <ButtonLink to="/" variant="default">取消</ButtonLink>
         <Button loading={onboard.isPending} onClick={submit}>開通租戶</Button>
       </Group>
+      <Modal opened={managingPlans} onClose={() => setManagingPlans(false)} title="方案" centered radius="lg">
+        <PlanManager onBack={() => setManagingPlans(false)} />
+      </Modal>
     </Stack>
   );
 }

@@ -9,6 +9,7 @@ import { Footnote, LabelBadge, LoadError, PageLoader, SeatBar } from '../compone
 import { formatCount, formatDate } from '../format';
 import { SUBSCRIPTION_STATUS, TENANT_STATUS } from '../labels';
 import { AnchorLink, ButtonLink } from '../links';
+import { useCan } from '../permissions';
 import { matchesTenant, tenantOverview } from '../tenants';
 
 export const Route = createFileRoute('/')({ component: TenantsPage });
@@ -17,12 +18,13 @@ function TenantsPage() {
   const { data: tenants, error, refetch } = useQuery(tenantsQuery);
   const [query, setQuery] = useState('');
   const shown = tenants?.filter(t => matchesTenant(t, query));
+  const canOnboard = useCan('tenants:write');
 
   return (
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>租戶列表</Title>
-        <ButtonLink to="/tenants/new" leftSection={<IconPlus size={16} />}>新增租戶</ButtonLink>
+        {canOnboard && <ButtonLink to="/tenants/new" leftSection={<IconPlus size={16} />}>新增租戶</ButtonLink>}
       </Group>
       {error ? <LoadError error={error} onRetry={() => void refetch()} /> : !tenants ? <PageLoader /> : (
         <>
@@ -32,7 +34,7 @@ function TenantsPage() {
               value={query} onChange={e => setQuery(e.currentTarget.value)} />
             <TenantTable tenants={shown ?? []} />
             {tenants.length === 0
-              ? <Text c="dimmed" ta="center" py="lg">還沒有任何租戶，按「新增租戶」開通第一家。</Text>
+              ? <Text c="dimmed" ta="center" py="lg">{canOnboard ? '還沒有任何租戶，按「新增租戶」開通第一家。' : '還沒有任何租戶。'}</Text>
               : shown?.length === 0 && <Text c="dimmed" ta="center" py="lg">沒有符合「{query.trim()}」的租戶。</Text>}
           </Card>
         </>

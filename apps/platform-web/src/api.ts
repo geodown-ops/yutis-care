@@ -4,7 +4,7 @@
  * carries the signed-in person's ID token.
  */
 import { queryOptions } from '@tanstack/react-query';
-import { ApiRequestError, createPlatformApi, data, type PlatformSchemas } from '@yutis/api-client';
+import { ApiRequestError, createPlatformApi, data, type PlatformPaths, type PlatformSchemas } from '@yutis/api-client';
 
 export const api = createPlatformApi();
 
@@ -29,6 +29,11 @@ export type Usage = PlatformSchemas['UsageDto'];
 export type Announcement = PlatformSchemas['AnnouncementDto'];
 export type PlatformUser = PlatformSchemas['PlatformUserDto'];
 export type TemplateVersion = PlatformSchemas['TemplateVersionDto'];
+export type PlatformMe = PlatformSchemas['PlatformMeDto'];
+export type Permission = PlatformMe['permissions'][number];
+export type AuditEntry = PlatformSchemas['PlatformAuditEntryDto'];
+export type AuditPage = PlatformSchemas['PlatformAuditPageDto'];
+export type AuditFilters = NonNullable<PlatformPaths['/platform-api/audit']['get']['parameters']['query']>;
 
 export type TenantStatus = Tenant['status'];
 export type SubscriptionStatus = Subscription['status'];
@@ -39,6 +44,13 @@ export type TemplateKind = TemplateVersion['kind'];
 /** Retry network hiccups and 5xx, never a 4xx: the answer will not change and the error should show at once. */
 export const shouldRetry = (failures: number, error: unknown) =>
   failures < 2 && !(error instanceof ApiRequestError && error.status < 500);
+
+/** Who is signed in, their role, and what the role may do. */
+export const meQuery = queryOptions({
+  queryKey: ['me'],
+  queryFn: () => data(api.GET('/platform-api/me')),
+  staleTime: 5 * 60_000,
+});
 
 export const tenantsQuery = queryOptions({
   queryKey: ['tenants'],
@@ -75,4 +87,9 @@ export const platformUsersQuery = queryOptions({
 export const templatesQuery = queryOptions({
   queryKey: ['templates'],
   queryFn: () => data(api.GET('/platform-api/templates')),
+});
+
+export const auditQuery = (query: AuditFilters) => queryOptions({
+  queryKey: ['audit', query],
+  queryFn: () => data(api.GET('/platform-api/audit', { params: { query } })),
 });

@@ -5,19 +5,55 @@ import { createFileRoute } from '@tanstack/react-router';
 import { data } from '@yutis/api-client';
 import { useState } from 'react';
 import { api, platformUsersQuery, type PlatformRole, type PlatformUser } from '../api';
+import { AuditLog } from '../AuditLog';
 import { ErrorAlert, LoadError, PageLoader, ToneAlert, ToneBadge, useDialog } from '../components';
 import { isForbidden } from '../errors';
 import { platformUserProblems, type PlatformUserForm } from '../forms';
 import { PLATFORM_ROLE_SUMMARY, PLATFORM_ROLES } from '../labels';
+import { useCan } from '../permissions';
 
 export const Route = createFileRoute('/platform-users')({ component: PlatformUsersPage });
 
 function PlatformUsersPage() {
+  const canManage = useCan('platform-users:manage');
+  const canAudit = useCan('audit:read');
+  return (
+    <Stack gap="lg">
+      {canManage ? <PlatformUserList /> : (
+        <>
+          <Title order={2}>平台帳號與稽核</Title>
+          <Card>
+            <Text fw={600} mb={4}>平台帳號</Text>
+            <Text size="sm" c="dimmed">只有工程角色可以查看與管理平台帳號。需要新增或停用帳號時，請聯絡工程同仁。</Text>
+          </Card>
+        </>
+      )}
+
+      <Card>
+        <Text fw={600} mb="sm">角色權限</Text>
+        <Stack gap={8}>
+          {PLATFORM_ROLES.map(r => (
+            <Group key={r} gap="md" wrap="nowrap" align="baseline">
+              <Text size="sm" fw={600} w={40}>{r}</Text>
+              <Text size="sm" c="dimmed">{PLATFORM_ROLE_SUMMARY[r]}</Text>
+            </Group>
+          ))}
+        </Stack>
+        <Text size="xs" c="dimmed" mt="md">任何角色都看不到租戶的員工或健康資料。登入由 Identity-Aware Proxy 控管，這裡決定登入後的角色。</Text>
+      </Card>
+
+      {canAudit && <AuditLog />}
+    </Stack>
+  );
+}
+
+/** The platform's own staff accounts; only roles with platform-users:manage may list them. */
+function PlatformUserList() {
   const { data: users, error, refetch } = useQuery(platformUsersQuery);
   const editor = useDialog<PlatformUser | 'new'>();
 
   return (
-    <Stack gap="lg">
+    <>
       <Group justify="space-between">
         <Title order={2}>平台帳號與稽核</Title>
         {users && <Button leftSection={<IconPlus size={16} />} onClick={() => editor.open('new')}>新增平台人員</Button>}
@@ -47,28 +83,10 @@ function PlatformUsersPage() {
         </Card>
       )}
 
-      <Card>
-        <Text fw={600} mb="sm">角色權限</Text>
-        <Stack gap={8}>
-          {PLATFORM_ROLES.map(r => (
-            <Group key={r} gap="md" wrap="nowrap" align="baseline">
-              <Text size="sm" fw={600} w={40}>{r}</Text>
-              <Text size="sm" c="dimmed">{PLATFORM_ROLE_SUMMARY[r]}</Text>
-            </Group>
-          ))}
-        </Stack>
-        <Text size="xs" c="dimmed" mt="md">任何角色都看不到租戶的員工或健康資料。登入由 Identity-Aware Proxy 控管，這裡決定登入後的角色。</Text>
-      </Card>
-
-      <Card>
-        <Text fw={600} mb={4}>稽核紀錄</Text>
-        <Text size="sm" c="dimmed">平台後台的每一次開通、停用、訂閱變更、公告與帳號異動都會記錄下來。查詢畫面會在平台 API 提供稽核紀錄查詢後加入。</Text>
-      </Card>
-
       <Modal opened={editor.opened} onClose={editor.close} title={editor.target === 'new' ? '新增平台人員' : '編輯平台人員'} centered radius="lg">
         {editor.target && <PlatformUserEditor user={editor.target === 'new' ? null : editor.target} onClose={editor.close} />}
       </Modal>
-    </Stack>
+    </>
   );
 }
 

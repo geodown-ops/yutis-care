@@ -1,13 +1,15 @@
-import { Button, Text } from '@mantine/core';
+import { Button, Group, Text } from '@mantine/core';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useLocation, useRouter } from '@tanstack/react-router';
 import { platformIdToken, signOutPlatform, type PlatformSignInConfig } from '@yutis/sign-in';
 import { ConsoleShell, NavSection, SidebarIcon, sidebarLinkStyles } from '@yutis/ui';
 import { useCallback, useEffect, useMemo } from 'react';
-import { sendIdTokens } from '../api';
+import { meQuery, sendIdTokens, type PlatformMe } from '../api';
 import { accountQuery, googleSignIn, onUnauthorized, signInConfigQuery } from '../auth';
+import { errorMessage } from '../errors';
 import { menuLink, NavLinkRouter } from '../links';
 import { isActivePath, NAV } from '../nav';
+import { MeContext, visibleNav } from '../permissions';
 import { SignInFrame, SignInPage } from '../SignInPage';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({ component: PlatformRoot });
@@ -25,8 +27,7 @@ function PlatformRoot() {
       </SignInFrame>
     );
   }
-  // The platform API has no "who am I" endpoint yet, so behind IAP the header cannot name the person or their role.
-  return google ? <GoogleSignedIn cfg={google} /> : <PlatformLayout user={{ name: '平台人員', role: 'Yutis 內部' }} />;
+  return google ? <GoogleSignedIn cfg={google} /> : <SignedIn />;
 }
 
 function GoogleSignedIn({ cfg }: { cfg: PlatformSignInConfig }) {
@@ -47,20 +48,45 @@ function GoogleSignedIn({ cfg }: { cfg: PlatformSignInConfig }) {
   }, [cfg, signOut]);
   if (account.isPending) return <SignInFrame />;
   if (!account.data) return <SignInPage cfg={cfg} onSignedIn={a => qc.setQueryData(query.queryKey, a)} />;
-  const { name, email } = account.data;
-  return <PlatformLayout user={{ name: name ?? email ?? '平台人員', role: email ?? 'Yutis 內部' }} onSignOut={() => void signOut()} />;
+  return <SignedIn onSignOut={() => void signOut()} />;
 }
 
-function PlatformLayout({ user, onSignOut }: { user: { name: string; role: string }; onSignOut?: () => void }) {
+/**
+ * Who is signed in (GET /platform-api/me), before any page: the header names them as the platform knows them (not by
+ * their Google account), and pages hide what their role cannot do. A Google account that is not platform staff can
+ * sign out and try another.
+ */
+function SignedIn({ onSignOut }: { onSignOut?: () => void }) {
+  const me = useQuery(meQuery);
+  if (me.isPending) return <SignInFrame />;
+  if (me.isError) {
+    return (
+      <SignInFrame>
+        <Text>{errorMessage(me.error)}</Text>
+        <Group gap="sm">
+          <Button variant="default" onClick={() => void me.refetch()}>重試</Button>
+          {onSignOut && <Button variant="default" onClick={onSignOut}>改用其他帳號登入</Button>}
+        </Group>
+      </SignInFrame>
+    );
+  }
+  return (
+    <MeContext.Provider value={me.data}>
+      <PlatformLayout me={me.data} onSignOut={onSignOut} />
+    </MeContext.Provider>
+  );
+}
+
+function PlatformLayout({ me, onSignOut }: { me: PlatformMe; onSignOut?: () => void }) {
   const { pathname } = useLocation();
   const { routesByPath } = useRouter();
   return (
     <ConsoleShell
       title="Yutis Care"
       subtitle="平台管理"
-      user={user}
+      user={{ name: me.name, role: me.role }}
       onSignOut={onSignOut}
-      nav={close => NAV.map(g => (
+      nav={close => visibleNav(NAV, me).map(g => (
         <NavSection key={g.label} label={g.label}>
           {g.items.map(it => {
             const active = isActivePath(it.path, pathname);

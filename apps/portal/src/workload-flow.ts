@@ -5,6 +5,7 @@
  */
 import type { TenantPaths } from '@yutis/api-client';
 import { CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, WORK_PATTERNS } from '@yutis/domain';
+import { isRecord, type DraftFormat } from './drafts';
 
 type JsonBody<P extends keyof TenantPaths> = TenantPaths[P]['put'] extends { requestBody: { content: { 'application/json': infer B } } } ? B : never;
 export type CbiBody = JsonBody<'/api/portal/workload/{id}/cbi'>;
@@ -36,6 +37,20 @@ export function cbiBody(a: CbiAnswers): CbiBody {
   return { p: a.p.map(Number), w: a.w.map(Number) };
 }
 
+const options = (raw: unknown, length: number) => Array.from({ length }, (_, i) => {
+  const v: unknown = Array.isArray(raw) ? raw[i] : null;
+  return typeof v === 'number' && isOption(v) ? v : null;
+});
+
+export const CBI_DRAFT: DraftFormat<CbiAnswers> = {
+  empty: emptyCbi,
+  read: raw => (isRecord(raw) ? { p: options(raw.p, CBI_PERSONAL_ITEMS), w: options(raw.w, CBI_WORK_ITEMS) } : null),
+  openStep: a => {
+    const open = CBI_STEPS.findIndex(s => a[s.part][s.index] == null);
+    return open === -1 ? CBI_STEPS.length - 1 : open;
+  },
+};
+
 /** The API accepts 0–744 hours (every hour of a 31-day month). */
 export const MAX_MONTH_HOURS = 744;
 
@@ -55,6 +70,20 @@ export const emptyOverload = (): OverloadAnswers => ({ overtime1m: null, overtim
 export function overloadComplete(a: OverloadAnswers): boolean {
   return validHours(a.overtime1m) && validHours(a.overtime6mAvg);
 }
+
+/** Steps: overtime last month, the 2–6 month average, then the work patterns. */
+export const OVERLOAD_STEPS = 3;
+
+export const OVERLOAD_DRAFT: DraftFormat<OverloadAnswers> = {
+  empty: emptyOverload,
+  read: raw => {
+    if (!isRecord(raw)) return null;
+    const hours = (v: unknown) => (validHours(v as number) ? (v as number) : null);
+    const patterns = Array.isArray(raw.workPatterns) ? raw.workPatterns : [];
+    return { overtime1m: hours(raw.overtime1m), overtime6mAvg: hours(raw.overtime6mAvg), workPatterns: WORK_PATTERNS.filter(p => patterns.includes(p)) };
+  },
+  openStep: a => (!validHours(a.overtime1m) ? 0 : !validHours(a.overtime6mAvg) ? 1 : OVERLOAD_STEPS - 1),
+};
 
 /** Work patterns go to the API as the domain's Chinese values, in the domain's order. */
 export function overloadBody(a: OverloadAnswers): OverloadBody {

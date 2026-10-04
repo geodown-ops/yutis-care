@@ -11,6 +11,7 @@ import {
 import { DangerButton, ErrorAlert, Footnote, LabelBadge, LoadError, PageLoader, useDialog } from '../components';
 import { formatDateTime } from '../format';
 import { ANNOUNCEMENT_KIND, ANNOUNCEMENT_KINDS } from '../labels';
+import { useCan } from '../permissions';
 
 export const Route = createFileRoute('/announcements')({ component: AnnouncementsPage });
 
@@ -22,23 +23,24 @@ function AnnouncementsPage() {
   const tenants = useQuery(tenantsQuery).data ?? [];
   const editor = useDialog<Announcement | 'new'>();
   const deleter = useDialog<Announcement>();
+  const canWrite = useCan('announcements:write');
   const audience = (tenantId: string | null) => (tenantId ? tenants.find(t => t.id === tenantId)?.name ?? '指定租戶' : '所有租戶');
 
   return (
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>系統公告</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => editor.open('new')}>新增公告</Button>
+        {canWrite && <Button leftSection={<IconPlus size={16} />} onClick={() => editor.open('new')}>新增公告</Button>}
       </Group>
       {error ? <LoadError error={error} onRetry={() => void refetch()} /> : !rows ? <PageLoader /> : (
         <Card>
-          {rows.length === 0 ? <Text c="dimmed" ta="center" py="lg">還沒有公告。維護通知或新功能說明可以在這裡發布到租戶後台。</Text> : (
+          {rows.length === 0 ? <Text c="dimmed" ta="center" py="lg">還沒有公告。{canWrite && '維護通知或新功能說明可以在這裡發布到租戶後台。'}</Text> : (
             <Table.ScrollContainer minWidth={900}>
               <Table verticalSpacing="sm" highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>公告</Table.Th><Table.Th>類型</Table.Th><Table.Th>對象</Table.Th><Table.Th>發布時間</Table.Th>
-                    <Table.Th>下架時間</Table.Th><Table.Th>狀態</Table.Th><Table.Th aria-label="操作" />
+                    <Table.Th>下架時間</Table.Th><Table.Th>狀態</Table.Th>{canWrite && <Table.Th aria-label="操作" />}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -53,12 +55,14 @@ function AnnouncementsPage() {
                       <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(a.publishAt)}</Table.Td>
                       <Table.Td style={{ whiteSpace: 'nowrap' }}>{a.expiresAt ? formatDateTime(a.expiresAt) : <Text span size="sm" c="dimmed">不下架</Text>}</Table.Td>
                       <Table.Td><LabelBadge value={ANNOUNCEMENT_PHASE[announcementPhase(a)]} /></Table.Td>
-                      <Table.Td>
-                        <Group gap={4} wrap="nowrap" justify="flex-end">
-                          <Button variant="subtle" size="compact-sm" onClick={() => editor.open(a)}>編輯</Button>
-                          <Button variant="subtle" size="compact-sm" c="var(--yutis-bad)" onClick={() => deleter.open(a)}>刪除</Button>
-                        </Group>
-                      </Table.Td>
+                      {canWrite && (
+                        <Table.Td>
+                          <Group gap={4} wrap="nowrap" justify="flex-end">
+                            <Button variant="subtle" size="compact-sm" onClick={() => editor.open(a)}>編輯</Button>
+                            <Button variant="subtle" size="compact-sm" c="var(--yutis-bad)" onClick={() => deleter.open(a)}>刪除</Button>
+                          </Group>
+                        </Table.Td>
+                      )}
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
