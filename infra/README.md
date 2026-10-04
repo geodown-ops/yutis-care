@@ -11,7 +11,7 @@
 | 登入 | 租戶 SSO（Identity Platform）+ MFA；平台人員經 Identity-Aware Proxy | 示範登入（不需密碼），只能進入虛構的示範租戶 |
 | 加密 | 每個租戶一把 Cloud KMS 金鑰 | 一把示範用金鑰（Secret Manager） |
 | 資料庫 | Cloud SQL PostgreSQL 16，雙區高可用、每日備份保留 30 天、可回到 7 天內任一時間點、防刪除 | 單區小型機器，備份 7 天 |
-| 部署 | 手動觸發並需核准（GitHub「production」環境） | `main` 合併後自動部署 |
+| 部署 | 手動觸發並需核准（GitHub「production」環境） | 手動觸發（目前示範站在 Railway，由 Railway 自動部署 `main`） |
 | Terraform | `infra/terraform/production` | `infra/terraform/demo` |
 
 每個環境的內容（`infra/terraform/modules/environment`）：
@@ -89,7 +89,7 @@ terraform apply
 
 ## 部署
 
-- **示範站**：合併到 `main` 就自動部署。
+- **示範站**：目前在 Railway，合併到 `main` 後由 Railway 自動部署（見 [RAILWAY.md](RAILWAY.md)）；若改用 GCP 示範專案，Run workflow 時選 `demo`。
 - **正式站**：Actions → Deploy → Run workflow → 選 `production`，核准後執行。
 
 每次部署：建置兩個映像（後端一個、前端一個）→ 執行 `release` 工作（migration 等，失敗就停止，不會換版）→ 依序更新 `api`、`worker`、`platform-api`、`web`。Cloud Run 保留舊版本，出問題可在主控台把流量切回上一版（資料庫 migration 不會自動回復，所以 migration 必須向下相容）。
