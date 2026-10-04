@@ -18,6 +18,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/sign-in-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 平台後台登入頁的設定
+         * @description method=google 時，登入頁以 Firebase Auth SDK（不帶 tenantId）用 Google 帳號登入，之後每個請求帶 Authorization: Bearer <ID token>。
+         */
+        get: operations["SignInConfigController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform-api/me": {
         parameters: {
             query?: never;
@@ -353,6 +373,17 @@ export interface components {
             /** @enum {string} */
             status: "ok";
         };
+        SignInConfigDto: {
+            /**
+             * @description iap：由 Identity-Aware Proxy 把關，不需登入頁；google：以 Firebase Auth SDK 用 Google 帳號登入；dev：本機開發（X-Dev-Platform-User）
+             * @enum {string}
+             */
+            method: "iap" | "google" | "dev";
+            /** @description method=google 時：Identity Platform 專案的瀏覽器 API 金鑰（公開值） */
+            apiKey?: string;
+            /** @description method=google 時：驗證網域，例如 yutis-care-prod.firebaseapp.com */
+            authDomain?: string;
+        };
         PlatformMeDto: {
             /** Format: uuid */
             id: string;
@@ -577,6 +608,25 @@ export interface operations {
             };
         };
     };
+    SignInConfigController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInConfigDto"];
+                };
+            };
+        };
+    };
     MeController_me: {
         parameters: {
             query?: never;
@@ -594,7 +644,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformMeDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -631,7 +681,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -692,7 +742,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -740,7 +790,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -793,7 +843,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -840,7 +890,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -899,7 +949,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -954,7 +1004,7 @@ export interface operations {
                     "application/json": components["schemas"]["TenantDetailDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1008,7 +1058,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlanDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1056,7 +1106,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlanDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1105,7 +1155,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlanDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1145,7 +1195,7 @@ export interface operations {
                     "application/json": components["schemas"]["UsageDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1182,7 +1232,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnnouncementDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1236,7 +1286,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnnouncementDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1273,7 +1323,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1325,7 +1375,7 @@ export interface operations {
                     "application/json": components["schemas"]["AnnouncementDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1362,7 +1412,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformUserDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1409,7 +1459,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformUserDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1457,7 +1507,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformUserDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1494,7 +1544,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateVersionDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1531,7 +1581,7 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateVersionDto"][];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1580,7 +1630,7 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformAuditPageDto"];
                 };
             };
-            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
             401: {
                 headers: {
                     [name: string]: unknown;
