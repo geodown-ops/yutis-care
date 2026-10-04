@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { employeeSignPath, signProblem, signView, type SignDocument } from './sign';
 
 const doc = (d: Partial<SignDocument>): SignDocument =>
-  ({ id: 's1', kind: 'signature', document: 'service_records', title: '', content: null, confirmedAt: null, comment: null, ...d });
+  ({ id: 's1', kind: 'signature', document: 'service_records', title: '', lang: 'zh', content: null, confirmedAt: null, comment: null, ...d });
 const signer = { role: '勞工健康服務醫師', name: '張醫師' };
 
 describe('sign link', () => {

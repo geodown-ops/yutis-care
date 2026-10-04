@@ -4,14 +4,14 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tansta
 import { StatCard } from '@yutis/ui';
 import { useState } from 'react';
 import { todayIso } from '../../cases';
-import { useMe, useTenant } from '../../session';
+import { useMe } from '../../session';
 import { CardNote } from '../states';
 import { deleteRecord, orgQuery, serviceRecordsQuery } from './queries';
 import { StatusBadge } from './parts';
 import { RecordFormModal, type FormMode } from './RecordFormModal';
 import { RecordViewModal, SignLinksModal } from './RecordViewModal';
 import {
-  companyOfSite, copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formFromRecord, linksAreEmailed, myCompanies, newForm, readContent,
+  companyOfSite, copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formFromRecord, myCompanies, newForm, readContent,
   serviceProblem, slashDate, signProgress, STATUSES, timeRange, usedValues, type RecordFilter, type ServiceForm, type ServiceRecord, type ServiceStatus, type SignLink,
 } from './records';
 
@@ -21,7 +21,6 @@ type Filter = Omit<RecordFilter, 'companySites'> & { company?: string };
 /** 勞工健康服務執行紀錄表（附表八）: on-site service records of my sites and their sign-off. */
 export function ServiceRecordsPage() {
   const me = useMe();
-  const emailed = linksAreEmailed(useTenant());
   const { data: records } = useSuspenseQuery(serviceRecordsQuery);
   // Names for the company and department filters; the list works without them.
   const org = useQuery(orgQuery);
@@ -149,10 +148,10 @@ export function ServiceRecordsPage() {
       )}
       {viewing && (
         <RecordViewModal record={viewing} onClose={() => setViewingId(null)} onCopy={() => copy(viewing)}
-          onResent={l => setLinks({ title: '已重寄簽核連結', links: l })} />
+          onResent={l => setLinks({ title: l.every(x => x.emailed) ? '已重寄簽核連結' : '已產生新的簽核連結', links: l })} />
       )}
       {deleting && <DeleteDraftModal record={deleting} onClose={() => setDeleting(null)} />}
-      {links && <SignLinksModal title={links.title} links={links.links} emailed={emailed} onClose={() => setLinks(null)} />}
+      {links && <SignLinksModal title={links.title} links={links.links} onClose={() => setLinks(null)} />}
     </Stack>
   );
 }

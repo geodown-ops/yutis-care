@@ -1,4 +1,4 @@
-/* 附表八 reads and writes (GET/POST/PUT/DELETE /api/service-records, submit, resend), sign-off roles, org names and phrases. */
+/* 附表八 reads and writes (GET/POST/PUT/DELETE /api/service-records, submit, resend), sign-off roles, staff, org names and phrases. */
 import { data } from '@yutis/api-client';
 import { queryOptions } from '@tanstack/react-query';
 import { api } from '../../api';
@@ -12,6 +12,9 @@ export const signOffRolesQuery = queryOptions({
   queryFn: () => data(api.GET('/api/service-records/sign-off-roles')),
   staleTime: 10 * 60_000,
 });
+
+/** Every active back-office account with its work email (GET /api/staff), to fill in sign-off signers. */
+export const signerStaffQuery = queryOptions({ queryKey: ['staff', 'all'], queryFn: () => data(api.GET('/api/staff')), staleTime: 5 * 60_000 });
 
 /** Company → site → department names (GET /api/org), for the filters and 事業單位／部門名稱. */
 export const orgQuery = queryOptions({ queryKey: ['org', 'directory'], queryFn: () => data(api.GET('/api/org')), staleTime: 10 * 60_000 });
@@ -31,7 +34,7 @@ export const updateRecord = (id: string, body: ServiceRecordBody) => data(api.PU
 /** Drafts only; a record sent for sign-off stays. */
 export const deleteRecord = (id: string) => data(api.DELETE('/api/service-records/{id}', { params: { path: { id } } }));
 
-/** Sends the draft for sign-off; the API emails each signer, and the one-time links come back only in this response. */
+/** Sends the draft for sign-off; the API emails each signer (`emailed` says whether it did), and the one-time links come back only in this response. */
 export const submitRecord = (id: string) => data(api.POST('/api/service-records/{id}/submit', { params: { path: { id } } }));
 
 export const resendSignature = (id: string, signatureId: string) =>

@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { resendSignature, serviceRecordsQuery } from './queries';
 import { RecordSections, SectionTitle, StatusBadge } from './parts';
-import { serviceProblem, signProgress, type ServiceRecord, type Signature, type SignLink } from './records';
+import { serviceProblem, signersText, signProgress, splitByEmailed, type ServiceRecord, type Signature, type SignLink } from './records';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** 2026/10/04 14:08, local time: short enough for the sign-off table. */
@@ -86,35 +86,34 @@ function Signatures({ record, onResent }: { record: ServiceRecord; onResent: (li
 }
 
 /**
- * After submit or resend. Where the API emails the links (production) this confirms that, and the one-time links stay
- * behind a toggle for a signer whose mail did not arrive. Where mail is only logged (local development, the demo
- * site) the links are the only way to reach the signers, so they are shown to copy or open.
+ * After submit or resend. Links the API emailed are confirmed as sent, and stay behind a toggle for a signer whose mail
+ * did not arrive. Links it did not email (`emailed` false: mail is only logged, as in local development and on the demo
+ * site) are the only way to reach those signers, so they are shown to copy or open.
  */
-export function SignLinksModal({ title, links, emailed, onClose }: { title: string; links: SignLink[]; emailed: boolean; onClose: () => void }) {
-  const [showLinks, setShowLinks] = useState(!emailed);
-  const who = links.length === 1 ? links[0]!.name : `${links.length} 位簽核人員`;
+export function SignLinksModal({ title, links, onClose }: { title: string; links: SignLink[]; onClose: () => void }) {
+  const { sent, unsent } = splitByEmailed(links);
+  const [showSent, setShowSent] = useState(false);
   return (
     <Modal opened onClose={onClose} title={title} size="lg">
       <Stack gap="md">
-        {emailed ? (
+        {sent.length > 0 && (
+          <div>
+            <Text size="sm">已寄簽核信給 {signersText(sent)}，對方點信中的連結即可簽核。</Text>
+            <Button variant="subtle" size="compact-sm" mt={4} onClick={() => setShowSent(v => !v)}>{showSent ? '收起連結' : '對方沒收到信？顯示簽核連結'}</Button>
+            <Collapse expanded={showSent}>
+              <Stack gap="sm" mt="sm">
+                <Text size="xs" c="dimmed">連結只會顯示這一次。拿到連結的人都能以該簽核人員的身分簽核，請只轉交給本人。</Text>
+                <LinkList links={sent} />
+              </Stack>
+            </Collapse>
+          </div>
+        )}
+        {unsent.length > 0 && (
           <>
-            <Text size="sm">已寄出簽核通知給 {who}，對方點信中的連結即可簽核。</Text>
-            <div>
-              <Button variant="subtle" size="compact-sm" onClick={() => setShowLinks(s => !s)}>{showLinks ? '收起連結' : '對方沒收到信？顯示簽核連結'}</Button>
-              <Collapse expanded={showLinks}>
-                <Stack gap="sm" mt="sm">
-                  <Text size="xs" c="dimmed">連結只會顯示這一次。拿到連結的人都能以該簽核人員的身分簽核，請只轉交給本人。</Text>
-                  <LinkList links={links} />
-                </Stack>
-              </Collapse>
-            </div>
-          </>
-        ) : (
-          <>
-            <Alert color="yellow" variant="light" title="這個環境不會實際寄出 Email">
-              本機開發與示範站只會記錄通知，不會寄出。請複製下面的連結轉交 {who}，或直接開啟試簽。連結只會顯示這一次。
+            <Alert color="yellow" variant="light" title={`尚未寄信給 ${signersText(unsent)}`}>
+              系統沒有寄出簽核信，請複製下面的連結交給對方，或直接開啟試簽。連結只會顯示這一次，拿到連結的人都能以該簽核人員的身分簽核。
             </Alert>
-            <LinkList links={links} canOpen />
+            <LinkList links={unsent} canOpen />
           </>
         )}
         <Group justify="flex-end"><Button onClick={onClose}>完成</Button></Group>

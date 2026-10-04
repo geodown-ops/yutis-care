@@ -4,13 +4,15 @@ import { IconPlus, IconQuote, IconX } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { canAccess } from '../../nav';
-import { useMe, useTenant } from '../../session';
+import { useMe } from '../../session';
 import { staffQuery } from '../nurse/queries';
 import { SERVICE_ROLES, staffOptions } from '../nurse/staff';
-import { createRecord, orgQuery, PHRASE_CATEGORIES, serviceRecordsQuery, servicePhrasesQuery, signOffRolesQuery, submitRecord, updateRecord } from './queries';
+import { staffSelectProps } from '../nurse/StaffPicker';
+import { createRecord, orgQuery, PHRASE_CATEGORIES, serviceRecordsQuery, servicePhrasesQuery, signerStaffQuery, signOffRolesQuery, submitRecord, updateRecord } from './queries';
 import { SectionTitle } from './parts';
+import { SignerNameInput } from './SignerName';
 import {
-  departmentNames, formErrors, linksAreEmailed, roleOptions, SECTIONS, serviceProblem, toBody, unitForSite,
+  departmentNames, formErrors, roleOptions, SECTIONS, serviceProblem, toBody, unitForSite,
   type Headcount, type ServiceForm, type ServiceRecord, type SignLink,
 } from './records';
 
@@ -30,7 +32,6 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
   onSubmitted: (links: SignLink[]) => void;
 }) {
   const me = useMe();
-  const emailed = linksAreEmailed(useTenant());
   const qc = useQueryClient();
   const phone = useMediaQuery('(max-width: 48em)');
   const [f, setF] = useState<ServiceForm>(initial);
@@ -40,6 +41,7 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
   const [savedId, setSavedId] = useState(recordId);
   const roles = useQuery(signOffRolesQuery);
   const staff = useQuery(staffQuery(SERVICE_ROLES));
+  const signerStaff = useQuery(signerStaffQuery);
   const org = useQuery(orgQuery);
   const errors = formErrors(f, roles.data);
   const valid = Object.keys(errors).length === 0;
@@ -91,7 +93,7 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
               onChange={v => setF(prev => ({ ...prev, siteId: v ?? '', unit: v && org.data ? unitForSite(org.data, prev, v) : prev.unit }))} allowDeselect={false} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Select label="執行人員" required data={executors} value={f.executorUserId || null} allowDeselect={false} searchable
+            <Select label="執行人員" required data={executors} value={f.executorUserId || null} allowDeselect={false} searchable {...staffSelectProps}
               error={shown.executorUserId ?? (staff.isError ? '暫時無法載入人員名單' : undefined)} disabled={staff.isPending}
               onChange={v => v && set('executorUserId', v)} />
           </Grid.Col>
@@ -151,8 +153,7 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
         <div>
           <SectionTitle>六、簽核人員</SectionTitle>
           <Text size="xs" c="dimmed" mt={4} mb="sm">
-            {emailed ? '送出後，系統會寄一次性的簽核連結到每位簽核人員的 Email。' : '送出後會為每位簽核人員產生一次性的簽核連結（這個環境不會實際寄出 Email）。'}
-            人員類別依租戶設定的簽核角色。
+            送出後，系統會為每位簽核人員產生一次性的簽核連結，寄到對方的 Email。姓名可輸入或從後台人員中選，選人員會一併帶入 Email。人員類別依租戶設定的簽核角色。
           </Text>
           {roles.isError && <Text size="xs" c="var(--yutis-bad)" mb="sm">暫時無法載入簽核角色，請稍後再試。</Text>}
           <Stack gap={8}>
@@ -163,7 +164,8 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
                   <SimpleGrid cols={{ base: 1, sm: 3 }} spacing={8} style={{ flex: 1 }}>
                     <Select aria-label={`第 ${i + 1} 位簽核人員類別`} placeholder="選擇人員類別" data={signerRoles} value={s.role || null} allowDeselect={false}
                       disabled={roles.isPending} onChange={v => patch({ role: v ?? '' })} />
-                    <TextInput aria-label={`第 ${i + 1} 位簽核人員姓名`} placeholder="姓名" maxLength={100} value={s.name} onChange={e => patch({ name: e.currentTarget.value })} />
+                    <SignerNameInput label={`第 ${i + 1} 位簽核人員姓名`} value={s.name} staff={signerStaff.data}
+                      onChange={name => patch({ name })} onPick={p => patch({ name: p.name, email: p.email })} />
                     <TextInput aria-label={`第 ${i + 1} 位簽核人員 Email`} placeholder="Email" type="email" value={s.email} onChange={e => patch({ email: e.currentTarget.value })} />
                   </SimpleGrid>
                   <ActionIcon variant="subtle" color="gray" size={36} aria-label={`移除第 ${i + 1} 位簽核人員`} onClick={() => set('signers', f.signers.filter((_, j) => j !== i))}><IconX size={16} /></ActionIcon>
@@ -183,7 +185,7 @@ export function RecordFormModal({ mode, recordId, initial, executorName, categor
           {tried && !valid && <Text size="sm" c="var(--yutis-bad)" mb="sm" role="alert">請先修正標示的欄位。</Text>}
           {confirming ? (
             <Group justify="space-between" gap="sm">
-              <Text size="sm" fw={500}>送出後就不能再修改，系統會{emailed ? '寄簽核連結給' : '產生簽核連結給'} {signerCount} 位簽核人員。確定送出？</Text>
+              <Text size="sm" fw={500}>送出後就不能再修改，系統會寄簽核連結給 {signerCount} 位簽核人員。確定送出？</Text>
               <Group gap="sm">
                 <Button variant="default" onClick={() => setConfirming(false)} disabled={save.isPending}>返回修改</Button>
                 <Button onClick={() => run(true)} loading={save.isPending}>確定送出</Button>
