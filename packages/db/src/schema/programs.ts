@@ -195,10 +195,16 @@ export const violenceChecklists = pgTable('violence_checklists', {
 export const violenceIncidents = pgTable('violence_incidents', {
   ...base(),
   occurredOn: date('occurred_on').notNull(),
+  /** HH:MM, Taiwan time. */
+  occurredTime: text('occurred_time'),
   siteId: uuid('site_id').notNull(),
   departmentId: uuid('department_id'),
+  place: text('place'),
   type: text('type').notNull(),
   victimEmployeeId: uuid('victim_employee_id'),
+  victimKind: text('victim_kind', { enum: ['內部人員', '外部人員'] }),
+  perpetratorKind: text('perpetrator_kind', { enum: ['內部人員', '外部人員'] }),
+  /** Names, relationship, what happened and how it was handled. */
   detailEnc: bytea('detail_enc'),
   followUps: text('follow_ups').array().notNull().default([]),
   status: text('status', { enum: ['處理中', '結案'] }).notNull().default('處理中'),

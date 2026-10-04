@@ -8,10 +8,10 @@ import { BadRequestException, Body, ConflictException, Controller, Delete, Get, 
 import { ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import {
   departments, employeeAcknowledgements, employees, maternalCases, maternalEnvAssessments, maternalInterviews, signatures, sites, violenceChecklists, violenceIncidents,
-  violenceReviews, violenceRiskAssessments,
+  users, violenceReviews, violenceRiskAssessments,
 } from '@yutis/db';
 import { MAT_LEVELS, pregnancyWeeks, suggestMaternalLevel, VIO_LIKELIHOOD, VIO_SEVERITY, violenceRisk } from '@yutis/domain';
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { ENVIRONMENT_ROLES } from '../auth/permissions.js';
@@ -58,9 +58,12 @@ const Checklist = z.object({
   kind: z.enum(['作業場所', '人力']), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), checkedOn: z.iso.date(),
   items: z.array(z.object({ item: z.string().trim().min(1).max(300), ok: z.boolean(), note: z.string().max(500).default('') }).strict()).min(1).max(200),
 }).strict();
+const PERSON_KINDS = violenceIncidents.perpetratorKind.enumValues;
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const Incident = z.object({
-  occurredOn: z.iso.date(), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), type: z.string().trim().min(1).max(50),
-  victimEmployeeId: z.uuid().nullable().default(null),
+  occurredOn: z.iso.date(), occurredTime: time.nullable().default(null), siteId: z.uuid(), departmentId: z.uuid().nullable().default(null),
+  place: z.string().trim().max(100).nullable().default(null), type: z.string().trim().min(1).max(50),
+  victimEmployeeId: z.uuid().nullable().default(null), victimKind: z.enum(PERSON_KINDS).nullable().default(null), perpetratorKind: z.enum(PERSON_KINDS).nullable().default(null),
   detail: z.string().max(10000).nullable().default(null), followUps: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
 }).strict();
 const INCIDENT_STATUSES = violenceIncidents.status.enumValues;
@@ -73,7 +76,8 @@ const Review = z.object({
   signers: z.array(Signer).max(10).default([]),
 }).strict();
 const UpdateIncident = z.object({
-  occurredOn: z.iso.date(), siteId: z.uuid(), departmentId: z.uuid().nullable(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable(),
+  occurredOn: z.iso.date(), occurredTime: time.nullable(), siteId: z.uuid(), departmentId: z.uuid().nullable(), place: z.string().trim().max(100).nullable(),
+  type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable(), victimKind: z.enum(PERSON_KINDS).nullable(), perpetratorKind: z.enum(PERSON_KINDS).nullable(),
   detail: z.string().max(10000).nullable(), followUps: z.array(z.string().trim().min(1).max(200)).max(20), status: z.enum(INCIDENT_STATUSES),
 }).partial().strict();
 
@@ -130,14 +134,20 @@ class ChecklistDto {
 class IncidentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ type: String, format: 'date' }) occurredOn!: string;
+  @ApiProperty({ type: String, nullable: true, example: '14:35', description: '發生時間（HH:MM）' }) occurredTime!: string | null;
   @ApiProperty({ format: 'uuid' }) siteId!: string;
   @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
   @ApiProperty({ type: String, nullable: true }) departmentName!: string | null;
+  @ApiProperty({ type: String, nullable: true, example: '客服中心 1F 服務櫃台', description: '發生地點' }) place!: string | null;
   @ApiProperty({ example: '語言暴力' }) type!: string;
   @ApiProperty({ type: String, format: 'uuid', nullable: true, description: '受害者是本公司員工時' }) victimEmployeeId!: string | null;
+  @ApiProperty({ type: String, enum: PERSON_KINDS, nullable: true, description: '受害者人員類別' }) victimKind!: (typeof PERSON_KINDS)[number] | null;
+  @ApiProperty({ type: String, enum: PERSON_KINDS, nullable: true, description: '加害者人員類別' }) perpetratorKind!: (typeof PERSON_KINDS)[number] | null;
   @ApiProperty({ type: [String], description: '後續協助' }) followUps!: string[];
   @ApiProperty({ enum: INCIDENT_STATUSES }) status!: (typeof INCIDENT_STATUSES)[number];
-  @ApiProperty({ type: String, nullable: true, description: '事件經過與處理（加密儲存）' }) detail!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: '雙方姓名或特徵、關係、事件經過與處理（加密儲存）' }) detail!: string | null;
+  @ApiProperty({ type: String, format: 'date-time', description: '受理時間（通報建立時）' }) receivedAt!: Date;
+  @ApiProperty({ type: String, nullable: true, description: '受理人（建立通報的人員）' }) receiverName!: string | null;
 }
 class ViolenceReviewItemDto {
   @ApiProperty({ example: '辨識及評估危害' }) item!: string;
@@ -317,11 +327,9 @@ export class MaternalViolenceController {
   async incidents(@Ctx() ctx: RequestContext): Promise<IncidentDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select({ r: violenceIncidents, departmentName: departments.name }).from(violenceIncidents)
-      .leftJoin(departments, eq(departments.id, violenceIncidents.departmentId))
-      .where(inArray(violenceIncidents.siteId, sites)).orderBy(desc(violenceIncidents.occurredOn));
-    if (rows.length) await recordAudit(ctx, rows.map(({ r }): AuditEntry => ({ action: 'read', subjectTable: 'violence_incidents', subjectId: r.id, employeeId: r.victimEmployeeId ?? undefined, dataCategory: 'medical' })));
-    return Promise.all(rows.map(({ r, departmentName }) => this.toIncident(ctx, r, departmentName)));
+    const rows = await this.loadIncidents(ctx, inArray(violenceIncidents.siteId, sites));
+    if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'violence_incidents', subjectId: r.id, employeeId: r.victimEmployeeId ?? undefined, dataCategory: 'medical' })));
+    return rows;
   }
 
   @Patch('violence/incidents/:id') @Clinical()
@@ -333,7 +341,7 @@ export class MaternalViolenceController {
     if (!current) throw new NotFoundException({ code: 'not_found', message: 'No such incident' });
     await assertSitesInScope(ctx, current.siteId);
     if (input.siteId) await assertSitesInScope(ctx, input.siteId);
-    const departmentName = await departmentInSite(ctx, input.siteId ?? current.siteId, input.departmentId !== undefined ? input.departmentId : current.departmentId);
+    await departmentInSite(ctx, input.siteId ?? current.siteId, input.departmentId !== undefined ? input.departmentId : current.departmentId);
     if (input.victimEmployeeId) await employeeInScope(ctx, input.victimEmployeeId);
     const [row] = await ctx.tx.update(violenceIncidents).set({
       ...input, ...(detail !== undefined ? { detailEnc: await encryptOptional(this.crypto, ctx.tenant.id, detail) } : {}),
@@ -344,7 +352,7 @@ export class MaternalViolenceController {
       action: 'update', subjectTable: 'violence_incidents', subjectId: id, employeeId: row!.victimEmployeeId ?? undefined, dataCategory: 'medical',
       reason: changed.length ? `changed ${changed.join(', ')}` : undefined,
     });
-    return this.toIncident(ctx, row!, departmentName);
+    return (await this.loadIncidents(ctx, eq(violenceIncidents.id, id)))[0]!;
   }
 
   @Get('violence/reviews') @Environment() @ApiOperation({ summary: '負責廠區的預防措施查核及評估' }) @ApiOkResponse({ type: [ViolenceReviewDto] })
@@ -445,11 +453,16 @@ export class MaternalViolenceController {
     }));
   }
 
-  private async toIncident(ctx: RequestContext, r: typeof violenceIncidents.$inferSelect, departmentName: string | null): Promise<IncidentDto> {
-    return {
-      id: r.id, occurredOn: r.occurredOn, siteId: r.siteId, departmentId: r.departmentId, departmentName, type: r.type, victimEmployeeId: r.victimEmployeeId, followUps: r.followUps, status: r.status,
-      detail: await decryptOptional(this.crypto, ctx.tenant.id, r.detailEnc),
-    };
+  /** Newest first, with the department name and who received the report. */
+  private async loadIncidents(ctx: RequestContext, where: SQL): Promise<IncidentDto[]> {
+    const rows = await ctx.tx.select({ r: violenceIncidents, departmentName: departments.name, receiverName: users.name }).from(violenceIncidents)
+      .leftJoin(departments, eq(departments.id, violenceIncidents.departmentId)).leftJoin(users, eq(users.id, violenceIncidents.createdBy))
+      .where(where).orderBy(desc(violenceIncidents.occurredOn), sql`${violenceIncidents.occurredTime} desc nulls last`);
+    return Promise.all(rows.map(async ({ r, departmentName, receiverName }) => ({
+      id: r.id, occurredOn: r.occurredOn, occurredTime: r.occurredTime, siteId: r.siteId, departmentId: r.departmentId, departmentName, place: r.place, type: r.type,
+      victimEmployeeId: r.victimEmployeeId, victimKind: r.victimKind, perpetratorKind: r.perpetratorKind, followUps: r.followUps, status: r.status,
+      detail: await decryptOptional(this.crypto, ctx.tenant.id, r.detailEnc), receivedAt: r.createdAt, receiverName,
+    })));
   }
 
   private async toCases(

@@ -334,7 +334,7 @@ describe('phrases and audit search', () => {
     expect(page.items.map((i: { action: string }) => i.action)).toEqual(['update', 'update', 'create']);
     expect(page.items[2]).toMatchObject({
       actor: { kind: 'staff', id: ids.admin, name: '陳管理員', role: '租戶管理員' }, action: 'create', subjectTable: 'employees', subjectId: e!.id,
-      employee: { id: e!.id, empNo: 'E101', name: '員工E101' }, dataCategory: 'identity', reason: 'employee import',
+      employee: { id: e!.id, empNo: 'E101', name: '員工E101', status: '在職' }, dataCategory: 'identity', reason: 'employee import',
     });
     expect(Date.parse(page.items[0].at)).toBeGreaterThanOrEqual(Date.parse(page.items[2].at));
 

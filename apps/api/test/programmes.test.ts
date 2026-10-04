@@ -583,7 +583,12 @@ describe('managers, violence, age and scope', () => {
       .toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
     expect((await call('acme', 'GET', '/api/programs/violence/risk-assessments', { cookie: await as('safety@acme.test') })).json().map((r: { departmentName: string | null }) => r.departmentName))
       .toEqual(['製造一課', null]);
-    const incidentBody = { occurredOn: '2026-09-10', siteId: ids.s1, type: '言語暴力', victimEmployeeId: await empId('B001'), detail: '課長當眾辱罵' };
+    const incidentBody = {
+      occurredOn: '2026-09-10', occurredTime: '14:35', siteId: ids.s1, place: '組裝線休息區', type: '言語暴力',
+      victimEmployeeId: await empId('B001'), victimKind: '內部人員', perpetratorKind: '內部人員', detail: '課長當眾辱罵',
+    };
+    expect((await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: { ...incidentBody, occurredTime: '25:00' } })).statusCode).toBe(400);
+    expect((await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: { ...incidentBody, perpetratorKind: '客戶' } })).statusCode).toBe(400);
     expect((await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: { ...incidentBody, departmentId: ids.d2 } })).json())
       .toMatchObject({ code: 'unknown_department' });
     const incident = (await call('acme', 'POST', '/api/programs/violence/incidents', { cookie: await nurse(), body: incidentBody })).json();
@@ -596,9 +601,12 @@ describe('managers, violence, age and scope', () => {
   it('updates incidents and lists typed checklists', async () => {
     const [incident] = (await call('acme', 'GET', '/api/programs/violence/incidents', { cookie: await nurse() })).json();
     expect(incident).toEqual({
-      id: expect.any(String), occurredOn: '2026-09-10', siteId: ids.s1, departmentId: null, departmentName: null, type: '言語暴力', victimEmployeeId: await empId('B001'),
-      followUps: [], status: '處理中', detail: '課長當眾辱罵',
+      id: expect.any(String), occurredOn: '2026-09-10', occurredTime: '14:35', siteId: ids.s1, departmentId: null, departmentName: null, place: '組裝線休息區', type: '言語暴力',
+      victimEmployeeId: await empId('B001'), victimKind: '內部人員', perpetratorKind: '內部人員', followUps: [], status: '處理中', detail: '課長當眾辱罵',
+      receivedAt: expect.any(String), receiverName: '王護理師',
     });
+    expect((await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { perpetratorKind: '外部人員', occurredTime: null } })).json())
+      .toMatchObject({ perpetratorKind: '外部人員', occurredTime: null, place: '組裝線休息區', receiverName: '王護理師' });
     const placed = await call('acme', 'PATCH', `/api/programs/violence/incidents/${incident.id}`, { cookie: await nurse(), body: { departmentId: ids.d1 } });
     expect(placed.json()).toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
     expect((await call('acme', 'GET', '/api/programs/violence/incidents', { cookie: await nurse() })).json()[0]).toMatchObject({ departmentId: ids.d1, departmentName: '製造一課' });
