@@ -1,12 +1,19 @@
 /*
- * Pure helpers for 執行職務遭受不法侵害預防 over /api/programs/violence/*. Checklists and incidents come back as
- * untyped objects, so they are read defensively here. Question and factor lists follow the prototype.
+ * Pure helpers for 執行職務遭受不法侵害預防 over /api/programs/violence/*. Risk items are stored loosely and read
+ * defensively; checklists, incidents and reviews are typed. Question, factor and review lists follow the prototype.
  */
-import type { Schemas } from '@yutis/api-client';
+import type { Schemas, TenantPaths } from '@yutis/api-client';
 import { violenceRisk, VIO_LIKELIHOOD, VIO_SEVERITY, type VioLikelihood, type VioRisk, type VioSeverity } from '@yutis/domain';
 
 export type RiskAssessment = Schemas['RiskAssessmentDto'];
-export type ChecklistKind = '作業場所' | '人力';
+export type Checklist = Schemas['ChecklistDto'];
+export type ChecklistItem = Schemas['ChecklistItemDto'];
+export type ChecklistKind = Checklist['kind'];
+export type Incident = Schemas['IncidentDto'];
+export type Review = Schemas['ViolenceReviewDto'];
+export type Signature = Schemas['SignatureDto'];
+export type SignLink = Schemas['SignLinkDto'];
+export type ReviewBody = TenantPaths['/api/programs/violence/reviews']['post']['requestBody']['content']['application/json'];
 
 export const VIO_RISKS: readonly VioRisk[] = ['高度風險', '中度風險', '低度風險'];
 export const RISK_TONE: Record<VioRisk, 'bad' | 'warn' | 'ok'> = { 高度風險: 'bad', 中度風險: 'warn', 低度風險: 'ok' };
@@ -77,31 +84,77 @@ export function riskBody(rows: readonly RiskDraftRow[]):
   return { items: picked.map(r => ({ question: r.question.trim(), likelihood: r.likelihood!, severity: r.severity!, controls: r.controls.trim() })) };
 }
 
-export interface ChecklistItem { item: string; ok: boolean; note: string }
-export interface Checklist { id: string; kind: ChecklistKind; siteId: string; checkedOn: string; items: ChecklistItem[] }
-
-export function parseChecklists(rows: readonly unknown[]): Checklist[] {
-  return rows.map(rec).filter(r => r.kind === '作業場所' || r.kind === '人力').map(r => ({
-    id: str(r.id), kind: r.kind as ChecklistKind, siteId: str(r.siteId), checkedOn: str(r.checkedOn),
-    items: (Array.isArray(r.items) ? r.items : []).map(rec).map(i => ({ item: str(i.item), ok: i.ok === true, note: str(i.note) })),
-  }));
-}
-
 /** Checked items as the API wants them; unanswered factors are left out. */
 export function checklistBody(answers: Record<string, { ok: boolean | null; note: string }>): ChecklistItem[] {
   return Object.entries(answers).filter(([, a]) => a.ok !== null).map(([item, a]) => ({ item, ok: a.ok!, note: a.note.trim() }));
 }
 
-export interface Incident {
-  id: string; occurredOn: string; siteId: string; type: string; victimEmployeeId: string | null;
-  followUps: string[]; status: string; detail: string | null;
+/* ---------- 措施查核及評估 (reviews): a draft, then sign-off by email ---------- */
+
+/** The seven review items and the points to check under each, as in the prototype. */
+export const VIO_REVIEW = [
+  { item: '辨識及評估危害', points: ['組織', '個人因素', '工作環境', '工作流程'] },
+  { item: '適當配置作業場所', points: ['物理環境', '工作場所設計'] },
+  { item: '依工作適性適當調整人力', points: ['適性配工', '工作設計'] },
+  { item: '建構行為規範', points: ['組織政策規範', '個人行為規範'] },
+  { item: '辦理危害預防及溝通技巧訓練', points: ['教育訓練', '溝通技巧'] },
+  { item: '建立事件處理程序', points: ['通報流程', '申訴管道'] },
+  { item: '執行成效之評估及改善', points: ['成效評估', '持續改善'] },
+] as const;
+
+export const MAX_SIGNERS = 10;
+export interface ReviewItemDraft { item: string; points: string[]; result: string; fix: string }
+export interface SignerDraft { role: string | null; name: string; email: string }
+export interface ReviewDraft { reviewedOn: string; siteId: string | null; departmentId: string | null; items: ReviewItemDraft[]; signers: SignerDraft[] }
+
+export const emptySigner = (): SignerDraft => ({ role: null, name: '', email: '' });
+
+/** The form: the seven items in order (with whatever was saved for each), then any other saved item, and the signers. */
+export function reviewDraft(r: Review | null, defaults: { today: string; siteId: string | null }): ReviewDraft {
+  const saved = new Map((r?.items ?? []).map(i => [i.item, i]));
+  const items = [
+    ...VIO_REVIEW.map(v => saved.get(v.item) ?? { item: v.item, points: [], result: '', fix: '' }),
+    ...(r?.items ?? []).filter(i => !VIO_REVIEW.some(v => v.item === i.item)),
+  ].map(i => ({ item: i.item, points: [...i.points], result: i.result, fix: i.fix }));
+  return {
+    reviewedOn: r?.reviewedOn ?? defaults.today, siteId: r?.siteId ?? defaults.siteId, departmentId: r?.departmentId ?? null, items,
+    signers: r ? r.signatures.map(s => ({ role: s.role, name: s.name, email: s.email })) : [],
+  };
 }
 
-export function parseIncidents(rows: readonly unknown[]): Incident[] {
-  return rows.map(rec).map(r => ({
-    id: str(r.id), occurredOn: str(r.occurredOn), siteId: str(r.siteId), type: str(r.type),
-    victimEmployeeId: typeof r.victimEmployeeId === 'string' ? r.victimEmployeeId : null,
-    followUps: Array.isArray(r.followUps) ? r.followUps.filter((f): f is string => typeof f === 'string') : [],
-    status: str(r.status) || '處理中', detail: typeof r.detail === 'string' ? r.detail : null,
-  }));
+/** Items with a point checked or a result written (已檢核項目). */
+export const checkedItems = (items: readonly Pick<ReviewItemDraft, 'points' | 'result'>[]) => items.filter(i => i.points.length > 0 || i.result.trim() !== '').length;
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const blankSigner = (s: SignerDraft) => !s.role && !s.name.trim() && !s.email.trim();
+
+/** What stops the review from being saved, in plain words; `roles` are the tenant's sign-off roles. */
+export function reviewProblem(d: ReviewDraft, roles: readonly string[]): string | null {
+  if (!d.reviewedOn) return '請填寫檢核日期。';
+  if (!d.siteId) return '請選擇廠區。';
+  const signers = d.signers.filter(s => !blankSigner(s));
+  if (signers.length > MAX_SIGNERS) return `簽核人員最多 ${MAX_SIGNERS} 位。`;
+  if (signers.some(s => !s.role || !s.name.trim() || !s.email.trim())) return '每位簽核人員都要填類別、姓名與 Email。';
+  if (signers.some(s => !roles.includes(s.role!))) return '簽核人員的類別請從清單選擇。';
+  const bad = signers.find(s => !EMAIL.test(s.email.trim()));
+  if (bad) return `${bad.name.trim()} 的 Email 格式不正確。`;
+  return null;
 }
+
+/** POST/PUT body: every item, trimmed; signer rows left blank are dropped. */
+export function reviewBody(d: ReviewDraft): ReviewBody {
+  return {
+    siteId: d.siteId!, departmentId: d.departmentId, reviewedOn: d.reviewedOn,
+    items: d.items.map(i => ({ item: i.item, points: i.points, result: i.result.trim(), fix: i.fix.trim() })),
+    signers: d.signers.filter(s => !blankSigner(s)).map(s => ({ role: s.role!, name: s.name.trim(), email: s.email.trim().toLowerCase() })),
+  };
+}
+
+/** 簽核 column: how many signed, and the tone to show it in. */
+export function signProgress(sigs: readonly Pick<Signature, 'signedAt' | 'sentAt'>[]): { signed: number; total: number; tone: 'ok' | 'info' | 'warn' } {
+  const signed = sigs.filter(s => s.signedAt).length;
+  return { signed, total: sigs.length, tone: sigs.length && signed === sigs.length ? 'ok' : sigs.some(s => s.sentAt) ? 'info' : 'warn' };
+}
+
+export const REVIEW_TONE: Record<Review['status'], 'warn' | 'info' | 'ok'> = { 草稿: 'warn', 簽核中: 'info', 已完成: 'ok' };
+

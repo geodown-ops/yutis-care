@@ -31,7 +31,7 @@ export function workloadNoticeText(w: Schemas['InterviewAdviceDto'] | null): str
   if (!w) return '';
   return noticeText({
     advice: [w.fitness, w.suggestion.trim(), w.period && `措施期間：${w.period}`].filter(Boolean).join('；'),
-    restrictions: [...w.restrictions, w.adjustHours, w.changeWork].filter(Boolean),
+    restrictions: [...new Set([...w.restrictions, w.adjustHours, w.changeWork].filter(Boolean))],
   });
 }
 

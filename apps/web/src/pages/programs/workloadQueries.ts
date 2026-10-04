@@ -1,17 +1,33 @@
 /* Overwork reads and writes. The assessment list is workloadAssessmentsQuery in src/queries.ts (also used by the profile). */
-import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { data } from '@yutis/api-client';
 import { api } from '../../api';
 import { workloadAssessmentsQuery } from '../../queries';
-import type { Assessment, FatigueBody, InterviewBody, OverloadBody } from './workload';
+import { markReminded } from './lists';
+import type { Assessment, FatigueBody, Interview, InterviewBody, OverloadBody } from './workload';
 
 /**
- * Put a saved assessment into the list. The list never carries interview notes (GET blanks them), so neither does the
- * cached copy: what the page shows does not depend on whether the list was refetched since.
+ * One assessment with the interview's guidance and notes (medical, so each read is audited). Read when the interview
+ * form opens and never kept: closing the form drops it, and it is not refetched behind the user's back.
+ */
+export const assessmentDetailQuery = (id: string) => queryOptions({
+  queryKey: ['workload-interview', id],
+  queryFn: () => data(api.GET('/api/programs/workload/assessments/{id}', { params: { path: { id } } })),
+  staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+});
+
+/**
+ * Put a saved assessment into the list. The list never carries the interview's guidance or notes (GET leaves them
+ * out), so neither does the cached copy: what the page shows does not depend on whether the list was refetched since.
  */
 function replace(qc: QueryClient, saved: Assessment) {
-  const row = { ...saved, interview: saved.interview && { ...saved.interview, notes: null } };
+  const row = { ...saved, interview: saved.interview && { ...saved.interview, guidance: null, notes: null } };
   qc.setQueryData(workloadAssessmentsQuery.queryKey, list => list?.map(a => (a.id === row.id ? row : a)));
+}
+
+/** Change one interview in the cached list (a confirmation link sent, a notice sent) without reading the list again. */
+export function patchInterview(qc: QueryClient, assessmentId: string, patch: (iv: Interview) => Interview) {
+  qc.setQueryData(workloadAssessmentsQuery.queryKey, list => list?.map(a => (a.id === assessmentId && a.interview ? { ...a, interview: patch(a.interview) } : a)));
 }
 
 export function useCreateAssessments() {
@@ -19,6 +35,17 @@ export function useCreateAssessments() {
   return useMutation({
     mutationFn: (body: { employeeIds: string[]; sentOn: string }) => data(api.POST('/api/programs/workload/assessments', { body })),
     onSuccess: () => qc.invalidateQueries({ queryKey: workloadAssessmentsQuery.queryKey }),
+  });
+}
+
+/** 未填寫通知: email everyone in the list who still has a questionnaire open; the list counts the reminders. */
+export function useRemindAssessments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentIds: string[]) => data(api.POST('/api/programs/workload/assessments/remind', { body: { assessmentIds } })),
+    onSuccess: (r, ids) => {
+      qc.setQueryData(workloadAssessmentsQuery.queryKey, list => list && markReminded(list, new Set(ids), r.noEmail, new Date().toISOString()));
+    },
   });
 }
 

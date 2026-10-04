@@ -1,5 +1,8 @@
-import { Alert, Badge, Box, Button, Card, Chip, Grid, Group, Modal, Progress, ScrollArea, SegmentedControl, SimpleGrid, Skeleton, Stack, Table, Text, TextInput, Title } from '@mantine/core';
-import { IconPlus, IconSearch } from '@tabler/icons-react';
+import {
+  Alert, Anchor, Badge, Box, Button, Card, Checkbox, Chip, Grid, Group, Modal, Progress, ScrollArea, SegmentedControl, Select, SimpleGrid, Skeleton, Stack, Table, TagsInput,
+  Text, Textarea, TextInput, Title,
+} from '@mantine/core';
+import { IconMailForward, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { StatCard } from '@yutis/ui';
 import { useState, type ReactNode } from 'react';
@@ -8,13 +11,18 @@ import { AnchorLink, ButtonLink, splat } from '../../links';
 import { canAccess } from '../../nav';
 import { ergoDispatchesQuery } from '../../queries';
 import { useMe } from '../../session';
+import { when } from '../advice/InterviewFollowUp';
 import { CardNote, problemText } from '../states';
 import {
-  addDays, defaultDispatchName, dispatchTotals, draftMax, emptyNmq, filterSurveys, hazardLabel, isSuspected, nmqBody, nmqUnanswered,
-  NMQ_ROWS, NMQ_SCALE, NMQ_YES_NO, SURVEY_FILTERS, type Dispatch, type NmqDraft, type Survey, type SurveyFilter,
+  addDays, defaultDispatchName, dispatchTotals, draftMax, ERGO_MEASURES, filterSurveys, hazardLabel, hazardParts, isSuspected, nmqBody, nmqDraftFrom, nmqUnanswered,
+  NMQ_ROWS, NMQ_SCALE, NMQ_YES_NO, SURVEY_FILTERS, surveyColumns, trackingBody, trackingDraft, trackingProblem, TRACKING_STATUSES, TRACKING_TONE,
+  type Dispatch, type NmqDraft, type Survey, type SurveyFilter, type TrackingDraft,
 } from './ergo';
-import { useCreateDispatch, useFillNmq, ergoSurveysQuery } from './ergoQueries';
+import { ergoSurveysQuery, useCreateDispatch, useFillNmq, useRemindSurveys, useSaveTracking } from './ergoQueries';
 import { EmployeePicker } from './ergoWorkloadPicker';
+import { ExportButton, OrgFilterSelects, RemindModal } from './listControls';
+import { downloadCsv, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { saveProblem, useModalSize } from './maternalViolenceCommon';
 
 const dt = (iso: string) => iso.slice(0, 10).replaceAll('-', '/');
 const tone = (t: 'ok' | 'warn' | 'bad' | 'info') => ({ root: { background: `var(--yutis-${t}-weak)`, color: `var(--yutis-${t})`, textTransform: 'none' as const } });
@@ -96,10 +104,15 @@ function DispatchItem({ d, active, today, onClick }: { d: Dispatch; active: bool
 
 function SurveysCard({ dispatch, today, onSaved }: { dispatch: Dispatch; today: string; onSaved: (msg: string) => void }) {
   const surveys = useQuery(ergoSurveysQuery(dispatch.id));
+  const remind = useRemindSurveys(dispatch.id);
   const [filter, setFilter] = useState<SurveyFilter>('all');
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [q, setQ] = useState('');
   const [filling, setFilling] = useState<Survey | null>(null);
-  const rows = surveys.data ? filterSurveys(surveys.data, filter, q) : [];
+  const [tracking, setTracking] = useState<Survey | null>(null);
+  const [reminding, setReminding] = useState(false);
+  const rows = surveys.data ? filterSurveys(surveys.data, filter, q, org) : [];
+  const unfilled = rows.filter(s => s.status === '未填寫');
 
   return (
     <Card>
@@ -108,30 +121,55 @@ function SurveysCard({ dispatch, today, onSaved }: { dispatch: Dispatch; today: 
           <Text fw={600}>{dispatch.name}</Text>
           <Text size="xs" c="dimmed">{dt(dispatch.sentOn)} 發送{dispatch.dueOn ? ` · ${dt(dispatch.dueOn)} 截止` : ''} · 已填寫 {dispatch.filled}/{dispatch.total}</Text>
         </div>
+        <Group gap="xs">
+          <Button size="xs" variant="default" leftSection={<IconMailForward size={14} />} disabled={!unfilled.length} onClick={() => setReminding(true)}>
+            未填寫通知{unfilled.length ? `（${unfilled.length}）` : ''}
+          </Button>
+          <ExportButton count={rows.length} onExport={() => downloadCsv(`${dispatch.name}_${today}.csv`, surveyColumns(dispatch), rows)} />
+        </Group>
       </Group>
       <Group gap="sm" mb="sm" justify="space-between">
-        <SegmentedControl size="xs" value={filter} onChange={v => setFilter(v as SurveyFilter)} data={SURVEY_FILTERS} aria-label="填答狀況" />
+        <Group gap="sm">
+          <SegmentedControl size="xs" value={filter} onChange={v => setFilter(v as SurveyFilter)} data={SURVEY_FILTERS} aria-label="填答狀況" />
+          <OrgFilterSelects rows={surveys.data ?? []} value={org} onChange={setOrg} />
+        </Group>
         <TextInput size="xs" aria-label="以姓名或工號搜尋" placeholder="姓名或工號" leftSection={<IconSearch size={14} />} w={180} value={q} onChange={e => setQ(e.currentTarget.value)} />
       </Group>
       {surveys.isPending ? <Skeleton h={240} /> : surveys.isError ? <CardNote>{problemText(surveys.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={640}>
+          <Table.ScrollContainer minWidth={720}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr><Table.Th>員工</Table.Th><Table.Th>工號</Table.Th><Table.Th>填寫狀況</Table.Th><Table.Th>危害判定</Table.Th><Table.Th ta="right">最高分</Table.Th><Table.Th /></Table.Tr>
+                <Table.Tr><Table.Th>員工</Table.Th><Table.Th>部門</Table.Th><Table.Th>填寫狀況</Table.Th><Table.Th>危害判定</Table.Th><Table.Th>管控追蹤</Table.Th><Table.Th /></Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.map(s => (
                   <Table.Tr key={s.id}>
-                    <Table.Td><AnchorLink to="/employees/$employeeId" params={{ employeeId: s.employeeId }} fw={600}>{s.name}</AnchorLink></Table.Td>
-                    <Table.Td ff="monospace" fz="sm">{s.empNo}</Table.Td>
+                    <Table.Td>
+                      <AnchorLink to="/employees/$employeeId" params={{ employeeId: s.employeeId }} fw={600}>{s.name}</AnchorLink>
+                      <Text size="xs" c="dimmed" ff="monospace">{s.empNo}</Text>
+                    </Table.Td>
+                    <Table.Td><Text size="sm">{s.department}</Text><Text size="xs" c="dimmed">{s.site}</Text></Table.Td>
                     <Table.Td>
                       {s.status === '已填寫' ? (
                         <><Text size="sm">已填寫</Text><Text size="xs" c="dimmed">{s.filledAt ? dt(s.filledAt) : ''} · {s.filledBy === 'nurse' ? '職護代填' : '本人填寫'}</Text></>
-                      ) : <Badge styles={tone('warn')}>未填寫</Badge>}
+                      ) : (
+                        <>
+                          <Badge styles={tone('warn')}>未填寫</Badge>
+                          {s.reminders > 0 && <Text size="xs" c="dimmed" mt={2} title={s.lastRemindedAt ? `最近一次 ${when(s.lastRemindedAt)}` : undefined}>已催填 {s.reminders} 次</Text>}
+                        </>
+                      )}
                     </Table.Td>
                     <Table.Td>{s.status === '已填寫' ? <Badge styles={tone(isSuspected(s.maxScore) ? 'bad' : 'ok')}>{hazardLabel(s.maxScore)}</Badge> : <Text c="dimmed">—</Text>}</Table.Td>
-                    <Table.Td ta="right">{s.maxScore ?? '—'}</Table.Td>
+                    <Table.Td>
+                      {!s.suspectedHazard ? <Text c="dimmed">—</Text> : s.tracking ? (
+                        <Group gap={6} wrap="nowrap">
+                          <Badge styles={tone(TRACKING_TONE[s.tracking.status])}>{s.tracking.status}</Badge>
+                          <Anchor component="button" type="button" size="sm" onClick={() => setTracking(s)} aria-label={`編輯 ${s.name} 的管控追蹤`}>編輯</Anchor>
+                        </Group>
+                      ) : <Button size="compact-xs" variant="light" onClick={() => setTracking(s)} aria-label={`列管 ${s.name}`}>列管</Button>}
+                      {s.tracking?.nextOn && s.tracking.status === '列管中' && <Text size="xs" c={s.tracking.nextOn < today ? 'var(--yutis-bad)' : 'dimmed'}>下次追蹤 {dt(s.tracking.nextOn)}</Text>}
+                    </Table.Td>
                     <Table.Td ta="right">
                       <Button size="xs" variant={s.status === '未填寫' ? 'filled' : 'default'} onClick={() => setFilling(s)}>{s.status === '未填寫' ? '代填' : '重新填寫'}</Button>
                     </Table.Td>
@@ -146,21 +184,71 @@ function SurveysCard({ dispatch, today, onSaved }: { dispatch: Dispatch; today: 
       )}
       <NmqModal survey={filling} dispatchId={dispatch.id} onClose={() => setFilling(null)}
         onSaved={s => { setFilling(null); onSaved(s.suspectedHazard ? `已儲存 ${s.name} 的問卷：${hazardLabel(s.maxScore)}，已列入個案管理。` : `已儲存 ${s.name} 的問卷：無明顯危害。`); }} />
+      <TrackingModal survey={tracking} dispatchId={dispatch.id} today={today} onClose={() => setTracking(null)}
+        onSaved={s => { setTracking(null); onSaved(`已儲存 ${s.name} 的管控追蹤：${s.tracking?.status ?? ''}。`); }} />
+      <RemindModal opened={reminding} rows={unfilled} what="肌肉骨骼症狀調查" send={remind} onClose={() => setReminding(false)}
+        onDone={text => { setReminding(false); onSaved(text); }} />
     </Card>
   );
 }
 
-/** 職護代填 (and re-entry). The API does not return earlier answers, so the form always starts empty. */
-function NmqModal({ survey, dispatchId, onClose, onSaved }: { survey: Survey | null; dispatchId: string; onClose: () => void; onSaved: (s: Survey) => void }) {
+/** 管控追蹤 for a suspected hazard: improvement measures, a note, the next follow-up and whether it is still tracked. */
+function TrackingModal({ survey, dispatchId, today, onClose, onSaved }: {
+  survey: Survey | null; dispatchId: string; today: string; onClose: () => void; onSaved: (s: Survey) => void;
+}) {
+  const size = useModalSize('md');
   return (
-    <Modal opened={!!survey} onClose={onClose} title={survey ? `肌肉骨骼症狀調查 · ${survey.name}` : ''} size="lg" scrollAreaComponent={ScrollArea.Autosize}>
+    <Modal opened={!!survey} onClose={onClose} title={survey ? `管控追蹤 · ${survey.name}` : ''} {...size}>
+      {survey && <TrackingForm key={survey.id} survey={survey} dispatchId={dispatchId} today={today} onCancel={onClose} onSaved={onSaved} />}
+    </Modal>
+  );
+}
+
+function TrackingForm({ survey, dispatchId, today, onCancel, onSaved }: {
+  survey: Survey; dispatchId: string; today: string; onCancel: () => void; onSaved: (s: Survey) => void;
+}) {
+  const [d, setD] = useState<TrackingDraft>(() => trackingDraft(survey.tracking, today));
+  const [tried, setTried] = useState(false);
+  const save = useSaveTracking(dispatchId);
+  const problem = trackingProblem(d);
+  const parts = hazardParts(survey.answers);
+  const others = d.measures.filter(m => !ERGO_MEASURES.includes(m));
+  const set = (patch: Partial<TrackingDraft>) => setD(x => ({ ...x, ...patch }));
+  return (
+    <Stack gap="md">
+      <Text size="sm" c="dimmed">{survey.department} · {hazardLabel(survey.maxScore)}{parts ? `：${parts}` : ''}</Text>
+      <Checkbox.Group label="改善措施" value={d.measures.filter(m => ERGO_MEASURES.includes(m))} onChange={v => setD(x => ({ ...x, measures: [...v, ...others] }))}>
+        <SimpleGrid cols={{ base: 1, xs: 2 }} spacing={8} mt={8}>{ERGO_MEASURES.map(m => <Checkbox key={m} value={m} label={m} />)}</SimpleGrid>
+      </Checkbox.Group>
+      <TagsInput label="其他改善措施" placeholder="輸入後按 Enter" value={others} maxTags={20 - (d.measures.length - others.length)}
+        onChange={v => setD(x => ({ ...x, measures: [...x.measures.filter(m => ERGO_MEASURES.includes(m)), ...v] }))} />
+      <Textarea label="說明" autosize minRows={3} maxLength={2000} value={d.note} onChange={e => set({ note: e.currentTarget.value })} />
+      <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
+        <TextInput type="date" label="下次追蹤日期" value={d.nextOn} onChange={e => set({ nextOn: e.currentTarget.value })} />
+        <Select label="列管狀態" data={[...TRACKING_STATUSES]} value={d.status} allowDeselect={false} onChange={v => v && setD(x => ({ ...x, status: v as TrackingDraft['status'] }))} />
+      </SimpleGrid>
+      {tried && problem && <Text size="sm" c="var(--yutis-bad)">{problem}</Text>}
+      {save.isError && <Text size="sm" c="var(--yutis-bad)" role="alert">{saveProblem(save.error)}</Text>}
+      <Group justify="flex-end">
+        <Button variant="default" onClick={onCancel}>取消</Button>
+        <Button loading={save.isPending} onClick={() => { setTried(true); if (!problem) save.mutate({ surveyId: survey.id, body: trackingBody(d) }, { onSuccess: onSaved }); }}>儲存</Button>
+      </Group>
+    </Stack>
+  );
+}
+
+/** 職護代填, and re-entry starting from the earlier answers. */
+function NmqModal({ survey, dispatchId, onClose, onSaved }: { survey: Survey | null; dispatchId: string; onClose: () => void; onSaved: (s: Survey) => void }) {
+  const size = useModalSize('lg');
+  return (
+    <Modal opened={!!survey} onClose={onClose} title={survey ? `肌肉骨骼症狀調查 · ${survey.name}` : ''} {...size} scrollAreaComponent={ScrollArea.Autosize}>
       {survey && <NmqForm key={survey.id} survey={survey} dispatchId={dispatchId} onCancel={onClose} onSaved={onSaved} />}
     </Modal>
   );
 }
 
 function NmqForm({ survey, dispatchId, onCancel, onSaved }: { survey: Survey; dispatchId: string; onCancel: () => void; onSaved: (s: Survey) => void }) {
-  const [draft, setDraft] = useState<NmqDraft>(emptyNmq);
+  const [draft, setDraft] = useState<NmqDraft>(() => nmqDraftFrom(survey.answers));
   const fill = useFillNmq(dispatchId);
   const left = nmqUnanswered(draft);
   const max = draftMax(draft);
@@ -176,7 +264,8 @@ function NmqForm({ survey, dispatchId, onCancel, onSaved }: { survey: Survey; di
       <Text size="sm" c="dimmed">
         {survey.status === '未填寫'
           ? '依員工口述填寫，填寫方式會記錄為「職護代填」。'
-          : `${survey.filledAt ? dt(survey.filledAt) : ''} ${survey.filledBy === 'nurse' ? '職護代填' : '本人填寫'}，${hazardLabel(survey.maxScore)}。原本的作答不會顯示在這裡；重新填寫會取代原結果並重新判定。`}
+          : `${survey.filledAt ? dt(survey.filledAt) : ''} ${survey.filledBy === 'nurse' ? '職護代填' : '本人填寫'}，${hazardLabel(survey.maxScore)}。`
+            + (survey.answers ? '已帶入原本的作答；修改後儲存會取代原結果並重新判定。' : '重新填寫會取代原結果並重新判定。')}
       </Text>
       {NMQ_YES_NO.map(q => (
         <div key={q.key}>

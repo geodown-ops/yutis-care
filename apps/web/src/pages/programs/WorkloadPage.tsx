@@ -1,9 +1,9 @@
 import {
-  Alert, Anchor, Badge, Box, Button, Card, Checkbox, Chip, Grid, Group, Modal, NumberInput, Progress, ScrollArea, SegmentedControl, Select, SimpleGrid, Skeleton,
+  Alert, Anchor, Badge, Box, Button, Card, Checkbox, Chip, Grid, Group, Input, Modal, NumberInput, Progress, ScrollArea, SegmentedControl, Select, SimpleGrid, Skeleton,
   Stack, Table, Tabs, TagsInput, Text, Textarea, TextInput, Title,
 } from '@mantine/core';
-import { IconPlus, IconSearch } from '@tabler/icons-react';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { IconMailForward, IconPlus, IconSearch } from '@tabler/icons-react';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { WORK_PATTERNS } from '@yutis/domain';
 import { StatCard } from '@yutis/ui';
 import { useState, type ReactNode } from 'react';
@@ -11,16 +11,23 @@ import { todayIso } from '../../cases';
 import { AnchorLink } from '../../links';
 import { workAdviceQuery, workloadAssessmentsQuery } from '../../queries';
 import { useMe } from '../../session';
+import { ACK_LABEL, ACK_TONE, ackState, workloadNoticeText } from '../advice/advice';
+import { InterviewFollowUp, when } from '../advice/InterviewFollowUp';
 import { CardNote, problemText } from '../states';
+import { doctorsQuery } from './directory';
 import { addDays } from './ergo';
 import { EmployeePicker } from './ergoWorkloadPicker';
+import { ExportButton, OrgFilterSelects, RemindModal } from './listControls';
+import { downloadCsv, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { saveProblem, ToneBadge, useModalSize } from './maternalViolenceCommon';
 import {
-  batchLog, burnoutLabel, canSchedule, cbiAnswered, cbiResult, CBI_PERSONAL, CBI_FREQ, CBI_WORK, emptyCbi, filterAssessments, FITNESS, interviewBody,
-  interviewDone, interviewDraft, interviewProblems, interviewRows, INTERVIEW_STATUSES, missingSteps, noRiskReason, openAssessmentEmployees, readAdvice, readEvaluation,
-  RESTRICTIONS, riskLevelOf, workloadCounts, type Assessment, type CbiDraft, type InterviewDraft, type InterviewFilter, type InterviewStatus, type RiskFilter,
+  ADJUST_HOURS, adviceSummary, ASSESS_COLUMNS, batchLog, burnoutLabel, canSchedule, cbiAnswered, cbiDraftFrom, cbiResult, CBI_PERSONAL, CBI_FREQ, CBI_WORK, CHANGE_WORK,
+  DIAGNOSIS, FATIGUE, filterAssessments, FITNESS, GUIDANCE, interviewBody, interviewDone, interviewDraft, interviewProblems, interviewRows, INTERVIEW_STATUSES,
+  MENTAL_CONCERN, missingSteps, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, riskLevelOf, workloadCounts,
+  type Assessment, type CbiDraft, type Interview, type InterviewDraft, type InterviewFilter, type InterviewStatus, type RiskFilter,
 } from './workload';
 import { LoadBadge, RiskBadge, WorkloadMatrix } from './workloadMatrix';
-import { useCreateAssessments, useSaveStep, useScheduleInterviews } from './workloadQueries';
+import { assessmentDetailQuery, patchInterview, useCreateAssessments, useRemindAssessments, useSaveStep, useScheduleInterviews } from './workloadQueries';
 
 export type WorkloadTab = 'assess' | 'interview' | 'log';
 
@@ -40,6 +47,8 @@ export function WorkloadPage({ tab, onTab }: { tab: WorkloadTab; onTab: (t: Work
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const lg = useModalSize('lg');
+  const xl = useModalSize('xl');
   const counts = workloadCounts(list);
   const target = dialog && 'id' in dialog ? list.find(a => a.id === dialog.id) ?? null : null;
   const close = () => setDialog(null);
@@ -82,21 +91,21 @@ export function WorkloadPage({ tab, onTab }: { tab: WorkloadTab; onTab: (t: Work
       {tab === 'interview'
         ? <InterviewList list={list} picked={picked} onPick={setPicked} onOpen={open('interview')} onRisk={open('risk')} onSchedule={() => setDialog({ kind: 'schedule' })} />
         : tab === 'log' ? <LogTab list={list} />
-          : <AssessList list={list} onCbi={open('cbi')} onOverload={open('overload')} onRisk={open('risk')} />}
+          : <AssessList list={list} onCbi={open('cbi')} onOverload={open('overload')} onRisk={open('risk')} onNotice={setNotice} />}
 
-      <Modal opened={dialog?.kind === 'cbi' && !!target} onClose={close} title={target ? `過勞量表 · ${target.name}` : ''} size="lg" scrollAreaComponent={ScrollArea.Autosize}>
+      <Modal opened={dialog?.kind === 'cbi' && !!target} onClose={close} title={target ? `過勞量表 · ${target.name}` : ''} {...lg} scrollAreaComponent={ScrollArea.Autosize}>
         {target && <CbiForm key={target.id} a={target} onCancel={close} onSaved={a => { close(); saved(a, '過勞量表'); }} />}
       </Modal>
-      <Modal opened={dialog?.kind === 'overload' && !!target} onClose={close} title={target ? `過負荷評估 · ${target.name}` : ''} size="lg">
+      <Modal opened={dialog?.kind === 'overload' && !!target} onClose={close} title={target ? `過負荷評估 · ${target.name}` : ''} {...lg}>
         {target && <OverloadForm key={target.id} a={target} onCancel={close} onSaved={a => { close(); saved(a, '過負荷評估'); }} />}
       </Modal>
-      <Modal opened={dialog?.kind === 'risk' && !!target} onClose={close} title={target ? `個人風險評估 · ${target.name}` : ''} size="xl" scrollAreaComponent={ScrollArea.Autosize}>
+      <Modal opened={dialog?.kind === 'risk' && !!target} onClose={close} title={target ? `個人風險評估 · ${target.name}` : ''} {...xl} scrollAreaComponent={ScrollArea.Autosize}>
         {target && <RiskDetail a={target} onClose={close} onInterview={() => setDialog({ kind: 'interview', id: target.id })} />}
       </Modal>
-      <Modal opened={dialog?.kind === 'interview' && !!target} onClose={close} title={target ? `醫師面談與健康指導 · ${target.name}` : ''} size="lg" scrollAreaComponent={ScrollArea.Autosize}>
-        {target && <InterviewForm key={target.id} a={target} onCancel={close} onSaved={a => { close(); setNotice(`已儲存 ${a.name} 的面談：${a.interview?.status ?? ''}。`); }} />}
+      <Modal opened={dialog?.kind === 'interview' && !!target} onClose={close} title={target ? `面談結果及處理措施 · ${target.name}` : ''} {...xl} scrollAreaComponent={ScrollArea.Autosize}>
+        {target && <InterviewEditor key={target.id} a={target} onCancel={close} onSaved={a => { close(); setNotice(`已儲存 ${a.name} 的面談：${a.interview?.status ?? ''}。`); }} />}
       </Modal>
-      <Modal opened={dialog?.kind === 'dispatch'} onClose={close} title="發送問卷：過勞量表與工時調查" size="xl" scrollAreaComponent={ScrollArea.Autosize}>
+      <Modal opened={dialog?.kind === 'dispatch'} onClose={close} title="發送問卷：過勞量表與工時調查" {...xl} scrollAreaComponent={ScrollArea.Autosize}>
         {dialog?.kind === 'dispatch' && <DispatchForm list={list} onCancel={close} onCreated={n => { close(); onTab('assess'); setNotice(`已發送 ${n} 份過勞量表與工時調查，員工會在員工端看到待填問卷。`); }} />}
       </Modal>
       <Modal opened={dialog?.kind === 'schedule'} onClose={close} title="安排面談">
@@ -109,21 +118,34 @@ export function WorkloadPage({ tab, onTab }: { tab: WorkloadTab; onTab: (t: Work
   );
 }
 
-function AssessList({ list, onCbi, onOverload, onRisk }: { list: Assessment[]; onCbi: (a: Assessment) => void; onOverload: (a: Assessment) => void; onRisk: (a: Assessment) => void }) {
+function AssessList({ list, onCbi, onOverload, onRisk, onNotice }: {
+  list: Assessment[]; onCbi: (a: Assessment) => void; onOverload: (a: Assessment) => void; onRisk: (a: Assessment) => void; onNotice: (text: string) => void;
+}) {
   const batches = [...new Set(list.map(a => a.sentOn))].sort().reverse();
   const [batch, setBatch] = useState<string | null>(null);
   const [risk, setRisk] = useState<RiskFilter>('all');
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [q, setQ] = useState('');
-  const rows = filterAssessments(list, { batch, risk, q });
+  const [reminding, setReminding] = useState(false);
+  const remind = useRemindAssessments();
+  const rows = filterAssessments(list, { batch, risk, q, org });
+  const open = rows.filter(remindable);
 
   return (
     <Card>
       <Group gap="sm" mb="sm" justify="space-between">
         <Group gap="sm">
           <Select aria-label="評估日期" placeholder="全部日期" clearable w={150} size="xs" value={batch} onChange={setBatch} data={batches.map(b => ({ value: b, label: dt(b) }))} />
+          <OrgFilterSelects rows={list} value={org} onChange={setOrg} />
           <SegmentedControl size="xs" value={risk} onChange={v => setRisk(v as RiskFilter)} data={RISK_FILTERS} aria-label="風險等級" />
         </Group>
-        <TextInput size="xs" aria-label="以姓名或工號搜尋" placeholder="姓名或工號" leftSection={<IconSearch size={14} />} w={180} value={q} onChange={e => setQ(e.currentTarget.value)} />
+        <Group gap="sm">
+          <TextInput size="xs" aria-label="以姓名或工號搜尋" placeholder="姓名或工號" leftSection={<IconSearch size={14} />} w={160} value={q} onChange={e => setQ(e.currentTarget.value)} />
+          <Button size="xs" variant="default" leftSection={<IconMailForward size={14} />} disabled={!open.length} onClick={() => setReminding(true)}>
+            未填寫通知{open.length ? `（${open.length}）` : ''}
+          </Button>
+          <ExportButton count={rows.length} onExport={() => downloadCsv(`過勞評估_${todayIso()}.csv`, ASSESS_COLUMNS, rows)} />
+        </Group>
       </Group>
       <Table.ScrollContainer minWidth={1060}>
         <Table verticalSpacing="sm" highlightOnHover>
@@ -138,16 +160,22 @@ function AssessList({ list, onCbi, onOverload, onRisk }: { list: Assessment[]; o
               const ev = readEvaluation(a);
               return (
                 <Table.Tr key={a.id}>
-                  <Table.Td>{dt(a.sentOn)}</Table.Td>
-                  <Table.Td><Person a={a} /></Table.Td>
                   <Table.Td>
-                    {a.overtime1m == null ? <Pending onFill={() => onOverload(a)} label={`代填 ${a.name} 的過負荷評估`} /> : (
+                    {dt(a.sentOn)}
+                    {a.reminders > 0 && <Text size="xs" c="dimmed" title={a.lastRemindedAt ? `最近一次 ${when(a.lastRemindedAt)}` : undefined}>已催填 {a.reminders} 次</Text>}
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}><Person a={a} /></Table.Td>
+                  <Table.Td>
+                    {a.missing.includes('overload') || a.overtime1m == null ? <Pending onFill={() => onOverload(a)} label={`代填 ${a.name} 的過負荷評估`} /> : (
                       <Anchor component="button" type="button" size="sm" onClick={() => onOverload(a)} aria-label={`修改 ${a.name} 的過負荷評估`}>近 1 月 {a.overtime1m} 小時</Anchor>
                     )}
                   </Table.Td>
                   <Table.Td>
-                    {a.personalBurnout == null ? <Pending onFill={() => onCbi(a)} label={`代填 ${a.name} 的過勞量表`} /> : (
-                      <Anchor component="button" type="button" size="sm" onClick={() => onCbi(a)} aria-label={`修改 ${a.name} 的過勞量表`}>個人 {a.personalBurnout}／工作 {a.workBurnout ?? '—'}</Anchor>
+                    {a.missing.includes('cbi') || a.personalBurnout == null ? <Pending onFill={() => onCbi(a)} label={`代填 ${a.name} 的過勞量表`} /> : (
+                      <>
+                        <Anchor component="button" type="button" size="sm" onClick={() => onCbi(a)} aria-label={`修改 ${a.name} 的過勞量表`}>個人 {a.personalBurnout}／工作 {a.workBurnout ?? '—'}</Anchor>
+                        {a.fatigueBy === 'nurse' && <Text size="xs" c="dimmed">職護代填</Text>}
+                      </>
                     )}
                   </Table.Td>
                   <Table.Td ta="right">{ev?.cvd ? `${ev.cvd.risk}%` : <Text span size="sm" c="dimmed">{ev ? '缺健檢資料' : '—'}</Text>}</Table.Td>
@@ -162,6 +190,8 @@ function AssessList({ list, onCbi, onOverload, onRisk }: { list: Assessment[]; o
         </Table>
       </Table.ScrollContainer>
       {rows.length === 0 && <CardNote>{list.length === 0 ? '還沒有發送過過勞量表。按「發送問卷」選擇要評估的員工。' : '沒有符合條件的評估。'}</CardNote>}
+      <RemindModal opened={reminding} rows={open} what="過勞量表或工時調查" send={remind} onClose={() => setReminding(false)}
+        onDone={text => { setReminding(false); onNotice(text); }} />
     </Card>
   );
 }
@@ -188,8 +218,9 @@ function InterviewList({ list, picked, onPick, onOpen, onRisk, onSchedule }: {
   list: Assessment[]; picked: Set<string>; onPick: (s: Set<string>) => void; onOpen: (a: Assessment) => void; onRisk: (a: Assessment) => void; onSchedule: () => void;
 }) {
   const [filter, setFilter] = useState<InterviewFilter>('open');
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [q, setQ] = useState('');
-  const rows = interviewRows(list, filter, q);
+  const rows = interviewRows(list, filter, q, org);
   const schedulable = rows.filter(canSchedule);
   const chosen = list.filter(a => picked.has(a.id) && canSchedule(a)).length;
   const all = schedulable.length > 0 && schedulable.every(a => picked.has(a.id));
@@ -205,35 +236,37 @@ function InterviewList({ list, picked, onPick, onOpen, onRisk, onSchedule }: {
         <Group gap="sm">
           <SegmentedControl size="xs" value={filter} onChange={v => setFilter(v as InterviewFilter)} aria-label="面談狀態"
             data={[{ value: 'open', label: '未完成' }, { value: 'done', label: '已完成' }, { value: 'all', label: '全部' }]} />
+          <OrgFilterSelects rows={list} value={org} onChange={setOrg} />
           <Text size="sm">已選 <b>{chosen}</b> 人</Text>
           <Button size="xs" disabled={!chosen} onClick={onSchedule}>安排面談</Button>
         </Group>
         <TextInput size="xs" aria-label="以姓名或工號搜尋" placeholder="姓名或工號" leftSection={<IconSearch size={14} />} w={180} value={q} onChange={e => setQ(e.currentTarget.value)} />
       </Group>
-      <Table.ScrollContainer minWidth={1000}>
+      <Table.ScrollContainer minWidth={1080}>
         <Table verticalSpacing="sm" highlightOnHover>
           <Table.Thead>
             <Table.Tr>
               <Table.Th w={36}><Checkbox aria-label="選取所有可安排的人" checked={all} indeterminate={!all && schedulable.some(a => picked.has(a.id))} disabled={!schedulable.length} onChange={e => toggle(schedulable.map(a => a.id), e.currentTarget.checked)} /></Table.Th>
-              <Table.Th>評估日期</Table.Th><Table.Th>員工</Table.Th><Table.Th>風險等級</Table.Th><Table.Th>面談狀態</Table.Th><Table.Th>面談日期</Table.Th>
-              <Table.Th>工作安排</Table.Th><Table.Th>下次面談</Table.Th><Table.Th />
+              <Table.Th>評估日期</Table.Th><Table.Th>員工</Table.Th><Table.Th>風險等級</Table.Th><Table.Th>面談狀態</Table.Th><Table.Th>面談日期／醫師</Table.Th>
+              <Table.Th>工作安排</Table.Th><Table.Th>員工確認／通知</Table.Th><Table.Th>下次面談</Table.Th><Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {rows.map(a => {
               const iv = a.interview;
-              const w = readAdvice(iv);
+              const w = adviceSummary(iv?.workAdvice ?? null);
               return (
                 <Table.Tr key={a.id}>
                   <Table.Td><Checkbox aria-label={`選取 ${a.name}`} checked={picked.has(a.id)} disabled={!canSchedule(a)} onChange={e => toggle([a.id], e.currentTarget.checked)} /></Table.Td>
                   <Table.Td>{dt(a.sentOn)}</Table.Td>
-                  <Table.Td><Person a={a} /></Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}><Person a={a} /></Table.Td>
                   <Table.Td><Button variant="transparent" p={0} h="auto" onClick={() => onRisk(a)} aria-label={`檢視 ${a.name} 的風險評估`}><RiskBadge level={riskLevelOf(a)} empty={noRiskReason(a)} /></Button></Table.Td>
                   <Table.Td>{iv ? <Badge styles={tone(IV_TONE[iv.status])}>{iv.status}</Badge> : <Badge styles={tone('warn')}>未安排</Badge>}</Table.Td>
-                  <Table.Td>{iv?.interviewedOn ? dt(iv.interviewedOn) : '—'}</Table.Td>
-                  <Table.Td maw={260}>
-                    {w ? <><Text size="sm">{w.fitness || '—'}</Text>{w.restrictions.length > 0 && <Text size="xs" c="dimmed">{w.restrictions.join('、')}</Text>}</> : '—'}
+                  <Table.Td>{iv?.interviewedOn ? dt(iv.interviewedOn) : '—'}{iv?.doctorName && <Text size="xs" c="dimmed">{iv.doctorName}</Text>}</Table.Td>
+                  <Table.Td maw={240}>
+                    {w ? <><Text size="sm">{w.fitness || '—'}</Text>{w.measures && <Text size="xs" c="dimmed">{w.measures}</Text>}</> : '—'}
                   </Table.Td>
+                  <Table.Td><FollowUpCell iv={iv} /></Table.Td>
                   <Table.Td>{iv?.nextOn ? dt(iv.nextOn) : '—'}</Table.Td>
                   <Table.Td ta="right"><Button size="xs" variant={interviewDone(iv) ? 'default' : 'filled'} onClick={() => onOpen(a)}>{iv?.status === '已面談' ? '編輯' : '填寫'}</Button></Table.Td>
                 </Table.Tr>
@@ -245,6 +278,19 @@ function InterviewList({ list, picked, onPick, onOpen, onRisk, onSchedule }: {
       {rows.length === 0 && <CardNote>{filter === 'open' ? '目前沒有需要面談的員工。' : '沒有符合條件的面談。'}</CardNote>}
       <Text size="xs" c="dimmed" mt="xs">中度、高度風險與已有面談紀錄的員工會列在這裡。只有還沒有面談紀錄的人可以勾選批次安排。</Text>
     </Card>
+  );
+}
+
+/** Whether the employee confirmed the outcome, and how many managers were told and have read it. */
+function FollowUpCell({ iv }: { iv: Interview | null }) {
+  if (!iv || (!iv.acknowledgement && !iv.notices.length)) return <>—</>;
+  const state = iv.acknowledgement && ackState(iv.acknowledgement);
+  const read = iv.notices.filter(n => n.readAt).length;
+  return (
+    <Stack gap={2} align="flex-start">
+      {state && <ToneBadge tone={ACK_TONE[state]}>{ACK_LABEL[state]}</ToneBadge>}
+      {iv.notices.length > 0 && <Text size="xs" c="dimmed">已通知主管 {iv.notices.length} 次，已讀 {read}</Text>}
+    </Stack>
   );
 }
 
@@ -364,8 +410,9 @@ function RiskDetail({ a, onClose, onInterview }: { a: Assessment; onClose: () =>
 }
 
 function CbiForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void; onSaved: (a: Assessment) => void }) {
-  const [mode, setMode] = useState<'answers' | 'scores'>('answers');
-  const [draft, setDraft] = useState<CbiDraft>(emptyCbi);
+  /* Scores typed in without answers open on the scores; otherwise the saved answers are the starting point. */
+  const [mode, setMode] = useState<'answers' | 'scores'>(a.personalBurnout != null && !a.cbiAnswers ? 'scores' : 'answers');
+  const [draft, setDraft] = useState<CbiDraft>(() => cbiDraftFrom(a.cbiAnswers));
   const [pf, setPf] = useState<number | string>(a.personalBurnout ?? '');
   const [wf, setWf] = useState<number | string>(a.workBurnout ?? '');
   const save = useSaveStep();
@@ -388,9 +435,9 @@ function CbiForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void
   return (
     <Stack gap="md">
       <Text size="sm" c="dimmed">
-        {a.personalBurnout != null
-          ? `目前分數：個人相關 ${a.personalBurnout}、工作相關 ${a.workBurnout ?? '—'}。原本的作答不會顯示在這裡；重新作答或輸入分數會取代並重新評估。`
-          : '依員工口述勾選，或輸入已計算好的分數（例如紙本量表的結果）。'}
+        {a.personalBurnout == null ? '依員工口述勾選，或輸入已計算好的分數（例如紙本量表的結果）。'
+          : `目前分數：個人相關 ${a.personalBurnout}、工作相關 ${a.workBurnout ?? '—'}${a.fatigueAt ? `（${when(a.fatigueAt)} ${a.fatigueBy === 'nurse' ? '職護代填' : '員工自填'}）` : ''}。`
+            + (a.cbiAnswers ? '已帶入原本的作答；修改後儲存會重新評估。' : '原本是直接輸入分數，沒有逐題作答；儲存會取代並重新評估。')}
       </Text>
       <SegmentedControl value={mode} onChange={v => setMode(v as typeof mode)} data={[{ value: 'answers', label: '作答量表' }, { value: 'scores', label: '輸入分數' }]} aria-label="填寫方式" />
       {mode === 'answers' ? (
@@ -450,57 +497,98 @@ function OverloadForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () =>
   );
 }
 
-/** The only doctors we can name: me (when I am 職醫) and whoever is already on the interview. No staff directory is exposed. */
-function useDoctorOptions(current: string | null) {
+/** Active 職醫 accounts (GET /api/staff), plus whoever is on the interview if their account was since closed. */
+function useDoctorOptions(current?: { id: string | null; name: string | null }) {
   const me = useMe();
-  const out = me.role === '職醫' ? [{ value: me.id, label: `${me.name}（我）` }] : [];
-  if (current && current !== me.id) out.push({ value: current, label: '已指定的醫師' });
-  return { options: out, mine: me.role === '職醫' ? me.id : null };
+  const doctors = useQuery(doctorsQuery);
+  const list = doctors.data ?? [];
+  const options = list.map(d => ({ value: d.id, label: d.id === me.id ? `${d.name}（我）` : d.name }));
+  if (current?.id && !list.some(d => d.id === current.id)) options.push({ value: current.id, label: current.name ?? '已指定的醫師' });
+  const mine = me.role === '職醫' ? me.id : null;
+  return { options, mine, placeholder: doctors.isPending ? '載入中…' : doctors.isError ? problemText(doctors.error) : list.length ? '選擇醫師' : '沒有啟用中的職醫帳號' };
 }
 
-function InterviewForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void; onSaved: (a: Assessment) => void }) {
-  const doctors = useDoctorOptions(a.interview?.doctorUserId ?? null);
-  const [d, setD] = useState<InterviewDraft>(() => interviewDraft(a.interview, { today: todayIso(), doctorUserId: doctors.mine }));
+/**
+ * The interview form starts from the full record (GET /assessments/{id}): the guidance and notes are medical and the
+ * list leaves them out. A new interview has nothing to load.
+ */
+function InterviewEditor({ a, onCancel, onSaved }: { a: Assessment; onCancel: () => void; onSaved: (a: Assessment) => void }) {
+  const detail = useQuery({ ...assessmentDetailQuery(a.id), enabled: !!a.interview });
+  if (!a.interview) return <InterviewForm a={a} saved={null} onCancel={onCancel} onSaved={onSaved} />;
+  if (detail.isPending) return <Stack gap="sm"><Skeleton h={36} /><Skeleton h={220} /><Skeleton h={120} /></Stack>;
+  if (detail.isError) {
+    return (
+      <Stack gap="sm">
+        <CardNote>{problemText(detail.error)}</CardNote>
+        <Group justify="flex-end"><Button variant="default" onClick={onCancel}>關閉</Button><Button onClick={() => void detail.refetch()}>再試一次</Button></Group>
+      </Stack>
+    );
+  }
+  return <InterviewForm a={a} saved={detail.data.interview} onCancel={onCancel} onSaved={onSaved} />;
+}
+
+function InterviewForm({ a, saved, onCancel, onSaved }: { a: Assessment; saved: Interview | null; onCancel: () => void; onSaved: (a: Assessment) => void }) {
+  const qc = useQueryClient();
+  const doctors = useDoctorOptions({ id: saved?.doctorUserId ?? null, name: saved?.doctorName ?? null });
+  const [d, setD] = useState<InterviewDraft>(() => interviewDraft(saved, { today: todayIso(), doctorUserId: doctors.mine }));
   const save = useSaveStep();
   const problems = interviewProblems(d);
   const ev = readEvaluation(a);
+  const held = d.status === '已面談';
   const set = <K extends keyof InterviewDraft>(k: K, v: InterviewDraft[K]) => setD(x => ({ ...x, [k]: v }));
+  /* The list row, not the form's copy: it is what the follow-up below patches as links and notices go out. */
+  const iv = a.interview;
 
   return (
     <Stack gap="md">
-      <Text size="sm" c="dimmed">{a.empNo} · 評估日期 {dt(a.sentOn)} · {ev?.complete && ev.advice ? `${['低度', '中度', '高度'][riskLevelOf(a) ?? 0]}風險，${ev.advice}` : '風險等級未判定'}</Text>
+      <Text size="sm" c="dimmed">{a.empNo} · {a.department} · 評估日期 {dt(a.sentOn)} · {ev?.complete && ev.advice ? `${['低度', '中度', '高度'][riskLevelOf(a) ?? 0]}風險，${ev.advice}` : '風險等級未判定'}</Text>
       <SegmentedControl value={d.status} onChange={v => set('status', v as InterviewStatus)} data={INTERVIEW_STATUSES} aria-label="面談狀態" />
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-        <TextInput type="date" label={d.status === '已安排' || d.status === '待安排' ? '預定面談日期' : '面談日期'} value={d.interviewedOn}
-          onChange={e => set('interviewedOn', e.currentTarget.value)} required={d.status === '已安排' || d.status === '已面談'} />
-        {doctors.options.length > 0 && (
-          <Select label="面談醫師" clearable data={doctors.options} value={d.doctorUserId} onChange={v => set('doctorUserId', v)} />
-        )}
+        <TextInput type="date" label={held || d.status === '拒絕面談' ? '面談指導日期' : '預定面談日期'} value={d.interviewedOn}
+          onChange={e => set('interviewedOn', e.currentTarget.value)} required={d.status === '已安排' || held} />
+        <Select label="面談醫師" clearable allowDeselect={false} searchable data={doctors.options} value={d.doctorUserId} onChange={v => set('doctorUserId', v)}
+          placeholder={doctors.placeholder} nothingFoundMessage="找不到這位醫師" />
       </SimpleGrid>
 
-      <Section title="工作安排建議" note="人資會看到這段建議（不含面談紀錄），用來調整工作。">
+      <Section title="面談指導結果" note="醫療資料，加密儲存，只有職護、職醫看得到。">
+        <Choice label="疲勞累積狀況" required={held} options={FATIGUE} value={d.fatigue} onChange={v => set('fatigue', v)} />
+        <Choice label="應顧慮身心狀況" options={MENTAL_CONCERN} value={d.mentalConcern} onChange={v => set('mentalConcern', v)} />
+        <Choice label="診斷區分" required={held} options={DIAGNOSIS} value={d.diagnosis} onChange={v => set('diagnosis', v)} />
+        <Choice label="指導區分" options={GUIDANCE} value={d.guidance} onChange={v => set('guidance', v)} />
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-          <Select label="工作區分" data={[...FITNESS]} value={d.fitness || null} onChange={v => set('fitness', v ?? '')} clearable required={d.status === '已面談'} />
-          <TagsInput label="工作調整" data={RESTRICTIONS} value={d.restrictions} onChange={v => set('restrictions', v)} placeholder="選擇或輸入後按 Enter" clearable />
+          <Choice label="是否需採取措施" options={['是', '否'] as const} value={d.needMeasure == null ? null : d.needMeasure ? '是' : '否'}
+            onChange={v => set('needMeasure', v == null ? null : v === '是')} />
+          <TextInput label="建議就醫" placeholder="例如 心臟內科" maxLength={100} value={d.seeDoctor} onChange={e => set('seeDoctor', e.currentTarget.value)} />
         </SimpleGrid>
-        <Textarea label="措施說明" placeholder="例如：期間 3 個月；建議就醫心臟內科" autosize minRows={2} maxLength={1000} value={d.suggestion} onChange={e => set('suggestion', e.currentTarget.value)} />
+        <Textarea label="特殊記載事項" autosize minRows={2} maxLength={2000} value={d.special} onChange={e => set('special', e.currentTarget.value)} />
+        <Textarea label="面談紀錄" autosize minRows={3} maxLength={10000} value={d.notes} onChange={e => set('notes', e.currentTarget.value)}
+          placeholder="健康諮詢內容與處理狀況" />
       </Section>
 
-      <Section title="面談紀錄" note="醫療資料，加密儲存，只有職護、職醫看得到。">
-        <Textarea aria-label="面談紀錄" autosize minRows={3} maxLength={10000} value={d.notes} onChange={e => set('notes', e.currentTarget.value)}
-          placeholder="疲勞累積狀況、身心狀況、診斷與指導區分等" />
-        {a.interview && (
-          <Text size="xs" c={d.notes.trim() ? 'dimmed' : 'var(--yutis-warn)'}>
-            為保護隱私，已存的面談紀錄不會顯示在這裡。儲存時會以這欄的內容取代原紀錄{d.notes.trim() ? '' : '；留白會清除原紀錄'}。
-          </Text>
-        )}
+      <Section title="工作安排與採取措施建議" note="人資與通知的部門主管會看到這段（不含面談指導結果與紀錄），員工也會確認這段內容。">
+        <Choice label="工作區分" required={held} options={FITNESS} value={(FITNESS as readonly string[]).includes(d.fitness) ? d.fitness as (typeof FITNESS)[number] : null}
+          onChange={v => set('fitness', v ?? '')} />
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+          <Select label="調整或縮短工作時間" clearable data={withCurrent(ADJUST_HOURS, d.adjustHours)} value={d.adjustHours || null} onChange={v => set('adjustHours', v ?? '')} placeholder="不需要" />
+          <Select label="變更工作" clearable data={withCurrent(CHANGE_WORK, d.changeWork)} value={d.changeWork || null} onChange={v => set('changeWork', v ?? '')} placeholder="不需要" />
+          <TextInput label="措施期間" placeholder="例如 3 個月" maxLength={50} value={d.period} onChange={e => set('period', e.currentTarget.value)} />
+        </SimpleGrid>
+        <TagsInput label="其他工作限制" value={d.restrictions} onChange={v => set('restrictions', v)} placeholder="輸入後按 Enter" maxTags={20} clearable />
+        <Textarea label="備註" autosize minRows={2} maxLength={1000} value={d.suggestion} onChange={e => set('suggestion', e.currentTarget.value)} />
       </Section>
 
-      <TextInput type="date" label="下次面談日期" value={d.nextOn} onChange={e => set('nextOn', e.currentTarget.value)} maw={240} />
+      <TextInput type="date" label="下次面談預定日期" value={d.nextOn} onChange={e => set('nextOn', e.currentTarget.value)} maw={240} />
 
-      {/* SLOT 通知主管: the shared 通知主管 dialog (src/pages/advice/) mounts here once GET assessments returns interview.id and notices (PR #15). */}
+      {iv && (
+        <Section title="員工確認與通知主管" note="依已儲存的工作安排建議。修改後請先儲存，再通知主管。">
+          <InterviewFollowUp employee={{ id: a.employeeId, name: a.name }} subjectTable="interviews" subjectId={iv.id} advice={workloadNoticeText(iv.workAdvice)}
+            acknowledgement={iv.acknowledgement} notices={iv.notices}
+            onAcknowledgementSent={sentAt => patchInterview(qc, a.id, x => ({ ...x, acknowledgement: x.acknowledgement && { ...x.acknowledgement, sentAt } }))}
+            onNoticeSent={n => patchInterview(qc, a.id, x => ({ ...x, notices: [...x.notices, n] }))} />
+        </Section>
+      )}
 
-      {save.isError && <Text size="sm" c="var(--yutis-bad)">{problemText(save.error)}</Text>}
+      {save.isError && <Text size="sm" c="var(--yutis-bad)" role="alert">{saveProblem(save.error)}</Text>}
       <Group justify="space-between">
         <Text size="sm" c="dimmed">{problems[0] ?? ''}</Text>
         <Group gap="sm">
@@ -509,6 +597,22 @@ function InterviewForm({ a, onCancel, onSaved }: { a: Assessment; onCancel: () =
         </Group>
       </Group>
     </Stack>
+  );
+}
+
+/** Keep a value saved earlier in the options even when it is not one of today's choices. */
+const withCurrent = (options: readonly string[], current: string) => (current && !options.includes(current) ? [...options, current] : [...options]);
+
+/** One answer from a short list, as chips; choosing the chosen one again clears it. */
+function Choice<T extends string>({ label, options, value, onChange, required }: {
+  label: string; options: readonly T[]; value: T | null; onChange: (v: T | null) => void; required?: boolean;
+}) {
+  return (
+    <Input.Wrapper label={label} required={required} labelElement="div">
+      <Group gap={6} mt={4} role="group" aria-label={label}>
+        {options.map(o => <Chip key={o} size="xs" checked={value === o} onChange={() => onChange(value === o ? null : o)}>{o}</Chip>)}
+      </Group>
+    </Input.Wrapper>
   );
 }
 
@@ -523,7 +627,7 @@ function Section({ title, note, children }: { title: string; note: string; child
 
 /** 面談通知, as far as the API goes: mark the interview 已安排 with a date. No email or reply tracking exists yet. */
 function ScheduleForm({ rows, onCancel, onDone }: { rows: Assessment[]; onCancel: () => void; onDone: (saved: number, failed: string[]) => void }) {
-  const doctors = useDoctorOptions(null);
+  const doctors = useDoctorOptions();
   const [on, setOn] = useState(addDays(todayIso(), 7));
   const [doctor, setDoctor] = useState<string | null>(doctors.mine);
   const schedule = useScheduleInterviews();
@@ -531,14 +635,14 @@ function ScheduleForm({ rows, onCancel, onDone }: { rows: Assessment[]; onCancel
     <Stack gap="md">
       <Text size="sm">安排對象：{rows.map(a => a.name).join('、')}（{rows.length} 人）</Text>
       <TextInput type="date" label="預定面談日期" required value={on} onChange={e => setOn(e.currentTarget.value)} />
-      {doctors.options.length > 0 && <Select label="面談醫師" clearable data={doctors.options} value={doctor} onChange={setDoctor} />}
-      <Text size="xs" c="dimmed">面談狀態會改為「已安排」並記下預定日期。系統目前不會寄出面談通知信，請另行通知員工。</Text>
+      <Select label="面談醫師" clearable allowDeselect={false} searchable data={doctors.options} value={doctor} onChange={setDoctor} placeholder={doctors.placeholder} nothingFoundMessage="找不到這位醫師" />
+      <Text size="xs" c="dimmed">面談狀態會改為「已安排」並記下預定日期與醫師。系統不會寄出面談通知信，請另行通知員工。</Text>
       {schedule.isError && <Text size="sm" c="var(--yutis-bad)">{problemText(schedule.error)}</Text>}
       <Group justify="flex-end">
         <Button variant="default" onClick={onCancel}>取消</Button>
         <Button disabled={!on || !rows.length} loading={schedule.isPending}
           onClick={() => schedule.mutate(
-            { ids: rows.map(a => a.id), body: { status: '已安排', interviewedOn: on, doctorUserId: doctor, workAdvice: null, notes: null, nextOn: null } },
+            { ids: rows.map(a => a.id), body: { status: '已安排', interviewedOn: on, doctorUserId: doctor } },
             { onSuccess: r => onDone(r.saved, r.failed) },
           )}>安排面談</Button>
       </Group>
@@ -589,8 +693,8 @@ export function WorkloadAdvicePage() {
                 <Table.Tbody>
                   {rows.map((a, i) => (
                     <Table.Tr key={`${a.employeeId}-${i}`}>
-                      <Table.Td><Person a={a} /></Table.Td>
-                      <Table.Td>{a.on ? dt(a.on) : '—'}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}><Person a={a} /></Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{a.on ? dt(a.on) : '—'}</Table.Td>
                       <Table.Td>{a.advice || '—'}</Table.Td>
                       <Table.Td>{a.restrictions.length ? a.restrictions.join('、') : '—'}</Table.Td>
                     </Table.Tr>
