@@ -6,8 +6,8 @@ import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, healthQuery } from './api';
 import { formatDate } from './dates';
-import { burnoutLevel, examViews, surveyViews, workloadViews, type ExamView, type SurveyView, type WorkloadView } from './health';
-import { ErrorNote, LoadError, Page, Section } from './Page';
+import { burnoutLevel, examView, missingOnTasks, missingReasons, type ExamView, type MySurvey, type MyWorkload } from './health';
+import { ButtonLink, ErrorNote, LoadError, Page, Section } from './Page';
 
 const TONE = ['ok', 'warn', 'bad'] as const;
 
@@ -34,16 +34,16 @@ export function HealthPage() {
       {health.isSuccess && (
         <>
           <Section title={t('health.exams')}>
-            {examViews(health.data.exams).map((e, i) => <ExamCard key={`${e.examDate}-${i}`} exam={e} />)}
+            {health.data.exams.map((e, i) => <ExamCard key={`${e.examDate}-${i}`} exam={examView(e)} />)}
             {health.data.exams.length === 0 && <Empty text={t('health.examsEmpty')} />}
             {health.data.exams.length > 0 && <GradeLegend />}
           </Section>
           <Section title={t('health.surveys')}>
-            {surveyViews(health.data.surveys).map((s, i) => <SurveyCard key={i} survey={s} />)}
+            {health.data.surveys.map((s, i) => <SurveyCard key={i} survey={s} />)}
             {health.data.surveys.length === 0 && <Empty text={t('health.surveysEmpty')} />}
           </Section>
           <Section title={t('health.workload')}>
-            {workloadViews(health.data.workload).map((w, i) => <WorkloadCard key={i} item={w} />)}
+            {health.data.workload.map((w, i) => <WorkloadCard key={i} item={w} />)}
             {health.data.workload.length === 0 && <Empty text={t('health.workloadEmpty')} />}
           </Section>
         </>
@@ -124,7 +124,7 @@ function GradeLegend() {
   );
 }
 
-function SurveyCard({ survey }: { survey: SurveyView }) {
+function SurveyCard({ survey }: { survey: MySurvey }) {
   const { t, i18n } = useTranslation();
   return (
     <Card padding="md">
@@ -145,7 +145,7 @@ function ToneBadge({ level, children }: { level: 0 | 1 | 2; children: string }) 
   return <Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none', fontWeight: 600 } }}>{children}</Badge>;
 }
 
-function WorkloadCard({ item }: { item: WorkloadView }) {
+function WorkloadCard({ item }: { item: MyWorkload }) {
   const { t, i18n } = useTranslation();
   const level = t('health.burnout', { returnObjects: true }) as string[];
   const score = (kind: 'personal' | 'work', v: number | null) => (
@@ -166,7 +166,7 @@ function WorkloadCard({ item }: { item: WorkloadView }) {
       </Stack>
       <Card mt="sm" padding="sm" radius="md" bg="var(--yutis-surface2)">
         {item.riskLevel == null
-          ? <Text size="sm" c="dimmed">{t('health.incomplete')}</Text>
+          ? <Incomplete item={item} />
           : (
             <Group gap={8} wrap="nowrap" align="center">
               <ToneBadge level={item.riskLevel}>{(t('health.risk', { returnObjects: true }) as string[])[item.riskLevel]!}</ToneBadge>
@@ -175,5 +175,18 @@ function WorkloadCard({ item }: { item: WorkloadView }) {
           )}
       </Card>
     </Card>
+  );
+}
+
+/** Why there is no risk level yet (MyWorkloadDto.missing), and the way to 待辦 when the person can fill it in. */
+function Incomplete({ item }: { item: MyWorkload }) {
+  const { t } = useTranslation();
+  const reasons = missingReasons(item);
+  return (
+    <Stack gap={6}>
+      <Text size="sm" fw={600}>{t('health.incomplete')}</Text>
+      {reasons.map(r => <Text key={r} size="sm" c="dimmed">{t(`health.missing.${r}`)}</Text>)}
+      {missingOnTasks(item) && <ButtonLink to="/" size="xs" variant="default" style={{ alignSelf: 'flex-start' }}>{t('health.toTasks')}</ButtonLink>}
+    </Stack>
   );
 }

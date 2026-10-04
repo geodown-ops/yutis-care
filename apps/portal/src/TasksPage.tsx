@@ -10,7 +10,7 @@ import { ButtonLink, LoadError } from './Page';
 import { TASK_MINUTES, taskLink, taskTitle } from './tasks';
 
 /** 待辦: what the API says is open for this employee, each opening its own flow. */
-export function TasksPage({ name }: { name: string }) {
+export function TasksPage({ name, accountLang }: { name: string; accountLang?: string }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const tenant = useQuery(tenantQuery);
@@ -48,7 +48,7 @@ export function TasksPage({ name }: { name: string }) {
             <Card key={`${task.kind}:${task.id}`} padding="md">
               <Group justify="space-between" wrap="nowrap" gap="sm">
                 <div style={{ minWidth: 0 }}>
-                  <Text fw={600} lh={1.4}>{taskTitle(task, lang, k => t(`tasks.kinds.${k}`))}</Text>
+                  <Text fw={600} lh={1.4}>{taskTitle(task, lang, profile.data?.lang ?? accountLang, k => t(`tasks.kinds.${k}`))}</Text>
                   {detail && <Text size="sm" c="dimmed">{detail}</Text>}
                 </div>
                 <ButtonLink {...taskLink(task)} size="sm" style={{ flexShrink: 0 }} variant={task.kind === 'acknowledgement' ? 'default' : 'filled'}>

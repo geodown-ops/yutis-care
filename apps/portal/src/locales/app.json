@@ -9,7 +9,9 @@
     },
     "flow": {
       "prev": "上一題", "next": "下一題", "back": "回到待辦", "exit": "離開", "progress": "填答進度", "privacy": "只有醫護人員看得到你的回答。",
-      "missing": "找不到這份問卷，可能已經送出了。", "already": "這份問卷已經送出過了。", "failed": "送出失敗，請稍後再試。"
+      "missing": "找不到這份問卷，可能已經送出了。", "already": "這份問卷已經送出過了。", "failed": "送出失敗，請稍後再試。",
+      "resumed": "已接續你上次填到一半的答案。", "startOver": "重新填寫", "startOverAsk": "要清除已填的答案，從第一題重新開始嗎？", "startOverYes": "清除重填", "startOverNo": "保留答案",
+      "saved": "已自動儲存", "saveFailed": "答案還沒存到，連上網路後會再試一次。", "clearFailed": "清除失敗，請稍後再試。"
     },
     "pages": {
       "report": "遇到職場暴力、霸凌或騷擾，或是懷孕、產後需要職場保護時，請直接聯絡廠區的醫護人員。線上通報功能還沒開放。",
@@ -49,14 +51,17 @@
       "suspected": "有部位的不適達 3 分以上，醫護人員會進一步了解。", "notSuspected": "各部位的不適都在 3 分以下。",
       "workload": "過勞評估", "workloadEmpty": "目前沒有評估紀錄。", "personal": "個人相關過勞", "work": "工作相關過勞", "score": "{{score}} 分",
       "burnout": ["輕微", "中度", "嚴重"], "risk": ["低度風險", "中度風險", "高度風險"], "advice": ["不需面談", "建議與醫師面談", "需要與醫師面談"],
-      "incomplete": "評估還沒完成。", "notFilled": "未填寫", "assessedOn": "{{date}} 評估"
+      "incomplete": "評估還沒完成。", "notFilled": "未填寫", "assessedOn": "{{date}} 評估",
+      "missing": { "cbi": "你還沒填過勞量表。", "overload": "你還沒填工時與工作型態調查。", "exam": "評估時沒有你的健康檢查資料，無法估算心血管風險。" },
+      "toTasks": "到待辦填寫"
     },
     "ack": {
       "title": "紀錄確認", "intro": "請看過以下內容，沒有問題就按「確認」。",
       "fields": { "interviewedOn": "面談日期", "fitAdvice": "工作適性建議", "limits": "工作限制", "agreedArrangement": "同意的工作安排" },
       "none": "無", "statement": "我已看過這份紀錄，了解公司為我安排的措施。", "comment": "想補充的意見（選填）", "confirm": "確認",
       "done": "已確認，謝謝你。", "confirmedAt": "你已在 {{date}} 確認過這份紀錄。", "notFound": "找不到這份紀錄。",
-      "linkUsed": "這個連結已經用過了。若還需要確認，請登入員工端查看待辦，或聯絡醫護人員。", "linkExpired": "這個連結已經過期。請登入員工端查看待辦，或請醫護人員重新寄送。", "linkInvalid": "這個連結不完整或無效，請確認網址是否完整。"
+      "linkUsed": "這個連結已經用過了。若還需要確認，請登入員工端查看待辦，或聯絡醫護人員。", "linkExpired": "這個連結已經過期。請登入員工端查看待辦，或請醫護人員重新寄送。", "linkInvalid": "這個連結不完整或無效，請確認網址是否完整。",
+      "unavailable": "這份紀錄的內容目前無法顯示，所以還不能確認。請聯絡醫護人員。"
     },
     "account": {
       "empNo": "工號", "site": "廠區", "department": "部門", "language": "語言",
@@ -80,7 +85,9 @@
     "flow": {
       "prev": "Back", "next": "Next", "back": "Back to to-do list", "exit": "Close", "progress": "Progress", "privacy": "Only the occupational health staff can see your answers.",
       "missing": "This questionnaire can't be found. It may have been submitted already.", "already": "This questionnaire has already been submitted.",
-      "failed": "Could not submit. Please try again later."
+      "failed": "Could not submit. Please try again later.",
+      "resumed": "We kept the answers you started last time.", "startOver": "Start over", "startOverAsk": "Clear your answers and start again from the first question?", "startOverYes": "Clear and start over", "startOverNo": "Keep my answers",
+      "saved": "Saved automatically", "saveFailed": "Your answers aren't saved yet. We'll try again when you're back online.", "clearFailed": "Could not clear your answers. Please try again later."
     },
     "pages": {
       "report": "If you face violence, bullying or harassment at work, or need protection at work during pregnancy or after giving birth, contact the health staff at your site directly. Online reporting is not available yet.",
@@ -123,14 +130,17 @@
       "workload": "Overwork assessment", "workloadEmpty": "No assessments yet.", "personal": "Personal burnout", "work": "Work-related burnout", "score": "{{score}} points",
       "burnout": ["Low", "Moderate", "High"], "risk": ["Low risk", "Medium risk", "High risk"],
       "advice": ["No interview needed", "A talk with the doctor is recommended", "A talk with the doctor is needed"],
-      "incomplete": "The assessment is not complete yet.", "notFilled": "Not answered", "assessedOn": "Assessed {{date}}"
+      "incomplete": "The assessment is not complete yet.", "notFilled": "Not answered", "assessedOn": "Assessed {{date}}",
+      "missing": { "cbi": "You haven't filled in the burnout questionnaire yet.", "overload": "You haven't filled in the working hours survey yet.", "exam": "There was no health check result to estimate your heart and blood vessel risk." },
+      "toTasks": "Go to my to-do list"
     },
     "ack": {
       "title": "Record to confirm", "intro": "Please read the record below. If it is correct, press Confirm.",
       "fields": { "interviewedOn": "Interview date", "fitAdvice": "Advice on fitness for work", "limits": "Work limits", "agreedArrangement": "Agreed work arrangement" },
       "none": "None", "statement": "I have read this record and understand the measures the company has arranged for me.", "comment": "Anything you want to add (optional)",
       "confirm": "Confirm", "done": "Confirmed. Thank you.", "confirmedAt": "You confirmed this record on {{date}}.", "notFound": "This record can't be found.",
-      "linkUsed": "This link has already been used. If you still need to confirm, sign in to see your to-do list, or contact your health staff.", "linkExpired": "This link has expired. Sign in to see your to-do list, or ask your health staff to send it again.", "linkInvalid": "This link is incomplete or not valid. Please check the full address."
+      "linkUsed": "This link has already been used. If you still need to confirm, sign in to see your to-do list, or contact your health staff.", "linkExpired": "This link has expired. Sign in to see your to-do list, or ask your health staff to send it again.", "linkInvalid": "This link is incomplete or not valid. Please check the full address.",
+      "unavailable": "This record can't be shown right now, so it can't be confirmed yet. Please contact your health staff."
     },
     "account": {
       "empNo": "Employee no.", "site": "Site", "department": "Department", "language": "Language",
@@ -153,7 +163,9 @@
     "flow": {
       "prev": "戻る", "next": "次へ", "back": "やることに戻る", "exit": "閉じる", "progress": "回答の進み具合", "privacy": "回答は産業保健スタッフだけが見られます。",
       "missing": "この質問票が見つかりません。すでに送信済みの可能性があります。", "already": "この質問票はすでに送信されています。",
-      "failed": "送信できませんでした。しばらくしてからもう一度お試しください。"
+      "failed": "送信できませんでした。しばらくしてからもう一度お試しください。",
+      "resumed": "前回途中まで入力した回答を引き継ぎました。", "startOver": "最初からやり直す", "startOverAsk": "入力した回答を消して、最初の質問からやり直しますか？", "startOverYes": "消してやり直す", "startOverNo": "回答を残す",
+      "saved": "自動保存しました", "saveFailed": "回答はまだ保存されていません。ネットワークにつながったら、もう一度保存します。", "clearFailed": "回答を消せませんでした。しばらくしてからもう一度お試しください。"
     },
     "pages": {
       "report": "職場での暴力・いじめ・ハラスメントにあったとき、または妊娠中・出産後に職場での保護が必要なときは、事業所の産業保健スタッフに直接連絡してください。オンラインでの通報はまだ利用できません。",
@@ -197,14 +209,17 @@
       "workload": "過重労働の評価", "workloadEmpty": "評価の記録はまだありません。", "personal": "個人的な燃え尽き", "work": "仕事に関連した燃え尽き", "score": "{{score}} 点",
       "burnout": ["軽度", "中等度", "重度"], "risk": ["低リスク", "中リスク", "高リスク"],
       "advice": ["面談は不要です", "医師との面談をおすすめします", "医師との面談が必要です"],
-      "incomplete": "評価はまだ完了していません。", "notFilled": "未回答", "assessedOn": "{{date}} の評価"
+      "incomplete": "評価はまだ完了していません。", "notFilled": "未回答", "assessedOn": "{{date}} の評価",
+      "missing": { "cbi": "燃え尽き尺度がまだ回答されていません。", "overload": "労働時間と勤務形態の調査がまだ回答されていません。", "exam": "評価の時点で健康診断の結果がなく、心血管疾患のリスクを推定できませんでした。" },
+      "toTasks": "やることで回答する"
     },
     "ack": {
       "title": "記録の確認", "intro": "以下の内容を確認し、問題がなければ「確認」を押してください。",
       "fields": { "interviewedOn": "面談日", "fitAdvice": "就業上の配慮に関する意見", "limits": "作業の制限", "agreedArrangement": "合意した就業上の措置" },
       "none": "なし", "statement": "この記録を読み、会社が講じる措置について理解しました。", "comment": "補足したいこと（任意）", "confirm": "確認",
       "done": "確認しました。ありがとうございました。", "confirmedAt": "{{date}} に確認済みです。", "notFound": "この記録が見つかりません。",
-      "linkUsed": "このリンクはすでに使用されています。確認が必要な場合は、ログインしてやることを確認するか、医療スタッフに連絡してください。", "linkExpired": "このリンクは有効期限が切れています。ログインしてやることを確認するか、医療スタッフに再送を依頼してください。", "linkInvalid": "このリンクは不完全か無効です。アドレス全体を確認してください。"
+      "linkUsed": "このリンクはすでに使用されています。確認が必要な場合は、ログインしてやることを確認するか、医療スタッフに連絡してください。", "linkExpired": "このリンクは有効期限が切れています。ログインしてやることを確認するか、医療スタッフに再送を依頼してください。", "linkInvalid": "このリンクは不完全か無効です。アドレス全体を確認してください。",
+      "unavailable": "この記録の内容は現在表示できないため、まだ確認できません。医療スタッフに連絡してください。"
     },
     "account": {
       "empNo": "社員番号", "site": "事業所", "department": "部署", "language": "言語",
@@ -226,7 +241,9 @@
     },
     "flow": {
       "prev": "Quay lại", "next": "Tiếp", "back": "Về danh sách việc cần làm", "exit": "Đóng", "progress": "Tiến độ", "privacy": "Chỉ nhân viên y tế lao động xem được câu trả lời của bạn.",
-      "missing": "Không tìm thấy bảng câu hỏi này. Có thể bạn đã gửi rồi.", "already": "Bảng câu hỏi này đã được gửi.", "failed": "Gửi không thành công. Hãy thử lại sau."
+      "missing": "Không tìm thấy bảng câu hỏi này. Có thể bạn đã gửi rồi.", "already": "Bảng câu hỏi này đã được gửi.", "failed": "Gửi không thành công. Hãy thử lại sau.",
+      "resumed": "Câu trả lời bạn làm dở lần trước đã được giữ lại.", "startOver": "Làm lại từ đầu", "startOverAsk": "Xóa các câu trả lời và làm lại từ câu đầu tiên?", "startOverYes": "Xóa và làm lại", "startOverNo": "Giữ câu trả lời",
+      "saved": "Đã tự động lưu", "saveFailed": "Câu trả lời chưa được lưu. Hệ thống sẽ thử lại khi có mạng.", "clearFailed": "Không xóa được câu trả lời. Hãy thử lại sau."
     },
     "pages": {
       "report": "Nếu bạn gặp bạo lực, bắt nạt hoặc quấy rối nơi làm việc, hoặc cần được bảo vệ khi mang thai hay sau sinh, hãy liên hệ trực tiếp với nhân viên y tế tại xưởng. Chức năng báo cáo trực tuyến chưa mở.",
@@ -270,14 +287,17 @@
       "workload": "Đánh giá làm việc quá sức", "workloadEmpty": "Chưa có kết quả đánh giá.", "personal": "Kiệt sức cá nhân", "work": "Kiệt sức liên quan đến công việc",
       "score": "{{score}} điểm", "burnout": ["Nhẹ", "Vừa", "Nặng"], "risk": ["Nguy cơ thấp", "Nguy cơ trung bình", "Nguy cơ cao"],
       "advice": ["Không cần gặp bác sĩ", "Nên gặp bác sĩ để trao đổi", "Cần gặp bác sĩ để trao đổi"],
-      "incomplete": "Đánh giá chưa hoàn tất.", "notFilled": "Chưa trả lời", "assessedOn": "Đánh giá ngày {{date}}"
+      "incomplete": "Đánh giá chưa hoàn tất.", "notFilled": "Chưa trả lời", "assessedOn": "Đánh giá ngày {{date}}",
+      "missing": { "cbi": "Bạn chưa trả lời bảng câu hỏi về kiệt sức.", "overload": "Bạn chưa trả lời khảo sát giờ làm và hình thức công việc.", "exam": "Khi đánh giá chưa có kết quả khám sức khỏe của bạn, nên chưa ước tính được nguy cơ tim mạch." },
+      "toTasks": "Đến việc cần làm"
     },
     "ack": {
       "title": "Xác nhận hồ sơ", "intro": "Hãy đọc nội dung dưới đây. Nếu không có vấn đề gì, hãy nhấn \"Xác nhận\".",
       "fields": { "interviewedOn": "Ngày trao đổi", "fitAdvice": "Ý kiến về sự phù hợp với công việc", "limits": "Giới hạn công việc", "agreedArrangement": "Sắp xếp công việc đã đồng ý" },
       "none": "Không có", "statement": "Tôi đã đọc hồ sơ này và hiểu các biện pháp công ty sắp xếp cho tôi.", "comment": "Ý kiến bổ sung (không bắt buộc)", "confirm": "Xác nhận",
       "done": "Đã xác nhận. Cảm ơn bạn.", "confirmedAt": "Bạn đã xác nhận hồ sơ này ngày {{date}}.", "notFound": "Không tìm thấy hồ sơ này.",
-      "linkUsed": "Liên kết này đã được sử dụng. Nếu bạn vẫn cần xác nhận, hãy đăng nhập để xem việc cần làm hoặc liên hệ nhân viên y tế.", "linkExpired": "Liên kết này đã hết hạn. Hãy đăng nhập để xem việc cần làm hoặc nhờ nhân viên y tế gửi lại.", "linkInvalid": "Liên kết này không đầy đủ hoặc không hợp lệ. Hãy kiểm tra lại toàn bộ địa chỉ."
+      "linkUsed": "Liên kết này đã được sử dụng. Nếu bạn vẫn cần xác nhận, hãy đăng nhập để xem việc cần làm hoặc liên hệ nhân viên y tế.", "linkExpired": "Liên kết này đã hết hạn. Hãy đăng nhập để xem việc cần làm hoặc nhờ nhân viên y tế gửi lại.", "linkInvalid": "Liên kết này không đầy đủ hoặc không hợp lệ. Hãy kiểm tra lại toàn bộ địa chỉ.",
+      "unavailable": "Hiện không thể hiển thị nội dung hồ sơ này nên bạn chưa thể xác nhận. Hãy liên hệ nhân viên y tế."
     },
     "account": {
       "empNo": "Mã nhân viên", "site": "Xưởng", "department": "Bộ phận", "language": "Ngôn ngữ",
@@ -299,7 +319,9 @@
     },
     "flow": {
       "prev": "ย้อนกลับ", "next": "ถัดไป", "back": "กลับไปที่สิ่งที่ต้องทำ", "exit": "ปิด", "progress": "ความคืบหน้า", "privacy": "เฉพาะเจ้าหน้าที่อาชีวอนามัยเท่านั้นที่เห็นคำตอบของคุณ",
-      "missing": "ไม่พบแบบสอบถามนี้ อาจส่งไปแล้ว", "already": "แบบสอบถามนี้ส่งไปแล้ว", "failed": "ส่งไม่สำเร็จ กรุณาลองใหม่ภายหลัง"
+      "missing": "ไม่พบแบบสอบถามนี้ อาจส่งไปแล้ว", "already": "แบบสอบถามนี้ส่งไปแล้ว", "failed": "ส่งไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
+      "resumed": "เก็บคำตอบที่คุณทำค้างไว้ครั้งก่อนไว้ให้แล้ว", "startOver": "เริ่มใหม่", "startOverAsk": "ล้างคำตอบทั้งหมดแล้วเริ่มใหม่ตั้งแต่ข้อแรกหรือไม่", "startOverYes": "ล้างแล้วเริ่มใหม่", "startOverNo": "เก็บคำตอบไว้",
+      "saved": "บันทึกอัตโนมัติแล้ว", "saveFailed": "ยังบันทึกคำตอบไม่ได้ ระบบจะลองอีกครั้งเมื่อเชื่อมต่ออินเทอร์เน็ตได้", "clearFailed": "ล้างคำตอบไม่สำเร็จ กรุณาลองใหม่ภายหลัง"
     },
     "pages": {
       "report": "หากคุณถูกใช้ความรุนแรง ถูกกลั่นแกล้ง หรือถูกล่วงละเมิดในที่ทำงาน หรือต้องการความคุ้มครองระหว่างตั้งครรภ์หรือหลังคลอด กรุณาติดต่อเจ้าหน้าที่อาชีวอนามัยประจำโรงงานโดยตรง ยังไม่เปิดให้แจ้งเหตุทางออนไลน์",
@@ -342,14 +364,17 @@
       "workload": "การประเมินการทำงานหนักเกินไป", "workloadEmpty": "ยังไม่มีผลการประเมิน", "personal": "ความเหนื่อยล้าส่วนบุคคล", "work": "ความเหนื่อยล้าจากงาน",
       "score": "{{score}} คะแนน", "burnout": ["เล็กน้อย", "ปานกลาง", "รุนแรง"], "risk": ["ความเสี่ยงต่ำ", "ความเสี่ยงปานกลาง", "ความเสี่ยงสูง"],
       "advice": ["ไม่ต้องพบแพทย์", "ควรพบแพทย์เพื่อพูดคุย", "ต้องพบแพทย์เพื่อพูดคุย"],
-      "incomplete": "การประเมินยังไม่เสร็จ", "notFilled": "ยังไม่ได้ตอบ", "assessedOn": "ประเมินวันที่ {{date}}"
+      "incomplete": "การประเมินยังไม่เสร็จ", "notFilled": "ยังไม่ได้ตอบ", "assessedOn": "ประเมินวันที่ {{date}}",
+      "missing": { "cbi": "คุณยังไม่ได้ตอบแบบประเมินภาวะหมดไฟ", "overload": "คุณยังไม่ได้ตอบแบบสำรวจชั่วโมงทำงานและลักษณะงาน", "exam": "ตอนประเมินยังไม่มีผลตรวจสุขภาพของคุณ จึงยังประเมินความเสี่ยงโรคหัวใจและหลอดเลือดไม่ได้" },
+      "toTasks": "ไปที่สิ่งที่ต้องทำ"
     },
     "ack": {
       "title": "ยืนยันบันทึก", "intro": "กรุณาอ่านเนื้อหาด้านล่าง ถ้าไม่มีปัญหาให้กด \"ยืนยัน\"",
       "fields": { "interviewedOn": "วันที่พูดคุย", "fitAdvice": "ความเห็นเรื่องความเหมาะสมกับงาน", "limits": "ข้อจำกัดในการทำงาน", "agreedArrangement": "การจัดงานที่ตกลงกัน" },
       "none": "ไม่มี", "statement": "ฉันได้อ่านบันทึกนี้แล้ว และเข้าใจมาตรการที่บริษัทจัดให้", "comment": "ความเห็นเพิ่มเติม (ไม่บังคับ)", "confirm": "ยืนยัน",
       "done": "ยืนยันแล้ว ขอบคุณ", "confirmedAt": "คุณยืนยันบันทึกนี้แล้วเมื่อ {{date}}", "notFound": "ไม่พบบันทึกนี้",
-      "linkUsed": "ลิงก์นี้ถูกใช้ไปแล้ว หากยังต้องยืนยัน กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือติดต่อเจ้าหน้าที่สุขภาพ", "linkExpired": "ลิงก์นี้หมดอายุแล้ว กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือขอให้เจ้าหน้าที่สุขภาพส่งใหม่", "linkInvalid": "ลิงก์นี้ไม่สมบูรณ์หรือไม่ถูกต้อง กรุณาตรวจสอบที่อยู่ให้ครบถ้วน"
+      "linkUsed": "ลิงก์นี้ถูกใช้ไปแล้ว หากยังต้องยืนยัน กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือติดต่อเจ้าหน้าที่สุขภาพ", "linkExpired": "ลิงก์นี้หมดอายุแล้ว กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือขอให้เจ้าหน้าที่สุขภาพส่งใหม่", "linkInvalid": "ลิงก์นี้ไม่สมบูรณ์หรือไม่ถูกต้อง กรุณาตรวจสอบที่อยู่ให้ครบถ้วน",
+      "unavailable": "ขณะนี้แสดงเนื้อหาบันทึกนี้ไม่ได้ จึงยังยืนยันไม่ได้ กรุณาติดต่อเจ้าหน้าที่สุขภาพ"
     },
     "account": {
       "empNo": "รหัสพนักงาน", "site": "โรงงาน", "department": "แผนก", "language": "ภาษา",

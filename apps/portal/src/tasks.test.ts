@@ -10,10 +10,12 @@ describe('tasks', () => {
     expect(Object.values(TASK_ROUTES).every(r => r.startsWith('/tasks/'))).toBe(true);
   });
 
-  it('uses the API title in Chinese and the kind of task in other languages', () => {
+  it('uses the API title when it is in the language shown, else the kind of task', () => {
     const task = { kind: 'nmq' as const, title: '肌肉骨骼症狀調查：2026 下半年' };
-    expect(taskTitle(task, 'zh', k => k)).toBe('肌肉骨骼症狀調查：2026 下半年');
-    expect(taskTitle(task, 'vi', k => `kind:${k}`)).toBe('kind:nmq');
+    expect(taskTitle(task, 'zh', 'zh', k => k)).toBe('肌肉骨骼症狀調查：2026 下半年');
+    expect(taskTitle({ kind: 'nmq', title: 'Khảo sát triệu chứng cơ xương khớp: 2026 下半年' }, 'vi', 'vi', k => k)).toContain('2026 下半年');
+    expect(taskTitle(task, 'vi', 'zh', k => `kind:${k}`)).toBe('kind:nmq');
+    expect(taskTitle(task, 'zh', undefined, k => `kind:${k}`)).toBe('kind:nmq');
   });
 });
 

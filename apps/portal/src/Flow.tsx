@@ -6,23 +6,26 @@ import { ActionIcon, Box, Card, Group, Progress, Skeleton, Stack, Text, Title, U
 import { IconCircleCheck, IconX } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { createLink } from '@tanstack/react-router';
-import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useState, type AnchorHTMLAttributes, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isApiError, tasksQuery } from './api';
+import { isApiError, taskQuery } from './api';
+import type { DraftKind } from './drafts';
 import { LanguageSelect } from './LanguageSelect';
 import { ButtonLink, ErrorNote, LoadError } from './Page';
-import type { TaskKind } from './tasks';
+import type { TaskDetail } from './tasks';
 
 const CloseBase = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement>>((props, ref) => (
   <ActionIcon component="a" ref={ref} {...props} variant="subtle" color="gray" size="lg" ml={-8} />
 ));
 const CloseLink = createLink(CloseBase);
 
-export function FlowFrame({ title, step, total, footer, error, exit = true, children }: {
+export function FlowFrame({ title, step, total, status, footer, error, exit = true, children }: {
   title: string;
   /** 0-based; progress is shown when `total` is set. */
   step?: number;
   total?: number;
+  /** A line under the progress, e.g. whether the answers are saved. */
+  status?: ReactNode;
   footer?: ReactNode;
   /** Shown above the buttons, e.g. a failed submit. */
   error?: string | null;
@@ -47,6 +50,7 @@ export function FlowFrame({ title, step, total, footer, error, exit = true, chil
             <Text size="sm" c="dimmed">{step + 1} / {total}</Text>
           </Group>
         )}
+        {status !== undefined && <Text size="xs" c="dimmed" mt={4} mih={18} aria-live="polite">{status}</Text>}
       </Box>
 
       <Stack gap="lg" p="md" style={{ flex: 1 }}>{children}</Stack>
@@ -109,18 +113,30 @@ export function FlowLoading({ title, exit = true }: { title: string; exit?: bool
   );
 }
 
-/** The open task this flow answers, from the task list (the API has no single-task read). */
-export function useOpenTask(kind: TaskKind, id: string) {
-  const q = useQuery(tasksQuery);
-  return { ...q, task: q.data?.find(x => x.kind === kind && x.id === id) };
-}
-
-/** A flow's loading, error and not-found screens, or null when the task is there. */
-export function taskGate(q: ReturnType<typeof useOpenTask>, title: string, missing: string): ReactNode {
+/**
+ * Opens a questionnaire (GET /api/portal/tasks/{kind}/{id}) and shows its loading, not-found, already-sent and sent
+ * screens; `children` gets the task, with its saved draft, and what to call once it is sent.
+ */
+export function TaskGate({ kind, id, title, sentMessage, children }: {
+  kind: DraftKind;
+  id: string;
+  title: string;
+  sentMessage: string;
+  children: (task: TaskDetail, onSent: () => void) => ReactNode;
+}) {
+  const { t } = useTranslation();
+  const q = useQuery(taskQuery(kind, id));
+  const [sent, setSent] = useState(false);
+  if (sent) return <FlowMessage title={title} message={sentMessage} done />;
   if (q.isPending) return <FlowLoading title={title} />;
-  if (q.isError) return <FlowFrame title={title}><LoadError onRetry={() => void q.refetch()} /></FlowFrame>;
-  if (!q.task) return <FlowMessage title={title} message={missing} />;
-  return null;
+  // Only a first load that fails replaces the questionnaire; a failed refresh leaves it on screen.
+  if (!q.data) {
+    return isApiError(q.error, 404) || isApiError(q.error, 400)
+      ? <FlowMessage title={title} message={t('flow.missing')} />
+      : <FlowFrame title={title}><LoadError onRetry={() => void q.refetch()} /></FlowFrame>;
+  }
+  if (q.data.done) return <FlowMessage title={title} message={t('flow.already')} />;
+  return children(q.data, () => setSent(true));
 }
 
 /** 409 means someone (or another tab) already sent it; anything else may work on a retry. */

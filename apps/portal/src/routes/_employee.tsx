@@ -7,6 +7,7 @@ import { forwardRef, type AnchorHTMLAttributes, type ComponentType } from 'react
 import { useTranslation } from 'react-i18next';
 import { SignOutButton } from '../AccountPage';
 import { isUnauthorized, meQuery } from '../api';
+import { forgetUnsaved } from '../drafts';
 import { applyProfileLang } from '../i18n';
 import { LanguageSelect } from '../LanguageSelect';
 
@@ -19,6 +20,8 @@ export const Route = createFileRoute('/_employee')({
     try {
       const me = await queryClient.ensureQueryData(meQuery);
       if (me.kind === 'employee') applyProfileLang(me.lang);
+      // Unsaved questionnaire answers from before a lapsed session belong to whoever signed in then.
+      forgetUnsaved(me.kind === 'employee' ? me.id : undefined);
       return { me };
     } catch (err) {
       if (isUnauthorized(err)) throw redirect({ to: '/login', search: { redirect: location.href } });

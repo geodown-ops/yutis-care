@@ -2,6 +2,8 @@ import type { Schemas } from '@yutis/api-client';
 
 export type PortalTask = Schemas['TaskDto'];
 export type TaskKind = PortalTask['kind'];
+/** GET /api/portal/tasks/{kind}/{id}: whether it is done, and the saved draft of a questionnaire. */
+export type TaskDetail = Schemas['TaskDetailDto'];
 
 /** Each kind of task has its own flow under /tasks, where the tab bar is hidden. */
 export const TASK_ROUTES = {
@@ -19,9 +21,9 @@ export function taskLink(task: Pick<PortalTask, 'kind' | 'id'>) {
 export const TASK_MINUTES: Record<TaskKind, number | null> = { nmq: 3, cbi: 3, overload: 1, acknowledgement: null };
 
 /**
- * The API writes titles in Chinese (an NMQ title includes the batch name staff typed). Other languages get the
- * translated name of the kind of task instead.
+ * The API writes titles in the account's language (an NMQ title adds the batch name staff typed). When this device
+ * shows another language, or the account's is not known yet, the translated name of the kind of task is used instead.
  */
-export function taskTitle(task: Pick<PortalTask, 'kind' | 'title'>, lang: string, kindLabel: (kind: TaskKind) => string): string {
-  return lang === 'zh' ? task.title : kindLabel(task.kind);
+export function taskTitle(task: Pick<PortalTask, 'kind' | 'title'>, lang: string, accountLang: string | undefined, kindLabel: (kind: TaskKind) => string): string {
+  return lang === accountLang ? task.title : kindLabel(task.kind);
 }

@@ -3,7 +3,7 @@
  * queries more than one screen reads. A flow's own calls stay in its page.
  */
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
-import { ApiRequestError, createTenantApi, data, type TenantInfo } from '@yutis/api-client';
+import { ApiRequestError, createTenantApi, data, type Schemas, type TenantInfo } from '@yutis/api-client';
 
 export const api = createTenantApi();
 
@@ -17,6 +17,11 @@ export const meQuery = queryOptions({ queryKey: ['me'], queryFn: () => data(api.
 
 export const profileQuery = queryOptions({ queryKey: ['portal', 'profile'], queryFn: () => data(api.GET('/api/portal/profile')) });
 export const tasksQuery = queryOptions({ queryKey: ['portal', 'tasks'], queryFn: () => data(api.GET('/api/portal/tasks')) });
+/** One task, whether it is done, and its draft. Its own key prefix, so refreshing the list leaves an open flow alone. */
+export const taskQuery = (kind: Schemas['TaskDetailDto']['kind'], id: string) => queryOptions({
+  queryKey: ['portal', 'task', kind, id],
+  queryFn: () => data(api.GET('/api/portal/tasks/{kind}/{id}', { params: { path: { kind, id } } })),
+});
 export const healthQuery = queryOptions({ queryKey: ['portal', 'health'], queryFn: () => data(api.GET('/api/portal/health')) });
 export const consentsQuery = queryOptions({ queryKey: ['portal', 'consents'], queryFn: () => data(api.GET('/api/portal/consents')) });
 export const acknowledgementQuery = (id: string) => queryOptions({
