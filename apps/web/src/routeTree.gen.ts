@@ -14,6 +14,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCasesRouteImport } from './routes/_app/cases'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
+import { Route as AppServiceRecordsRouteImport } from './routes/_app/service-records'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
 import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
 
@@ -41,6 +44,21 @@ const AppCasesRoute = AppCasesRouteImport.update({
   path: '/cases',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServiceRecordsRoute = AppServiceRecordsRouteImport.update({
+  id: '/service-records',
+  path: '/service-records',
+  getParentRoute: () => AppRoute,
+} as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppEmployeesIndexRoute = AppEmployeesIndexRouteImport.update({
   id: '/employees/',
   path: '/employees/',
@@ -57,6 +75,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
   '/employees/': typeof AppEmployeesIndexRoute
 }
@@ -64,6 +85,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/': typeof AppIndexRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
   '/employees': typeof AppEmployeesIndexRoute
@@ -74,6 +98,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/$': typeof AppSplatRoute
   '/_app/cases': typeof AppCasesRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
   '/_app/employees/': typeof AppEmployeesIndexRoute
@@ -81,15 +108,35 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
+    | '/'
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
+    | '/employees/$employeeId'
+    | '/employees/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/$' | '/cases' | '/' | '/employees/$employeeId' | '/employees'
+  to:
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
+    | '/'
+    | '/employees/$employeeId'
+    | '/employees'
   id:
     | '__root__'
     | '/_app'
     | '/login'
     | '/_app/$'
     | '/_app/cases'
+    | '/_app/reports'
+    | '/_app/service-records'
+    | '/sign/$token'
     | '/_app/'
     | '/_app/employees/$employeeId'
     | '/_app/employees/'
@@ -98,6 +145,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignTokenRoute: typeof SignTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -137,6 +185,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCasesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/service-records': {
+      id: '/_app/service-records'
+      path: '/service-records'
+      fullPath: '/service-records'
+      preLoaderRoute: typeof AppServiceRecordsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/employees/': {
       id: '/_app/employees/'
       path: '/employees'
@@ -157,6 +226,8 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppSplatRoute: typeof AppSplatRoute
   AppCasesRoute: typeof AppCasesRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppServiceRecordsRoute: typeof AppServiceRecordsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
   AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
@@ -165,6 +236,8 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppSplatRoute: AppSplatRoute,
   AppCasesRoute: AppCasesRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppServiceRecordsRoute: AppServiceRecordsRoute,
   AppIndexRoute: AppIndexRoute,
   AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
   AppEmployeesIndexRoute: AppEmployeesIndexRoute,
@@ -175,6 +248,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignTokenRoute: SignTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
