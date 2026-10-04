@@ -2,7 +2,7 @@
  * Employee master import (員工匯入): an Excel sheet, validated first, then created or updated by 工號 (emp_no).
  * Exceeding the subscription's seat limit only warns; it never blocks an import. After a committed import the
  * month's `active_employees` usage counter is set to the number of current employees. National ID numbers (身分證字號)
- * are never stored: only a per-tenant keyed fingerprint, used to match clinic files.
+ * are never stored in full: only a per-tenant keyed fingerprint, used to match clinic files, and a masked form for display.
  */
 import { Body, Controller, HttpCode, Inject, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
@@ -27,6 +27,9 @@ const STATUSES = ['在職', '留停', '離職'] as const;
 /** Taiwan national ID or resident certificate number: a letter, then 1/2 (or 8/9, A–D for residents), then 8 digits. */
 const NATIONAL_ID = /^[A-Z][12890ABCD]\d{8}$/;
 
+/** What staff see of a national ID: the first two and last three characters, e.g. A123456789 → A1•••••789. */
+export const maskNationalId = (id: string) => `${id.slice(0, 2)}${'•'.repeat(id.length - 5)}${id.slice(-3)}`;
+
 class SeatsDto {
   @ApiProperty({ description: '匯入後的在職員工數' }) activeEmployees!: number;
   @ApiProperty({ type: Number, nullable: true, description: '訂閱的人數上限' }) seatLimit!: number | null;
@@ -43,7 +46,7 @@ class EmployeeImportReportDto {
   @ApiProperty({ type: SeatsDto }) seats!: SeatsDto;
 }
 
-type EmployeeValues = Omit<typeof employees.$inferInsert, 'id' | 'tenantId' | 'empNo' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'nationalIdHash'>;
+type EmployeeValues = Omit<typeof employees.$inferInsert, 'id' | 'tenantId' | 'empNo' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'nationalIdHash' | 'nationalIdMasked'>;
 const COMPARED: (keyof EmployeeValues)[] = [
   'name', 'sex', 'birthDate', 'legalEntityId', 'siteId', 'departmentId', 'title', 'shift', 'examCategory', 'specialOperations', 'lang', 'hireDate', 'email', 'phone', 'status',
 ];
@@ -83,7 +86,7 @@ export class EmployeesController {
     const seen = new Set<string>();
     const seenIds = new Map<string, string>();
     const empNoByIdHash = new Map([...existing.values()].filter(e => e.nationalIdHash).map(e => [e.nationalIdHash!, e.empNo]));
-    const parsed: { row: number; empNo: string; values: EmployeeValues; nationalIdHash?: string }[] = [];
+    const parsed: { row: number; empNo: string; values: EmployeeValues; nationalId?: { hash: string; masked: string } }[] = [];
     for (const { row, values: v } of rows) {
       const before = issues.length;
       for (const c of EMPLOYEE_COLUMNS.required) if (!v[c]) add(row, c, '必填');
@@ -115,7 +118,7 @@ export class EmployeesController {
       if (site && v['部門'] && !dept) add(row, '部門', `廠區 ${site.code} 沒有部門「${v['部門']}」`);
       if (issues.length > before || !le || !site || !dept) continue;
       parsed.push({
-        row, empNo: v['工號']!, ...(nationalIdHash ? { nationalIdHash } : {}),
+        row, empNo: v['工號']!, ...(nationalIdHash ? { nationalId: { hash: nationalIdHash, masked: maskNationalId(nationalId!) } } : {}),
         values: {
           name: v['姓名']!, sex: v['性別'] as '男' | '女', birthDate: v['出生日期']!, legalEntityId: le.id, siteId: site.id, departmentId: dept.id,
           title: v['職稱'] || null, shift: v['班別'] || null, examCategory: v['健檢類別'] || null,
@@ -130,7 +133,7 @@ export class EmployeesController {
     const toUpdate = parsed.filter(p => {
       const cur = existing.get(p.empNo);
       return cur && (COMPARED.some(k => JSON.stringify(cur[k] ?? null) !== JSON.stringify(p.values[k] ?? null))
-        || (p.nationalIdHash !== undefined && p.nationalIdHash !== cur.nationalIdHash));
+        || (p.nationalId !== undefined && (p.nationalId.hash !== cur.nationalIdHash || p.nationalId.masked !== cur.nationalIdMasked)));
     });
     const report: EmployeeImportReportDto = {
       committed: false, rows: rows.length, create: toCreate.length, update: toUpdate.length,
@@ -149,13 +152,16 @@ export class EmployeesController {
       const audits: AuditEntry[] = [];
       for (let i = 0; i < toCreate.length; i += 500) {
         const created = await ctx.tx.insert(employees)
-          .values(toCreate.slice(i, i + 500).map(p => ({ ...p.values, empNo: p.empNo, nationalIdHash: p.nationalIdHash ?? null, tenantId: ctx.tenant.id, createdBy: me })))
+          .values(toCreate.slice(i, i + 500).map(p => ({
+            ...p.values, empNo: p.empNo, nationalIdHash: p.nationalId?.hash ?? null, nationalIdMasked: p.nationalId?.masked ?? null, tenantId: ctx.tenant.id, createdBy: me,
+          })))
           .returning({ id: employees.id });
         audits.push(...created.map(c => ({ action: 'create' as const, subjectTable: 'employees', subjectId: c.id, employeeId: c.id, dataCategory: 'identity' as const, reason: 'employee import' })));
       }
       for (const p of toUpdate) {
         const id = existing.get(p.empNo)!.id;
-        await ctx.tx.update(employees).set({ ...p.values, ...(p.nationalIdHash ? { nationalIdHash: p.nationalIdHash } : {}), updatedAt: new Date(), updatedBy: me }).where(eq(employees.id, id));
+        const nationalId = p.nationalId ? { nationalIdHash: p.nationalId.hash, nationalIdMasked: p.nationalId.masked } : {};
+        await ctx.tx.update(employees).set({ ...p.values, ...nationalId, updatedAt: new Date(), updatedBy: me }).where(eq(employees.id, id));
         audits.push({ action: 'update', subjectTable: 'employees', subjectId: id, employeeId: id, dataCategory: 'identity', reason: 'employee import' });
       }
       if (audits.length) await recordAudit(ctx, audits);
