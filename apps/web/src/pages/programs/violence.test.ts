@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkedItems, checklistBody, countByRisk, emptyRiskDraft, incidentBody, incidentDraft, incidentPatch, incidentProblem, pickSite, reviewBody, reviewDraft, reviewNames,
-  reviewProblem, riskBody, riskRows, signLinksText, signProgress, staffMatches, VIO_QUESTIONS, VIO_REVIEW, withSaved, type Incident, type Review,
+  checkedItems, checklistBody, composeDetail, countByRisk, emptyRiskDraft, incidentBody, incidentDraft, incidentPatch, incidentProblem, nowTime, occurredText,
+  parseDetail, pickSite, pickVictim, placeIncident, receivedText, reviewBody, reviewDraft, reviewNames, reviewProblem, riskBody, riskRows, signLinksText,
+  signProgress, staffMatches, VIO_QUESTIONS, VIO_REVIEW, withSaved, type Incident, type Review,
 } from './violence';
 
 describe('violence risk assessment', () => {
@@ -46,35 +47,99 @@ describe('site and department in the forms', () => {
 });
 
 describe('事件通報與處理', () => {
+  const STORY = '【受害者姓名或特徵】劉雅雯\n【加害者姓名或特徵】男性客戶（約 50 歲）\n【發生原因及過程】\n客戶因退費程序不滿，於櫃台大聲辱罵。\n經主管介入後離開。';
   const saved: Incident = {
-    id: 'i1', occurredOn: '2026-09-30', siteId: 's1', departmentId: 'd1', departmentName: '客服部', type: '語言暴力', victimEmployeeId: 'e1',
-    followUps: ['報警處理'], status: '處理中', detail: '櫃台客訴',
+    id: 'i1', occurredOn: '2026-09-30', occurredTime: '14:35', siteId: 's1', departmentId: 'd1', departmentName: '客服部', place: '1F 服務櫃台', type: '語言暴力',
+    victimEmployeeId: 'e1', victimKind: '內部人員', perpetratorKind: '外部人員', followUps: ['報警處理'], status: '處理中', detail: STORY,
+    receivedAt: '2026-09-30T07:10:00.000Z', receiverName: '王護理師',
   };
   const today = '2026-10-04';
+  const blank = { victimName: '', perpetratorName: '', relation: '', cause: '', handling: '' };
 
-  it('starts a new report on today and my first site, or an edit from the record', () => {
-    expect(incidentDraft(null, { today, siteId: 's1' }))
-      .toEqual({ occurredOn: today, siteId: 's1', departmentId: null, type: '', victimEmployeeId: null, detail: '', followUps: [] });
-    expect(incidentDraft({ ...saved, detail: null }, { today, siteId: 's9' }))
-      .toEqual({ occurredOn: '2026-09-30', siteId: 's1', departmentId: 'd1', type: '語言暴力', victimEmployeeId: 'e1', detail: '', followUps: ['報警處理'] });
+  it('writes the separate parts into the detail as labelled blocks, and reads them back', () => {
+    const story = { ...blank, victimName: ' 劉雅雯 ', perpetratorName: '男性客戶（約 50 歲）', cause: '客戶因退費程序不滿，於櫃台大聲辱罵。\n經主管介入後離開。\n' };
+    expect(composeDetail(story)).toBe(STORY);
+    expect(parseDetail(STORY)).toEqual({ story: { ...story, victimName: '劉雅雯', cause: '客戶因退費程序不滿，於櫃台大聲辱罵。\n經主管介入後離開。' }, legacy: false });
+    expect(composeDetail(blank)).toBeNull();
+    expect(composeDetail({ ...blank, relation: '客服人員與客戶', handling: '安排心理諮商' })).toBe('【受害者及加害者關係】客服人員與客戶\n【處理措施】安排心理諮商');
+    expect(parseDetail(null)).toEqual({ story: blank, legacy: false });
+    expect(parseDetail('  ')).toEqual({ story: blank, legacy: false });
   });
 
-  it('checks the date, site and type, and trims what it sends', () => {
-    const d = { ...incidentDraft(null, { today, siteId: 's1' }), type: '肢體暴力', departmentId: 'd2', detail: '  ' };
+  it('keeps an older free-text detail whole', () => {
+    expect(parseDetail(' 課長當眾辱罵\n已轉介諮商 ')).toEqual({ story: { ...blank, cause: '課長當眾辱罵\n已轉介諮商' }, legacy: true });
+    expect(parseDetail('備註：【處理措施】稍後補')).toEqual({ story: { ...blank, cause: '備註：【處理措施】稍後補' }, legacy: true });
+  });
+
+  it('keeps a repeated label inside the part it appears in', () => {
+    expect(parseDetail('【處理措施】\n第一次\n【處理措施】第二次').story.handling).toBe('第一次\n【處理措施】第二次');
+  });
+
+  it('starts a new report on today and my first site, or an edit from the record', () => {
+    expect(incidentDraft(null, { today, siteId: 's1' })).toEqual({
+      occurredOn: today, occurredTime: '', siteId: 's1', departmentId: null, place: '', type: '', victimKind: null, victimEmployeeId: null, perpetratorKind: null,
+      followUps: [], ...blank,
+    });
+    expect(incidentDraft(saved, { today, siteId: 's9' })).toEqual({
+      occurredOn: '2026-09-30', occurredTime: '14:35', siteId: 's1', departmentId: 'd1', place: '1F 服務櫃台', type: '語言暴力', victimKind: '內部人員',
+      victimEmployeeId: 'e1', perpetratorKind: '外部人員', followUps: ['報警處理'], ...blank, victimName: '劉雅雯', perpetratorName: '男性客戶（約 50 歲）',
+      cause: '客戶因退費程序不滿，於櫃台大聲辱罵。\n經主管介入後離開。',
+    });
+    expect(incidentDraft({ ...saved, occurredTime: null, place: null, detail: null }, { today, siteId: null }))
+      .toMatchObject({ occurredTime: '', place: '', ...blank });
+  });
+
+  it('checks the date, time, site and type, and trims what it sends', () => {
+    const d = { ...incidentDraft(null, { today, siteId: 's1' }), type: '肢體暴力', departmentId: 'd2', place: '  ', relation: '  ' };
     expect(incidentProblem(d, today)).toBeNull();
     expect(incidentProblem({ ...d, occurredOn: '2026-10-05' }, today)).toBe('發生日期不能晚於今天。');
+    expect(incidentProblem({ ...d, occurredTime: '24:00' }, today)).toBe('發生時間格式不正確。');
+    expect(incidentProblem({ ...d, occurredTime: '15:01' }, today, '15:00')).toBe('發生時間不能晚於現在。');
+    expect(incidentProblem({ ...d, occurredTime: '15:00' }, today, '15:00')).toBeNull();
+    expect(incidentProblem({ ...d, occurredOn: '2026-10-03', occurredTime: '23:59' }, today, '08:00')).toBeNull();
     expect(incidentProblem({ ...d, siteId: null }, today)).toBe('請選擇廠區。');
     expect(incidentProblem({ ...d, type: ' ' }, today)).toBe('請選擇不法侵害類型。');
-    expect(incidentBody(d)).toEqual({ occurredOn: today, siteId: 's1', departmentId: 'd2', type: '肢體暴力', victimEmployeeId: null, detail: null, followUps: [] });
+    expect(incidentProblem({ ...d, cause: 'x'.repeat(10000) }, today)).toBe('事件內容太長，請精簡後再送出。');
+    expect(incidentBody(d)).toEqual({
+      occurredOn: today, occurredTime: null, siteId: 's1', departmentId: 'd2', place: null, type: '肢體暴力', victimEmployeeId: null, victimKind: null,
+      perpetratorKind: null, detail: null, followUps: [],
+    });
+    expect(incidentBody({ ...d, occurredTime: '09:30', place: ' 倉庫 ', perpetratorKind: '內部人員', perpetratorName: '課長' }))
+      .toMatchObject({ occurredTime: '09:30', place: '倉庫', perpetratorKind: '內部人員', detail: '【加害者姓名或特徵】課長' });
+  });
+
+  it('marks a picked victim as internal staff and moves a new report to their site', () => {
+    const d = incidentDraft(null, { today, siteId: 's1' });
+    expect(pickVictim(d, { id: 'e2', siteId: 's2' }, true)).toMatchObject({ victimEmployeeId: 'e2', victimKind: '內部人員', siteId: 's2', departmentId: null });
+    expect(pickVictim({ ...d, departmentId: 'd1' }, { id: 'e2', siteId: 's2' }, false)).toMatchObject({ siteId: 's1', departmentId: 'd1' });
+    expect(pickVictim({ ...d, victimEmployeeId: 'e2', victimKind: '內部人員' }, null, true)).toMatchObject({ victimEmployeeId: null, victimKind: '內部人員', siteId: 's1' });
+  });
+
+  it('does not send a picked employee for an external victim', () => {
+    const d = { ...incidentDraft(null, { today, siteId: 's1' }), type: '其他', victimEmployeeId: 'e2', victimKind: '外部人員' as const };
+    expect(incidentBody(d)).toMatchObject({ victimEmployeeId: null, victimKind: '外部人員' });
+    expect(incidentPatch(saved, { ...incidentDraft(saved, { today, siteId: null }), victimKind: '外部人員' })).toEqual({ victimEmployeeId: null, victimKind: '外部人員' });
   });
 
   it('sends only what changed in an edit', () => {
     const d = incidentDraft(saved, { today, siteId: null });
     expect(incidentPatch(saved, d)).toEqual({});
-    expect(incidentPatch(saved, { ...d, detail: '櫃台客訴 ' })).toEqual({});
-    expect(incidentPatch(saved, { ...d, detail: '', followUps: ['報警處理', '轉介心理諮商'] })).toEqual({ detail: null, followUps: ['報警處理', '轉介心理諮商'] });
+    expect(incidentPatch(saved, { ...d, victimName: '劉雅雯 ', place: '1F 服務櫃台 ' })).toEqual({});
+    expect(incidentPatch(saved, { ...d, followUps: ['報警處理', '轉介心理諮商'] })).toEqual({ followUps: ['報警處理', '轉介心理諮商'] });
     expect(incidentPatch(saved, { ...d, departmentId: null })).toEqual({ departmentId: null });
     expect(incidentPatch(saved, { ...d, victimEmployeeId: null, type: '其他' })).toEqual({ victimEmployeeId: null, type: '其他' });
+    expect(incidentPatch(saved, { ...d, occurredTime: '', place: '', perpetratorKind: null, victimKind: null }))
+      .toEqual({ occurredTime: null, place: null, perpetratorKind: null, victimKind: null });
+    expect(incidentPatch(saved, { ...d, handling: '安排心理諮商' })).toEqual({ detail: `${STORY}\n【處理措施】安排心理諮商` });
+    expect(incidentPatch(saved, { ...d, ...blank })).toEqual({ detail: null });
+  });
+
+  it('leaves an older free-text detail alone unless it is edited', () => {
+    const old = { ...saved, detail: '課長當眾辱罵' };
+    const d = incidentDraft(old, { today, siteId: null });
+    expect(d.cause).toBe('課長當眾辱罵');
+    expect(incidentPatch(old, { ...d, perpetratorKind: '內部人員' })).toEqual({ perpetratorKind: '內部人員' });
+    expect(incidentPatch(old, { ...d, perpetratorName: '課長' })).toEqual({ detail: '【加害者姓名或特徵】課長\n【發生原因及過程】課長當眾辱罵' });
   });
 
   it('takes the department along when the site moves', () => {
@@ -90,6 +155,27 @@ describe('事件通報與處理', () => {
   it('keeps saved choices that are not in the fixed lists', () => {
     expect(withSaved(['語言暴力', '其他'], ['跟蹤'])).toEqual(['語言暴力', '其他', '跟蹤']);
     expect(withSaved(['語言暴力', '其他'], ['其他', ''])).toEqual(['語言暴力', '其他']);
+  });
+
+  it('shows the times', () => {
+    expect(occurredText(saved)).toBe('2026/09/30 14:35');
+    expect(occurredText({ occurredOn: '2026-09-30', occurredTime: null })).toBe('2026/09/30');
+    const at = new Date(2026, 8, 30, 15, 10, 42);
+    expect(receivedText(at.toISOString())).toBe('2026/09/30 15:10');
+    expect(nowTime(new Date(2026, 9, 4, 8, 5))).toBe('08:05');
+  });
+
+  it('moves an edited row only when its date or time changed, to where the API lists it', () => {
+    const row = (id: string, occurredOn: string, occurredTime: string | null): Incident => ({ ...saved, id, occurredOn, occurredTime });
+    const list = [row('a', '2026-10-02', '09:00'), row('b', '2026-10-01', '18:00'), row('c', '2026-10-01', null), row('d', '2026-09-20', '10:00')];
+    const ids = (l: Incident[]) => l.map(i => i.id).join('');
+    const closed = { ...list[1]!, status: '結案' as const };
+    expect(placeIncident(list, closed)[1]).toBe(closed);
+    expect(ids(placeIncident(list, row('d', '2026-10-01', '20:00')))).toBe('adbc');
+    expect(ids(placeIncident(list, row('a', '2026-10-01', null)))).toBe('bcad');
+    expect(ids(placeIncident(list, row('b', '2026-10-03', null)))).toBe('bacd');
+    expect(ids(placeIncident(list, row('a', '2026-01-01', '08:00')))).toBe('bcda');
+    expect(ids(placeIncident(list, row('x', '2026-10-09', null)))).toBe('abcd');
   });
 });
 

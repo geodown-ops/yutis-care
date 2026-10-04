@@ -99,50 +99,164 @@ export function pickSite<T extends Place>(d: T, siteId: string | null): T {
 
 /* ---------- 事件通報與處理 (incidents) ---------- */
 
-export interface IncidentDraft {
-  occurredOn: string; siteId: string | null; departmentId: string | null; type: string; victimEmployeeId: string | null; detail: string; followUps: string[];
+export type PersonKind = NonNullable<Incident['perpetratorKind']>;
+export const PERSON_KINDS: readonly PersonKind[] = ['內部人員', '外部人員'];
+
+/**
+ * The prototype's report fields that the API keeps together in the encrypted `detail`: both parties' names or
+ * features, their relationship, what happened and how it was handled.
+ */
+export interface IncidentStory { victimName: string; perpetratorName: string; relation: string; cause: string; handling: string }
+export const STORY_LABEL: Record<keyof IncidentStory, string> = {
+  victimName: '受害者姓名或特徵', perpetratorName: '加害者姓名或特徵', relation: '受害者及加害者關係', cause: '發生原因及過程', handling: '處理措施',
+};
+const STORY_KEYS = Object.keys(STORY_LABEL) as (keyof IncidentStory)[];
+const LABEL_LINE = new RegExp(`^【(${STORY_KEYS.map(k => STORY_LABEL[k]).join('|')})】(.*)$`);
+const keyOf = new Map(STORY_KEYS.map(k => [STORY_LABEL[k], k]));
+export const emptyStory = (): IncidentStory => ({ victimName: '', perpetratorName: '', relation: '', cause: '', handling: '' });
+
+/**
+ * The detail text: one labelled block per part filled in, in the report's order, readable as it is stored
+ * (「【受害者姓名或特徵】劉雅雯」; a part of several lines starts on the line after its label). Null when all are blank.
+ */
+export function composeDetail(s: IncidentStory): string | null {
+  const blocks = STORY_KEYS.flatMap(k => {
+    const v = s[k].trim();
+    if (!v) return [];
+    return [v.includes('\n') ? `【${STORY_LABEL[k]}】\n${v}` : `【${STORY_LABEL[k]}】${v}`];
+  });
+  return blocks.length ? blocks.join('\n') : null;
+}
+
+/**
+ * The parts of a detail written by composeDetail. Text from before (not opening with one of the labels) is kept
+ * whole as 發生原因及過程, and `legacy` says so.
+ */
+export function parseDetail(detail: string | null): { story: IncidentStory; legacy: boolean } {
+  const story = emptyStory();
+  const text = (detail ?? '').trim();
+  if (!text) return { story, legacy: false };
+  const lines = text.split(/\r?\n/);
+  if (!LABEL_LINE.test(lines[0]!)) return { story: { ...story, cause: text }, legacy: true };
+  const parts = new Map<keyof IncidentStory, string[]>();
+  let current: string[] = [];
+  for (const line of lines) {
+    const m = LABEL_LINE.exec(line);
+    const key = m ? keyOf.get(m[1]!)! : null;
+    // A label seen before is just text of the part it appears in.
+    if (key && !parts.has(key)) { current = [m![2]!]; parts.set(key, current); } else current.push(line);
+  }
+  for (const [k, v] of parts) story[k] = v.join('\n').trim();
+  return { story, legacy: false };
+}
+
+export interface IncidentDraft extends IncidentStory {
+  occurredOn: string; occurredTime: string; siteId: string | null; departmentId: string | null; place: string; type: string;
+  victimKind: PersonKind | null; victimEmployeeId: string | null; perpetratorKind: PersonKind | null; followUps: string[];
 }
 export type IncidentBody = TenantPaths['/api/programs/violence/incidents']['post']['requestBody']['content']['application/json'];
 export type IncidentPatch = NonNullable<TenantPaths['/api/programs/violence/incidents/{id}']['patch']['requestBody']>['content']['application/json'];
 
 export function incidentDraft(i: Incident | null, defaults: { today: string; siteId: string | null }): IncidentDraft {
   return i
-    ? { occurredOn: i.occurredOn, siteId: i.siteId, departmentId: i.departmentId, type: i.type, victimEmployeeId: i.victimEmployeeId, detail: i.detail ?? '', followUps: [...i.followUps] }
-    : { occurredOn: defaults.today, siteId: defaults.siteId, departmentId: null, type: '', victimEmployeeId: null, detail: '', followUps: [] };
+    ? {
+      occurredOn: i.occurredOn, occurredTime: i.occurredTime ?? '', siteId: i.siteId, departmentId: i.departmentId, place: i.place ?? '', type: i.type,
+      victimKind: i.victimKind, victimEmployeeId: i.victimEmployeeId, perpetratorKind: i.perpetratorKind, followUps: [...i.followUps], ...parseDetail(i.detail).story,
+    }
+    : {
+      occurredOn: defaults.today, occurredTime: '', siteId: defaults.siteId, departmentId: null, place: '', type: '',
+      victimKind: null, victimEmployeeId: null, perpetratorKind: null, followUps: [], ...emptyStory(),
+    };
 }
 
-export function incidentProblem(d: IncidentDraft, today: string): string | null {
+/** An employee picked as the victim is internal staff; `followSite` also moves a new report to their site. */
+export function pickVictim(d: IncidentDraft, e: { id: string; siteId: string } | null, followSite: boolean): IncidentDraft {
+  const next: IncidentDraft = { ...d, victimEmployeeId: e?.id ?? null, victimKind: e ? '內部人員' : d.victimKind };
+  return e && followSite ? pickSite(next, e.siteId) : next;
+}
+
+/** An external victim is not one of our employees: an employee picked before stays on the form but is not sent. */
+const victimId = (d: IncidentDraft) => (d.victimKind === '外部人員' ? null : d.victimEmployeeId);
+
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const MAX_DETAIL = 10000;
+
+/** What stops the report from being saved; with `now` (HH:MM) a time later today is refused too. */
+export function incidentProblem(d: IncidentDraft, today: string, now?: string): string | null {
   if (!d.occurredOn) return '請填寫發生日期。';
   if (d.occurredOn > today) return '發生日期不能晚於今天。';
+  if (d.occurredTime && !TIME.test(d.occurredTime)) return '發生時間格式不正確。';
+  if (d.occurredTime && now && d.occurredOn === today && d.occurredTime > now) return '發生時間不能晚於現在。';
   if (!d.siteId) return '請選擇廠區。';
   if (!d.type.trim()) return '請選擇不法侵害類型。';
+  if ((composeDetail(d)?.length ?? 0) > MAX_DETAIL) return '事件內容太長，請精簡後再送出。';
   return null;
 }
 
 /** POST body for a new incident; check incidentProblem first (the site is required). */
 export function incidentBody(d: IncidentDraft): IncidentBody {
   return {
-    occurredOn: d.occurredOn, siteId: d.siteId!, departmentId: d.departmentId, type: d.type.trim(), victimEmployeeId: d.victimEmployeeId,
-    detail: d.detail.trim() || null, followUps: d.followUps,
+    occurredOn: d.occurredOn, occurredTime: d.occurredTime || null, siteId: d.siteId!, departmentId: d.departmentId, place: d.place.trim() || null,
+    type: d.type.trim(), victimEmployeeId: victimId(d), victimKind: d.victimKind, perpetratorKind: d.perpetratorKind, detail: composeDetail(d),
+    followUps: d.followUps,
   };
 }
 
 /**
  * PATCH body for an edit: only the fields that changed, since the API records each one sent as changed. A move to
  * another site always takes departmentId along (null when none is picked): the old department is not in the new site.
+ * The detail counts as changed only when one of its parts did, so an older free-text record keeps its text when
+ * something else is edited.
  */
 export function incidentPatch(i: Incident, d: IncidentDraft): IncidentPatch {
   const out: IncidentPatch = {};
   const type = d.type.trim();
-  const detail = d.detail.trim() || null;
+  const place = d.place.trim() || null;
+  const detail = composeDetail(d);
   if (d.occurredOn !== i.occurredOn) out.occurredOn = d.occurredOn;
+  if ((d.occurredTime || null) !== i.occurredTime) out.occurredTime = d.occurredTime || null;
   if (d.siteId && d.siteId !== i.siteId) out.siteId = d.siteId;
   if (out.siteId || d.departmentId !== i.departmentId) out.departmentId = d.departmentId;
+  if (place !== i.place) out.place = place;
   if (type !== i.type) out.type = type;
-  if (d.victimEmployeeId !== i.victimEmployeeId) out.victimEmployeeId = d.victimEmployeeId;
-  if (detail !== (i.detail ?? null)) out.detail = detail;
+  if (victimId(d) !== i.victimEmployeeId) out.victimEmployeeId = victimId(d);
+  if (d.victimKind !== i.victimKind) out.victimKind = d.victimKind;
+  if (d.perpetratorKind !== i.perpetratorKind) out.perpetratorKind = d.perpetratorKind;
+  if (detail !== composeDetail(parseDetail(i.detail).story)) out.detail = detail;
   if (d.followUps.length !== i.followUps.length || d.followUps.some((f, n) => f !== i.followUps[n])) out.followUps = d.followUps;
   return out;
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** 發生時間: "2026/09/30 14:35", or the date alone when no time was given. */
+export const occurredText = (i: Pick<Incident, 'occurredOn' | 'occurredTime'>) =>
+  `${i.occurredOn.replaceAll('-', '/')}${i.occurredTime ? ` ${i.occurredTime}` : ''}`;
+
+/** 受理時間 in local time: "2026/10/04 15:10". */
+export function receivedText(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** The time now as HH:MM (local), for the form's check. */
+export const nowTime = (at = new Date()) => `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+
+/** Whether a is listed before b by the API: newest date first, then time, records without a time last. */
+const listedBefore = (a: Incident, b: Incident) =>
+  a.occurredOn !== b.occurredOn ? a.occurredOn > b.occurredOn : (a.occurredTime ?? '') > (b.occurredTime ?? '');
+
+/**
+ * The list after an edit: the saved row replaces the old one, and moves only when its date or time changed, to where
+ * the API would list it. The others keep the API's order.
+ */
+export function placeIncident(list: readonly Incident[], row: Incident): Incident[] {
+  const old = list.find(i => i.id === row.id);
+  if (!old) return [...list];
+  if (old.occurredOn === row.occurredOn && old.occurredTime === row.occurredTime) return list.map(i => (i.id === row.id ? row : i));
+  const rest = list.filter(i => i.id !== row.id);
+  const at = rest.findIndex(i => listedBefore(row, i));
+  return at < 0 ? [...rest, row] : [...rest.slice(0, at), row, ...rest.slice(at)];
 }
 
 /** Fixed choices plus whatever the record already holds outside them (the API takes any text). */

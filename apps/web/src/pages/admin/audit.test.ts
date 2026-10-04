@@ -77,7 +77,8 @@ describe('audit entries in words', () => {
     const pending = { isPending: true, isError: false };
     expect(appliedEmployeeLabel(ID, { known: 'E0012 王小明', lookup: pending })).toBe('E0012 王小明');
     expect(appliedEmployeeLabel(ID, { lookup: done([left]), inResults: left })).toBe('E0012 王小明（離職）');
-    expect(appliedEmployeeLabel(ID, { lookup: pending, inResults: left })).toBe('E0012 王小明');
+    expect(appliedEmployeeLabel(ID, { lookup: pending, inResults: left })).toBe('E0012 王小明（離職）');
+    expect(appliedEmployeeLabel(ID, { lookup: pending, inResults: { ...left, status: '在職' } })).toBe('E0012 王小明');
     expect(appliedEmployeeLabel(ID, { lookup: pending })).toBeNull();
     expect(appliedEmployeeLabel(ID, { lookup: done([]) })).toBe('找不到這位員工');
     expect(appliedEmployeeLabel(ID, { lookup: { isPending: false, isError: true } })).toBe('指定的員工');

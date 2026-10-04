@@ -1,19 +1,21 @@
 /* 不法侵害預防 · 事件通報與處理 (職護、職醫 only; managers never see incidents). */
-import { Button, Card, Chip, Group, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Text, Textarea } from '@mantine/core';
+import { Button, Card, Chip, Grid, Group, Input, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Text, Textarea, TextInput } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useQueries, type UseQueryResult } from '@tanstack/react-query';
 import type { Schemas } from '@yutis/api-client';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { todayIso } from '../../cases';
 import { employeeQuery } from '../../queries';
+import { useMe } from '../../session';
 import { CardNote, problemText } from '../states';
 import { OrgFilterSelects } from './listControls';
 import { matchOrg, NO_ORG_FILTER, withRowDepartments, type OrgFilter } from './lists';
 import {
-  DateField, DepartmentSelect, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName,
+  DateField, DepartmentSelect, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName,
 } from './maternalViolenceCommon';
 import {
-  incidentBody, incidentDraft, incidentPatch, incidentProblem, pickSite, VIO_FOLLOW, VIO_INC_TYPES, withSaved, type Incident, type IncidentDraft,
+  incidentBody, incidentDraft, incidentPatch, incidentProblem, nowTime, occurredText, parseDetail, PERSON_KINDS, pickSite, pickVictim, receivedText,
+  VIO_FOLLOW, VIO_INC_TYPES, withSaved, type Incident, type IncidentDraft, type PersonKind,
 } from './violence';
 import { useCreateIncident, useUpdateIncident } from './violenceQueries';
 
@@ -29,8 +31,7 @@ function useVictims(incidents: readonly Incident[]) {
 type VictimState = Schemas['EmployeeDetailDto'] | 'loading' | 'unavailable';
 type Victims = Map<string, VictimState>;
 
-function Victim({ id, victims }: { id: string | null; victims: Victims }) {
-  if (!id) return <Text span size="sm" c="dimmed">未指定</Text>;
+function Victim({ id, victims }: { id: string; victims: Victims }) {
   const e = victims.get(id);
   if (!e || e === 'loading') return <Text span size="sm" c="dimmed">…</Text>;
   if (e === 'unavailable') return <Text span size="sm" c="dimmed">無法顯示</Text>;
@@ -38,6 +39,38 @@ function Victim({ id, victims }: { id: string | null; victims: Victims }) {
 }
 
 const Dim = ({ children }: { children: string }) => <Text span size="sm" c="dimmed">{children}</Text>;
+
+/** A table cell's main line with a smaller one under it. */
+function TwoLines({ main, sub }: { main: ReactNode; sub: string | null }) {
+  return (
+    <Stack gap={0}>
+      <Text size="sm" component="div">{main}</Text>
+      {sub && <Text size="xs" c="dimmed">{sub}</Text>}
+    </Stack>
+  );
+}
+
+/** A heading over a hairline, as the report's sections are set out. */
+function SectionHead({ children, note }: { children: string; note?: string }) {
+  return (
+    <Group justify="space-between" align="flex-end" gap="sm" pb={6} mb="sm" style={{ borderBottom: '1px solid var(--yutis-line)' }}>
+      <Text fw={600} size="sm">{children}</Text>
+      {note && <Text size="xs" c="dimmed">{note}</Text>}
+    </Group>
+  );
+}
+
+/** Text of several lines in the record view. */
+function Long({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <Text size="xs" c="dimmed">{label}</Text>
+      <Text size="sm" c={text ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text || '未填寫'}</Text>
+    </div>
+  );
+}
+
+const statusBadge = (s: Incident['status']) => <ToneBadge tone={s === '結案' ? 'ok' : 'warn'}>{s}</ToneBadge>;
 
 export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQueryResult<Incident[]>; onNotice: (text: string) => void }) {
   const names = withRowDepartments(useOrgNames(), incidents.data ?? []);
@@ -47,6 +80,7 @@ export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQu
   const [creating, setCreating] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const viewing = incidents.data?.find(i => i.id === viewingId) ?? null;
+  // In the API's order: newest first by date and time.
   const rows = (incidents.data ?? []).filter(i => matchOrg(i, org));
   return (
     <Card>
@@ -59,27 +93,34 @@ export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQu
       </Group>
       {incidents.isPending ? <Skeleton h={200} /> : incidents.isError ? <CardNote>{problemText(incidents.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={860}>
+          <Table.ScrollContainer minWidth={1040}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>發生日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th>類型</Table.Th><Table.Th>受害員工</Table.Th><Table.Th>後續協助</Table.Th>
-                  <Table.Th>狀態</Table.Th><Table.Th />
+                  <Table.Th>發生時間</Table.Th><Table.Th>廠區／部門</Table.Th><Table.Th>發生地點</Table.Th><Table.Th>類型</Table.Th><Table.Th>受害者</Table.Th>
+                  <Table.Th>加害者</Table.Th><Table.Th>受理時間／受理人</Table.Th><Table.Th>狀態</Table.Th><Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {rows.map(i => (
-                  <Table.Tr key={i.id}>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(i.occurredOn)}</Table.Td>
-                    <Table.Td>{names.site(i.siteId)}</Table.Td>
-                    <Table.Td>{i.departmentName ?? <Dim>—</Dim>}</Table.Td>
-                    <Table.Td><ToneBadge tone="bad">{i.type}</ToneBadge></Table.Td>
-                    <Table.Td><Victim id={i.victimEmployeeId} victims={victims} /></Table.Td>
-                    <Table.Td>{i.followUps.join('、') || '—'}</Table.Td>
-                    <Table.Td><ToneBadge tone={i.status === '結案' ? 'ok' : 'warn'}>{i.status}</ToneBadge></Table.Td>
-                    <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewingId(i.id)}>檢視</Button></Table.Td>
-                  </Table.Tr>
-                ))}
+                {rows.map(i => {
+                  const { story } = parseDetail(i.detail);
+                  return (
+                    <Table.Tr key={i.id}>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{occurredText(i)}</Table.Td>
+                      <Table.Td><TwoLines main={names.site(i.siteId)} sub={i.departmentName} /></Table.Td>
+                      <Table.Td maw={200} style={{ overflowWrap: 'anywhere' }}>{i.place ?? <Dim>—</Dim>}</Table.Td>
+                      <Table.Td><ToneBadge tone="bad">{i.type}</ToneBadge></Table.Td>
+                      <Table.Td>
+                        <TwoLines sub={i.victimKind}
+                          main={i.victimEmployeeId ? <Victim id={i.victimEmployeeId} victims={victims} /> : story.victimName || <Dim>未填</Dim>} />
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{i.perpetratorKind ?? <Dim>未填</Dim>}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}><TwoLines main={receivedText(i.receivedAt)} sub={i.receiverName} /></Table.Td>
+                      <Table.Td>{statusBadge(i.status)}</Table.Td>
+                      <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewingId(i.id)}>檢視</Button></Table.Td>
+                    </Table.Tr>
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
@@ -101,7 +142,7 @@ function IncidentModal({ incident, victims, onClose, onNotice }: {
   const close = () => { setEditing(false); onClose(); };
   const victim = incident?.victimEmployeeId ? victims.get(incident.victimEmployeeId) : undefined;
   return (
-    <Modal opened={!!incident} onClose={close} title={editing ? '編輯不法侵害事件' : '不法侵害事件'} {...size}>
+    <Modal opened={!!incident} onClose={close} title={editing ? '編輯事件通報與處理' : '事件通報與處理'} {...size}>
       {incident && (editing
         ? <IncidentForm key={incident.id} incident={incident} savedVictim={victim} onCancel={() => setEditing(false)}
             onSaved={changed => { setEditing(false); if (changed) onNotice('已更新事件通報。'); }} />
@@ -116,23 +157,50 @@ function IncidentView({ incident, victims, onClose, onEdit, onNotice }: {
   const siteName = useSiteName();
   const status = useUpdateIncident();
   const next = incident.status === '結案' ? '處理中' : '結案';
+  const { story, legacy } = parseDetail(incident.detail);
+  const orBlank = (v: string | null) => v || <Dim>未填寫</Dim>;
   return (
-    <Stack gap="md">
+    <Stack gap="lg">
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
-        <Kv label="發生日期" value={dt(incident.occurredOn)} />
+        <Kv label="發生時間" value={occurredText(incident)} />
+        <Kv label="不法侵害類型" value={<ToneBadge tone="bad">{incident.type}</ToneBadge>} />
+        <Kv label="狀態" value={statusBadge(incident.status)} />
         <Kv label="廠區" value={siteName(incident.siteId)} />
-        <Kv label="部門" value={incident.departmentName ?? '未指定'} />
-        <Kv label="類型" value={incident.type} />
-        <Kv label="受害員工" value={<Victim id={incident.victimEmployeeId} victims={victims} />} />
-        <Kv label="狀態" value={<ToneBadge tone={incident.status === '結案' ? 'ok' : 'warn'}>{incident.status}</ToneBadge>} />
+        <Kv label="部門" value={incident.departmentName ?? <Dim>未指定</Dim>} />
+        <Kv label="發生地點" value={orBlank(incident.place)} />
+        <Kv label="受理時間" value={receivedText(incident.receivedAt)} />
+        <Kv label="受理人" value={orBlank(incident.receiverName)} />
+      </SimpleGrid>
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+        <div>
+          <SectionHead>受害者</SectionHead>
+          <SimpleGrid cols={2} spacing="sm">
+            <Kv label="人員類別" value={orBlank(incident.victimKind)} />
+            {incident.victimEmployeeId && <Kv label="受害員工" value={<Victim id={incident.victimEmployeeId} victims={victims} />} />}
+            {/* With the employee shown, a blank name says nothing more. */}
+            {!legacy && (story.victimName || !incident.victimEmployeeId) && <Kv label="姓名或特徵" value={orBlank(story.victimName)} />}
+          </SimpleGrid>
+        </div>
+        <div>
+          <SectionHead>加害者</SectionHead>
+          <SimpleGrid cols={2} spacing="sm">
+            <Kv label="人員類別" value={orBlank(incident.perpetratorKind)} />
+            {!legacy && <Kv label="姓名或特徵" value={orBlank(story.perpetratorName)} />}
+          </SimpleGrid>
+        </div>
       </SimpleGrid>
       <div>
-        <Text size="sm" fw={600} mb={4}>事件經過與處理</Text>
-        <Text size="sm" c={incident.detail ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap' }}>{incident.detail || '未填寫'}</Text>
-      </div>
-      <div>
-        <Text size="sm" fw={600} mb={4}>後續協助</Text>
-        <Text size="sm" c={incident.followUps.length ? undefined : 'dimmed'}>{incident.followUps.join('、') || '無'}</Text>
+        <SectionHead note="加密儲存">事件經過與處理</SectionHead>
+        <Stack gap="sm">
+          {legacy ? <Long label="事件經過與處理" text={story.cause} /> : (
+            <>
+              <Long label="受害者及加害者關係" text={story.relation} />
+              <Long label="發生原因及過程" text={story.cause} />
+              <Long label="處理措施" text={story.handling} />
+            </>
+          )}
+          <Kv label="後續協助" value={incident.followUps.join('、') || <Dim>無</Dim>} />
+        </Stack>
       </div>
       {status.isError && <Text size="sm" c="var(--yutis-bad)" role="alert">{saveProblem(status.error)}</Text>}
       <Group justify="space-between" gap="sm">
@@ -153,39 +221,52 @@ function IncidentView({ incident, victims, onClose, onEdit, onNotice }: {
 function NewIncidentModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const size = useModalSize('lg');
   return (
-    <Modal opened={opened} onClose={onClose} title="新增不法侵害事件通報" {...size}>
+    <Modal opened={opened} onClose={onClose} title="新增事件通報與處理" {...size}>
       {opened && <IncidentForm incident={null} onCancel={onClose} onSaved={onClose} />}
     </Modal>
   );
 }
 
+/** 內部人員 or 外部人員; picking the chosen one again clears it (the API takes none). */
+function KindChips({ party, value, onChange }: { party: string; value: PersonKind | null; onChange: (k: PersonKind | null) => void }) {
+  return (
+    <Input.Wrapper label="人員類別" labelElement="div">
+      <Group gap={6} mt={4} role="group" aria-label={`${party}人員類別`}>
+        {PERSON_KINDS.map(k => <Chip key={k} size="xs" checked={value === k} onChange={() => onChange(value === k ? null : k)}>{k}</Chip>)}
+      </Group>
+    </Input.Wrapper>
+  );
+}
+
 /**
- * A new report (POST) or an edit (PATCH with only what changed). The department is one of the chosen site's; another
- * site clears it, and an edit that moves the site sends the new department (or none) with it.
+ * A new report (POST) or an edit (PATCH with only what changed), laid out as the prototype's 事件通報與處理. Names,
+ * relationship, what happened and the handling are written into the encrypted detail as labelled parts. The
+ * department is one of the chosen site's; another site clears it, and an edit that moves the site sends the new
+ * department (or none) with it.
  */
 function IncidentForm({ incident, savedVictim, onCancel, onSaved }: {
   incident: Incident | null; savedVictim?: VictimState; onCancel: () => void; onSaved: (changed: boolean) => void;
 }) {
+  const me = useMe();
   const sites = useMySites();
   const today = todayIso();
   const [d, setD] = useState<IncidentDraft>(() => incidentDraft(incident, { today, siteId: sites[0]?.id ?? null }));
+  const [legacy] = useState(() => parseDetail(incident?.detail ?? null).legacy);
   const [victim, setVictim] = useState<Employee | null>(typeof savedVictim === 'object' ? savedVictim : null);
   const [tried, setTried] = useState(false);
   const create = useCreateIncident();
   const update = useUpdateIncident();
-  const problem = incidentProblem(d, today);
+  const problem = incidentProblem(d, today, nowTime());
   const error = create.error ?? update.error;
   const set = (patch: Partial<IncidentDraft>) => setD(x => ({ ...x, ...patch }));
+  const text = (key: keyof IncidentDraft) => (e: { currentTarget: { value: string } }) => set({ [key]: e.currentTarget.value });
   // A victim on record whose employee file cannot be shown stays unless another is picked.
   const hiddenVictim = !!incident?.victimEmployeeId && !victim && d.victimEmployeeId === incident.victimEmployeeId;
 
-  const pickVictim = (e: Employee | null) => {
+  const choose = (e: Employee | null) => {
     setVictim(e);
-    setD(x => {
-      const next = { ...x, victimEmployeeId: e?.id ?? null };
-      // A new report follows the victim to their site, when it is one of mine.
-      return !incident && e && sites.some(s => s.id === e.site.id) ? pickSite(next, e.site.id) : next;
-    });
+    // A new report follows the victim to their site, when it is one of mine.
+    setD(x => pickVictim(x, e && { id: e.id, siteId: e.site.id }, !incident && !!e && sites.some(s => s.id === e.site.id)));
   };
   const submit = () => {
     setTried(true);
@@ -197,29 +278,72 @@ function IncidentForm({ incident, savedVictim, onCancel, onSaved }: {
   };
 
   return (
-    <Stack gap="md">
-      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-        <DateField label="發生日期" required max={today} value={d.occurredOn} onChange={e => set({ occurredOn: e.currentTarget.value })} />
-        <Select label="廠區" required value={d.siteId} onChange={v => setD(x => pickSite(x, v))} data={sites.map(s => ({ value: s.id, label: s.name }))}
-          allowDeselect={false} />
-        <DepartmentSelect siteId={d.siteId} value={d.departmentId} onChange={v => set({ departmentId: v })} />
+    <Stack gap="lg">
+      <div>
+        <SectionHead>通報內容</SectionHead>
+        <Grid gap="sm">
+          <Grid.Col span={{ base: 6, sm: 4 }}>
+            <DateField label="發生日期" required max={today} value={d.occurredOn} onChange={text('occurredOn')} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 6, sm: 4 }}>
+            <TextInput label="發生時間" type="time" value={d.occurredTime} onChange={text('occurredTime')} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Select label="廠區" required value={d.siteId} onChange={v => setD(x => pickSite(x, v))} data={sites.map(s => ({ value: s.id, label: s.name }))}
+              allowDeselect={false} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <DepartmentSelect siteId={d.siteId} value={d.departmentId} onChange={v => set({ departmentId: v })} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 8 }}>
+            <TextInput label="發生地點" placeholder="例如：客服中心 1F 服務櫃台" maxLength={100} value={d.place} onChange={text('place')} />
+          </Grid.Col>
+        </Grid>
+      </div>
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+        <div>
+          <SectionHead>受害者</SectionHead>
+          <Stack gap="sm">
+            <KindChips party="受害者" value={d.victimKind} onChange={k => set({ victimKind: k })} />
+            {d.victimKind !== '外部人員' && (
+              <EmployeePicker label="受害員工" value={victim} onChange={choose}
+                description={hiddenVictim ? '這裡無法顯示原受害員工；不重新選擇就維持不變。' : '受害者是本公司員工時選擇'} />
+            )}
+            <TextInput label="姓名或特徵" maxLength={200} value={d.victimName} onChange={text('victimName')}
+              description={d.victimKind === '外部人員' ? undefined : '已選員工或不願具名時可免填'} />
+          </Stack>
+        </div>
+        <div>
+          <SectionHead>加害者</SectionHead>
+          <Stack gap="sm">
+            <KindChips party="加害者" value={d.perpetratorKind} onChange={k => set({ perpetratorKind: k })} />
+            <TextInput label="姓名或特徵" placeholder="例如：男性客戶，約 50 歲" maxLength={200} value={d.perpetratorName} onChange={text('perpetratorName')} />
+          </Stack>
+        </div>
       </SimpleGrid>
       <div>
-        <Text size="sm" fw={500} mb={6}>不法侵害類型 <Text span c="var(--yutis-bad)">*</Text></Text>
-        <Chip.Group value={d.type} onChange={v => set({ type: v as string })}>
-          <Group gap={6}>{withSaved(VIO_INC_TYPES, incident ? [incident.type] : []).map(t => <Chip key={t} value={t} size="xs">{t}</Chip>)}</Group>
-        </Chip.Group>
+        <SectionHead note="雙方姓名、關係、經過與處理加密儲存，主管一律看不到">事件經過與處理</SectionHead>
+        <Stack gap="sm">
+          <Textarea label="受害者及加害者關係" autosize minRows={2} maxLength={500} value={d.relation} onChange={text('relation')} />
+          <Textarea label="發生原因及過程" autosize minRows={4} maxLength={10000} value={d.cause} onChange={text('cause')}
+            description={legacy ? '這筆通報建立時還沒有分欄，原本的內容都在這裡，可以再分到各欄位。' : undefined} />
+          <Input.Wrapper label="不法侵害類型" required labelElement="div">
+            <Chip.Group value={d.type} onChange={v => set({ type: v as string })}>
+              <Group gap={6} mt={4}>{withSaved(VIO_INC_TYPES, incident ? [incident.type] : []).map(t => <Chip key={t} value={t} size="xs">{t}</Chip>)}</Group>
+            </Chip.Group>
+          </Input.Wrapper>
+          <Textarea label="處理措施" autosize minRows={3} maxLength={5000} value={d.handling} onChange={text('handling')} />
+          <Input.Wrapper label="後續協助" labelElement="div">
+            <Chip.Group multiple value={d.followUps} onChange={v => set({ followUps: v })}>
+              <Group gap={6} mt={4}>{withSaved(VIO_FOLLOW, incident?.followUps ?? []).map(f => <Chip key={f} value={f} size="xs">{f}</Chip>)}</Group>
+            </Chip.Group>
+          </Input.Wrapper>
+        </Stack>
       </div>
-      <EmployeePicker label="受害員工" value={victim} onChange={pickVictim}
-        description={hiddenVictim ? '這裡無法顯示原受害員工；不重新選擇就維持不變。' : '受害者是外部人員或不願具名時免填'} />
-      <Textarea label="事件經過與處理" autosize minRows={4} maxLength={10000} value={d.detail} onChange={e => set({ detail: e.currentTarget.value })}
-        description="發生時間與地點、加害者（姓名或特徵、內部或外部人員）、經過及已採取的處理措施。加密儲存，主管一律看不到。" />
-      <div>
-        <Text size="sm" fw={500} mb={6}>後續協助</Text>
-        <Chip.Group multiple value={d.followUps} onChange={v => set({ followUps: v })}>
-          <Group gap={6}>{withSaved(VIO_FOLLOW, incident?.followUps ?? []).map(f => <Chip key={f} value={f} size="xs">{f}</Chip>)}</Group>
-        </Chip.Group>
-      </div>
+      <SimpleGrid cols={2} spacing="sm">
+        <Kv label="受理人" value={incident ? incident.receiverName || <Dim>未填寫</Dim> : me.name} />
+        <Kv label="受理時間" value={incident ? receivedText(incident.receivedAt) : <Dim>送出通報時記錄</Dim>} />
+      </SimpleGrid>
       {tried && problem && <Text size="sm" c="var(--yutis-bad)">{problem}</Text>}
       {error && <Text size="sm" c="var(--yutis-bad)" role="alert">{saveProblem(error)}</Text>}
       <Group justify="flex-end">

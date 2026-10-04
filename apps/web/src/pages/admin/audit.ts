@@ -117,15 +117,16 @@ export const employeeLabel = (e: { empNo: string; name: string; status?: Employe
 
 /**
  * The filter's words for the employee whose id is in the URL: as picked or clicked on this page, else as looked up by
- * id (a shared link or a reload), else as named in the results; null while the lookup runs.
+ * id (a shared link or a reload), else as named in the results; null while the lookup runs. Leavers stay marked.
  */
 export function appliedEmployeeLabel(id: string, sources: {
-  known?: string; lookup: { isPending: boolean; isError: boolean; data?: readonly EmployeeName[] }; inResults?: { empNo: string; name: string };
+  known?: string; lookup: { isPending: boolean; isError: boolean; data?: readonly EmployeeName[] };
+  inResults?: { empNo: string; name: string; status?: EmployeeStatus };
 }): string | null {
   if (sources.known) return sources.known;
   const found = sources.lookup.data?.find(e => e.id === id);
   if (found) return employeeLabel(found);
-  if (sources.inResults) return employeeText(sources.inResults);
+  if (sources.inResults) return employeeLabel(sources.inResults);
   if (sources.lookup.isPending) return null;
   return sources.lookup.isError ? '指定的員工' : '找不到這位員工';
 }
