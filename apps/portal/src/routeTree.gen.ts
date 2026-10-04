@@ -16,6 +16,7 @@ import { Route as EmployeeSplatRouteImport } from './routes/_employee/$'
 import { Route as EmployeeAccountRouteImport } from './routes/_employee/account'
 import { Route as EmployeeHealthRouteImport } from './routes/_employee/health'
 import { Route as EmployeeReportRouteImport } from './routes/_employee/report'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as EmployeeTasksAcknowledgementIdRouteImport } from './routes/_employee/tasks.acknowledgement.$id'
 import { Route as EmployeeTasksCbiIdRouteImport } from './routes/_employee/tasks.cbi.$id'
 import { Route as EmployeeTasksNmqIdRouteImport } from './routes/_employee/tasks.nmq.$id'
@@ -55,6 +56,11 @@ const EmployeeReportRoute = EmployeeReportRouteImport.update({
   path: '/report',
   getParentRoute: () => EmployeeRoute,
 } as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmployeeTasksAcknowledgementIdRoute =
   EmployeeTasksAcknowledgementIdRouteImport.update({
     id: '/tasks/acknowledgement/$id',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof EmployeeAccountRoute
   '/health': typeof EmployeeHealthRoute
   '/report': typeof EmployeeReportRoute
+  '/sign/$token': typeof SignTokenRoute
   '/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
   '/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
   '/tasks/nmq/$id': typeof EmployeeTasksNmqIdRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/account': typeof EmployeeAccountRoute
   '/health': typeof EmployeeHealthRoute
   '/report': typeof EmployeeReportRoute
+  '/sign/$token': typeof SignTokenRoute
   '/': typeof EmployeeIndexRoute
   '/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
   '/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_employee/account': typeof EmployeeAccountRoute
   '/_employee/health': typeof EmployeeHealthRoute
   '/_employee/report': typeof EmployeeReportRoute
+  '/sign/$token': typeof SignTokenRoute
   '/_employee/': typeof EmployeeIndexRoute
   '/_employee/tasks/acknowledgement/$id': typeof EmployeeTasksAcknowledgementIdRoute
   '/_employee/tasks/cbi/$id': typeof EmployeeTasksCbiIdRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/health'
     | '/report'
+    | '/sign/$token'
     | '/tasks/acknowledgement/$id'
     | '/tasks/cbi/$id'
     | '/tasks/nmq/$id'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/health'
     | '/report'
+    | '/sign/$token'
     | '/'
     | '/tasks/acknowledgement/$id'
     | '/tasks/cbi/$id'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_employee/account'
     | '/_employee/health'
     | '/_employee/report'
+    | '/sign/$token'
     | '/_employee/'
     | '/_employee/tasks/acknowledgement/$id'
     | '/_employee/tasks/cbi/$id'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   EmployeeRoute: typeof EmployeeRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignTokenRoute: typeof SignTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -210,6 +223,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/report'
       preLoaderRoute: typeof EmployeeReportRouteImport
       parentRoute: typeof EmployeeRoute
+    }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_employee/tasks/acknowledgement/$id': {
       id: '/_employee/tasks/acknowledgement/$id'
@@ -273,6 +293,7 @@ const EmployeeRouteWithChildren = EmployeeRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   EmployeeRoute: EmployeeRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignTokenRoute: SignTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

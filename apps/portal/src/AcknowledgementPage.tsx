@@ -38,10 +38,21 @@ export function AcknowledgementPage({ id }: { id: string }) {
   }
   if (ack.data.confirmedAt) return <FlowMessage title={title} message={t('ack.confirmedAt', { date: formatDate(ack.data.confirmedAt, lang) })} done />;
 
-  const fields = ackFields(ack.data.content);
   return (
     <FlowFrame title={title} error={confirm.isError && !isApiError(confirm.error, 409) ? t('flow.failed') : null}
       footer={<Button size="md" loading={confirm.isPending} onClick={() => confirm.mutate()}>{t('ack.confirm')}</Button>}>
+      <AckRecord content={ack.data.content} comment={comment} onComment={setComment} />
+    </FlowFrame>
+  );
+}
+
+/** The record in full, the statement the person confirms, and their optional comment. */
+export function AckRecord({ content, comment, onComment }: { content: Record<string, unknown>; comment: string; onComment: (v: string) => void }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const fields = ackFields(content);
+  return (
+    <>
       <Text c="dimmed">{t('ack.intro')}</Text>
       <Card>
         <Stack gap="md">
@@ -57,7 +68,7 @@ export function AcknowledgementPage({ id }: { id: string }) {
       </Card>
       <Text fw={600}>{t('ack.statement')}</Text>
       <Textarea label={t('ack.comment')} autosize minRows={2} maxRows={6} maxLength={1000} size="md"
-        value={comment} onChange={e => setComment(e.currentTarget.value)} />
-    </FlowFrame>
+        value={comment} onChange={e => onComment(e.currentTarget.value)} />
+    </>
   );
 }

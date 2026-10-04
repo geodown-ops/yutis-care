@@ -55,7 +55,8 @@
       "title": "紀錄確認", "intro": "請看過以下內容，沒有問題就按「確認」。",
       "fields": { "interviewedOn": "面談日期", "fitAdvice": "工作適性建議", "limits": "工作限制", "agreedArrangement": "同意的工作安排" },
       "none": "無", "statement": "我已看過這份紀錄，了解公司為我安排的措施。", "comment": "想補充的意見（選填）", "confirm": "確認",
-      "done": "已確認，謝謝你。", "confirmedAt": "你已在 {{date}} 確認過這份紀錄。", "notFound": "找不到這份紀錄。"
+      "done": "已確認，謝謝你。", "confirmedAt": "你已在 {{date}} 確認過這份紀錄。", "notFound": "找不到這份紀錄。",
+      "linkUsed": "這個連結已經用過了。若還需要確認，請登入員工端查看待辦，或聯絡醫護人員。", "linkExpired": "這個連結已經過期。請登入員工端查看待辦，或請醫護人員重新寄送。", "linkInvalid": "這個連結不完整或無效，請確認網址是否完整。"
     },
     "account": {
       "empNo": "工號", "site": "廠區", "department": "部門", "language": "語言",
@@ -128,7 +129,8 @@
       "title": "Record to confirm", "intro": "Please read the record below. If it is correct, press Confirm.",
       "fields": { "interviewedOn": "Interview date", "fitAdvice": "Advice on fitness for work", "limits": "Work limits", "agreedArrangement": "Agreed work arrangement" },
       "none": "None", "statement": "I have read this record and understand the measures the company has arranged for me.", "comment": "Anything you want to add (optional)",
-      "confirm": "Confirm", "done": "Confirmed. Thank you.", "confirmedAt": "You confirmed this record on {{date}}.", "notFound": "This record can't be found."
+      "confirm": "Confirm", "done": "Confirmed. Thank you.", "confirmedAt": "You confirmed this record on {{date}}.", "notFound": "This record can't be found.",
+      "linkUsed": "This link has already been used. If you still need to confirm, sign in to see your to-do list, or contact your health staff.", "linkExpired": "This link has expired. Sign in to see your to-do list, or ask your health staff to send it again.", "linkInvalid": "This link is incomplete or not valid. Please check the full address."
     },
     "account": {
       "empNo": "Employee no.", "site": "Site", "department": "Department", "language": "Language",
@@ -201,7 +203,8 @@
       "title": "記録の確認", "intro": "以下の内容を確認し、問題がなければ「確認」を押してください。",
       "fields": { "interviewedOn": "面談日", "fitAdvice": "就業上の配慮に関する意見", "limits": "作業の制限", "agreedArrangement": "合意した就業上の措置" },
       "none": "なし", "statement": "この記録を読み、会社が講じる措置について理解しました。", "comment": "補足したいこと（任意）", "confirm": "確認",
-      "done": "確認しました。ありがとうございました。", "confirmedAt": "{{date}} に確認済みです。", "notFound": "この記録が見つかりません。"
+      "done": "確認しました。ありがとうございました。", "confirmedAt": "{{date}} に確認済みです。", "notFound": "この記録が見つかりません。",
+      "linkUsed": "このリンクはすでに使用されています。確認が必要な場合は、ログインしてやることを確認するか、医療スタッフに連絡してください。", "linkExpired": "このリンクは有効期限が切れています。ログインしてやることを確認するか、医療スタッフに再送を依頼してください。", "linkInvalid": "このリンクは不完全か無効です。アドレス全体を確認してください。"
     },
     "account": {
       "empNo": "社員番号", "site": "事業所", "department": "部署", "language": "言語",
@@ -273,7 +276,8 @@
       "title": "Xác nhận hồ sơ", "intro": "Hãy đọc nội dung dưới đây. Nếu không có vấn đề gì, hãy nhấn \"Xác nhận\".",
       "fields": { "interviewedOn": "Ngày trao đổi", "fitAdvice": "Ý kiến về sự phù hợp với công việc", "limits": "Giới hạn công việc", "agreedArrangement": "Sắp xếp công việc đã đồng ý" },
       "none": "Không có", "statement": "Tôi đã đọc hồ sơ này và hiểu các biện pháp công ty sắp xếp cho tôi.", "comment": "Ý kiến bổ sung (không bắt buộc)", "confirm": "Xác nhận",
-      "done": "Đã xác nhận. Cảm ơn bạn.", "confirmedAt": "Bạn đã xác nhận hồ sơ này ngày {{date}}.", "notFound": "Không tìm thấy hồ sơ này."
+      "done": "Đã xác nhận. Cảm ơn bạn.", "confirmedAt": "Bạn đã xác nhận hồ sơ này ngày {{date}}.", "notFound": "Không tìm thấy hồ sơ này.",
+      "linkUsed": "Liên kết này đã được sử dụng. Nếu bạn vẫn cần xác nhận, hãy đăng nhập để xem việc cần làm hoặc liên hệ nhân viên y tế.", "linkExpired": "Liên kết này đã hết hạn. Hãy đăng nhập để xem việc cần làm hoặc nhờ nhân viên y tế gửi lại.", "linkInvalid": "Liên kết này không đầy đủ hoặc không hợp lệ. Hãy kiểm tra lại toàn bộ địa chỉ."
     },
     "account": {
       "empNo": "Mã nhân viên", "site": "Xưởng", "department": "Bộ phận", "language": "Ngôn ngữ",
@@ -344,7 +348,8 @@
       "title": "ยืนยันบันทึก", "intro": "กรุณาอ่านเนื้อหาด้านล่าง ถ้าไม่มีปัญหาให้กด \"ยืนยัน\"",
       "fields": { "interviewedOn": "วันที่พูดคุย", "fitAdvice": "ความเห็นเรื่องความเหมาะสมกับงาน", "limits": "ข้อจำกัดในการทำงาน", "agreedArrangement": "การจัดงานที่ตกลงกัน" },
       "none": "ไม่มี", "statement": "ฉันได้อ่านบันทึกนี้แล้ว และเข้าใจมาตรการที่บริษัทจัดให้", "comment": "ความเห็นเพิ่มเติม (ไม่บังคับ)", "confirm": "ยืนยัน",
-      "done": "ยืนยันแล้ว ขอบคุณ", "confirmedAt": "คุณยืนยันบันทึกนี้แล้วเมื่อ {{date}}", "notFound": "ไม่พบบันทึกนี้"
+      "done": "ยืนยันแล้ว ขอบคุณ", "confirmedAt": "คุณยืนยันบันทึกนี้แล้วเมื่อ {{date}}", "notFound": "ไม่พบบันทึกนี้",
+      "linkUsed": "ลิงก์นี้ถูกใช้ไปแล้ว หากยังต้องยืนยัน กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือติดต่อเจ้าหน้าที่สุขภาพ", "linkExpired": "ลิงก์นี้หมดอายุแล้ว กรุณาเข้าสู่ระบบเพื่อดูสิ่งที่ต้องทำ หรือขอให้เจ้าหน้าที่สุขภาพส่งใหม่", "linkInvalid": "ลิงก์นี้ไม่สมบูรณ์หรือไม่ถูกต้อง กรุณาตรวจสอบที่อยู่ให้ครบถ้วน"
     },
     "account": {
       "empNo": "รหัสพนักงาน", "site": "โรงงาน", "department": "แผนก", "language": "ภาษา",

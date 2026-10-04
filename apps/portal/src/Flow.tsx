@@ -18,7 +18,7 @@ const CloseBase = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorE
 ));
 const CloseLink = createLink(CloseBase);
 
-export function FlowFrame({ title, step, total, footer, error, children }: {
+export function FlowFrame({ title, step, total, footer, error, exit = true, children }: {
   title: string;
   /** 0-based; progress is shown when `total` is set. */
   step?: number;
@@ -26,6 +26,8 @@ export function FlowFrame({ title, step, total, footer, error, children }: {
   footer?: ReactNode;
   /** Shown above the buttons, e.g. a failed submit. */
   error?: string | null;
+  /** The close button back to 待辦; off where the person may not be signed in (emailed links). */
+  exit?: boolean;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -34,7 +36,7 @@ export function FlowFrame({ title, step, total, footer, error, children }: {
       <Box bg="var(--yutis-surface)" px="md" pb="sm" style={{ borderBottom: '1px solid var(--yutis-line)', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
-            <CloseLink to="/" aria-label={t('flow.exit')}><IconX size={20} /></CloseLink>
+            {exit && <CloseLink to="/" aria-label={t('flow.exit')}><IconX size={20} /></CloseLink>}
             <Text fw={700} lineClamp={2} lh={1.3}>{title}</Text>
           </Group>
           <LanguageSelect />
@@ -79,7 +81,7 @@ export function ChoiceList({ label, options, value, onChange }: { label: string;
 }
 
 /** The end of a flow (sent, confirmed) or why it cannot start (not found, already sent), with the way back. */
-export function FlowMessage({ title, message, done = false }: { title: string; message: string; done?: boolean }) {
+export function FlowMessage({ title, message, done = false, exit = true }: { title: string; message: string; done?: boolean; exit?: boolean }) {
   const { t } = useTranslation();
   return (
     <Stack p="md" gap="md" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)' }}>
@@ -93,14 +95,14 @@ export function FlowMessage({ title, message, done = false }: { title: string; m
           </div>
         </Group>
       </Card>
-      <ButtonLink to="/" variant="light" size="md">{t('flow.back')}</ButtonLink>
+      {exit && <ButtonLink to="/" variant="light" size="md">{t('flow.back')}</ButtonLink>}
     </Stack>
   );
 }
 
-export function FlowLoading({ title }: { title: string }) {
+export function FlowLoading({ title, exit = true }: { title: string; exit?: boolean }) {
   return (
-    <FlowFrame title={title}>
+    <FlowFrame title={title} exit={exit}>
       <Skeleton h={28} w="70%" />
       <Skeleton h={180} />
     </FlowFrame>
