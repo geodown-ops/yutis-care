@@ -1,0 +1,175 @@
+import { Anchor, Button, Card, CloseButton, Group, Pagination, Select, SimpleGrid, Skeleton, Stack, Table, Text, TextInput } from '@mantine/core';
+import { IconSearch } from '@tabler/icons-react';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import type { DataCategory } from '@yutis/api-client';
+import { useState, type FormEvent } from 'react';
+import { CardNote, problemText } from '../states';
+import {
+  ACTION_LABEL, ACTION_TONE, actorText, CATEGORY_HINT, CATEGORY_LABEL, dateRangeProblem, formatAt, pageCount, sameFilters, subjectText,
+  type AuditAction, type AuditEntry, type AuditSearch,
+} from './audit';
+import { auditQuery, staffAccountsQuery } from './queries';
+import { AdminTitle, ToneBadge } from './ui';
+
+/** The filters being edited; they apply when the admin presses 查詢 (each search is itself audited). */
+interface FilterForm { actor: string | null; action: AuditAction | null; category: DataCategory | null; from: string; to: string }
+
+const toForm = (s: AuditSearch): FilterForm => ({ actor: s.actor ?? null, action: s.action ?? null, category: s.category ?? null, from: s.from ?? '', to: s.to ?? '' });
+const fromForm = (f: FilterForm): AuditSearch => ({
+  ...(f.actor && { actor: f.actor }), ...(f.action && { action: f.action }), ...(f.category && { category: f.category }),
+  ...(f.from && { from: f.from }), ...(f.to && { to: f.to }),
+});
+
+const ACTION_OPTIONS = (Object.keys(ACTION_LABEL) as AuditAction[]).map(a => ({ value: a, label: ACTION_LABEL[a] }));
+const CATEGORY_OPTIONS = (Object.keys(CATEGORY_LABEL) as DataCategory[]).map(c => ({ value: c, label: CATEGORY_LABEL[c] }));
+
+/** 稽核查詢: who read, changed or exported what, and whose data it was. Read-only. */
+export function AuditPage({ search, onSearch }: { search: AuditSearch; onSearch: (next: AuditSearch) => void }) {
+  const qc = useQueryClient();
+  const list = useQuery(auditQuery(search));
+  // Names of employees picked from the results, for the filter label (the URL only holds the id).
+  const [employeeNames, setEmployeeNames] = useState<Record<string, string>>({});
+
+  // A search, a click in the results or a page turn always gets fresh results; going back in history shows what was found.
+  const run = (next: AuditSearch) => {
+    if (sameFilters(next, search) && (next.page ?? 1) === (search.page ?? 1)) { void list.refetch(); return; }
+    qc.removeQueries({ queryKey: auditQuery(next).queryKey, exact: true });
+    onSearch(next);
+  };
+  const byEmployee = (e: NonNullable<AuditEntry['employee']>) => {
+    setEmployeeNames(names => ({ ...names, [e.id]: `${e.empNo} ${e.name}` }));
+    run({ ...search, employee: e.id, page: undefined });
+  };
+  const picked = search.employee;
+  const pickedEntry = list.data?.items.find(i => i.employee?.id === picked)?.employee;
+  const employeeLabel = picked ? employeeNames[picked] ?? (pickedEntry ? `${pickedEntry.empNo} ${pickedEntry.name}` : '指定的員工') : null;
+
+  return (
+    <Stack gap="lg">
+      <AdminTitle title="稽核查詢"
+        description="查詢誰在什麼時候讀取、修改或匯出了哪些資料，例如某位員工的資料被哪些人看過。日期以台灣時間計，含起訖兩天。每次查詢本身也會記入稽核紀錄。" />
+
+      {/* Keyed by the applied filters: after a search, a click in the results or going back, the form shows what is applied. */}
+      <AuditFilters key={filtersKey(search)} search={search} employeeLabel={employeeLabel} searching={list.isFetching} onRun={run} />
+
+      <Card>
+        {list.isPending ? <Skeleton h={360} /> : list.isError ? <CardNote>{problemText(list.error)}</CardNote> : (
+          <>
+            <Table.ScrollContainer minWidth={1080}>
+              <Table verticalSpacing="sm" highlightOnHover style={{ opacity: list.isPlaceholderData ? 0.6 : 1 }}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th w={170}>時間</Table.Th><Table.Th>操作者</Table.Th><Table.Th w={100}>動作</Table.Th><Table.Th>資料</Table.Th>
+                    <Table.Th>員工</Table.Th><Table.Th w={110}>資料等級</Table.Th><Table.Th>說明</Table.Th><Table.Th w={120}>IP</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {list.data.items.map(e => (
+                    <AuditRow key={e.id} entry={e} search={search} onEmployee={byEmployee} onActor={id => run({ ...search, actor: id, page: undefined })} />
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+            {list.data.items.length === 0 && <CardNote>沒有符合條件的紀錄。</CardNote>}
+            {list.data.total > 0 && (
+              <Group justify="space-between" mt="md" gap="sm">
+                <Text size="sm" c="dimmed">共 {list.data.total.toLocaleString()} 筆，新的在前</Text>
+                {pageCount(list.data.total) > 1 && (
+                  <Pagination total={pageCount(list.data.total)} value={search.page ?? 1} size="sm" siblings={1}
+                    onChange={p => run({ ...search, page: p > 1 ? p : undefined })} />
+                )}
+              </Group>
+            )}
+          </>
+        )}
+      </Card>
+    </Stack>
+  );
+}
+
+const filtersKey = (s: AuditSearch) => JSON.stringify([s.employee, s.actor, s.action, s.category, s.from, s.to]);
+
+function AuditFilters({ search, employeeLabel, searching, onRun }: {
+  search: AuditSearch; employeeLabel: string | null; searching: boolean; onRun: (next: AuditSearch) => void;
+}) {
+  const { data: accounts } = useSuspenseQuery(staffAccountsQuery);
+  const [form, setForm] = useState<FilterForm>(() => toForm(search));
+  const dateProblem = dateRangeProblem(form.from, form.to);
+  const actorOptions = accounts.map(a => ({ value: a.id, label: `${a.name}（${a.role}${a.active ? '' : '，已停用'}）` }));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!dateProblem) onRun({ ...fromForm(form), ...(search.employee && { employee: search.employee }) });
+  };
+  // Only searches again when filters were applied.
+  const clear = () => { setForm(toForm({})); if (filtersKey(search) !== filtersKey({})) onRun({}); };
+
+  return (
+    <Card>
+      <form onSubmit={submit}>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
+          <Select label="操作者" placeholder="全部人員" clearable searchable data={actorOptions} value={form.actor} onChange={v => setForm({ ...form, actor: v })}
+            nothingFoundMessage="找不到這位人員" />
+          <Select label="動作" placeholder="全部動作" clearable data={ACTION_OPTIONS} value={form.action} onChange={v => setForm({ ...form, action: v as AuditAction | null })} />
+          <Select label="資料等級" placeholder="全部等級" clearable data={CATEGORY_OPTIONS} value={form.category}
+            onChange={v => setForm({ ...form, category: v as DataCategory | null })}
+            renderOption={({ option }) => (
+              <Stack gap={0}><Text size="sm">{option.label}</Text><Text size="xs" c="dimmed">{CATEGORY_HINT[option.value as DataCategory]}</Text></Stack>
+            )} />
+          <TextInput label="開始日期" type="date" value={form.from} onChange={e => setForm({ ...form, from: e.currentTarget.value })} />
+          <TextInput label="結束日期" type="date" value={form.to} onChange={e => setForm({ ...form, to: e.currentTarget.value })} error={dateProblem} />
+        </SimpleGrid>
+        <Group justify="space-between" gap="sm" mt="md" wrap="wrap">
+          {employeeLabel ? (
+            <Group gap={4} wrap="nowrap" pl="sm" pr={4} py={2} style={{ background: 'var(--yutis-surface2)', borderRadius: 999 }}>
+              <Text size="sm">員工：<Text span size="sm" fw={600}>{employeeLabel}</Text></Text>
+              <CloseButton size="sm" aria-label="不限員工" onClick={() => onRun({ ...search, employee: undefined, page: undefined })} />
+            </Group>
+          ) : (
+            <Text size="sm" c="dimmed">點表格中的員工，可只看這位員工的資料被誰存取。</Text>
+          )}
+          <Group gap="sm" ml="auto">
+            <Button variant="default" onClick={clear}>清除條件</Button>
+            <Button type="submit" leftSection={<IconSearch size={16} />} loading={searching} disabled={!!dateProblem}>查詢</Button>
+          </Group>
+        </Group>
+      </form>
+    </Card>
+  );
+}
+
+function AuditRow({ entry: e, search, onEmployee, onActor }: {
+  entry: AuditEntry; search: AuditSearch; onEmployee: (emp: NonNullable<AuditEntry['employee']>) => void; onActor: (id: string) => void;
+}) {
+  const actor = actorText(e.actor);
+  const subject = subjectText(e.subjectTable);
+  const actorId = e.actor.kind === 'staff' ? e.actor.id : null;
+  return (
+    <Table.Tr>
+      <Table.Td fz="sm" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatAt(e.at)}</Table.Td>
+      <Table.Td>
+        <Stack gap={0}>
+          {actorId && actorId !== search.actor
+            ? <Anchor component="button" type="button" size="sm" fw={600} ta="left" onClick={() => onActor(actorId)} aria-label={`只看 ${actor.name} 的操作`}>{actor.name}</Anchor>
+            : <Text size="sm" fw={600}>{actor.name}</Text>}
+          {actor.note && <Text size="xs" c="dimmed">{actor.note}</Text>}
+        </Stack>
+      </Table.Td>
+      <Table.Td><ToneBadge tone={ACTION_TONE[e.action]}>{ACTION_LABEL[e.action]}</ToneBadge></Table.Td>
+      <Table.Td fz="sm" c={subject ? undefined : 'dimmed'}>{subject ?? '—'}</Table.Td>
+      <Table.Td fz="sm" style={{ whiteSpace: 'nowrap' }}>
+        {e.employee ? (
+          e.employee.id === search.employee
+            ? <Text size="sm"><Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}</Text>
+            : (
+              <Anchor component="button" type="button" size="sm" ta="left" onClick={() => onEmployee(e.employee!)} aria-label={`只看 ${e.employee.name} 的資料`}>
+                <Text span ff="monospace" size="sm">{e.employee.empNo}</Text> {e.employee.name}
+              </Anchor>
+            )
+        ) : <Text size="sm" c="dimmed">—</Text>}
+      </Table.Td>
+      <Table.Td fz="sm" c={e.dataCategory ? undefined : 'dimmed'}>{e.dataCategory ? CATEGORY_LABEL[e.dataCategory] : '—'}</Table.Td>
+      <Table.Td fz="xs" c="dimmed" maw={280} style={{ wordBreak: 'break-word' }}>{e.reason ?? '—'}</Table.Td>
+      <Table.Td fz="xs" ff="monospace" c={e.ip ? undefined : 'dimmed'}>{e.ip ?? '—'}</Table.Td>
+    </Table.Tr>
+  );
+}

@@ -1,7 +1,8 @@
 /* Tenant admin (租戶管理) reads and uploads. Everything here needs the tenant-admin feature. */
 import { data } from '@yutis/api-client';
-import { queryOptions } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 import { api } from '../../api';
+import { auditParams, type AuditSearch } from './audit';
 import { downloadFile } from './download';
 
 export const orgQuery = queryOptions({ queryKey: ['admin', 'org'], queryFn: () => data(api.GET('/api/admin/org')) });
@@ -18,6 +19,20 @@ export const ruleSetQuery = (id: string) =>
 export const phrasesQuery = queryOptions({ queryKey: ['admin', 'phrases'], queryFn: () => data(api.GET('/api/admin/phrases')) });
 
 export const signOffRolesQuery = queryOptions({ queryKey: ['admin', 'sign-off-roles'], queryFn: () => data(api.GET('/api/admin/sign-off-roles')) });
+
+/**
+ * One page of the audit log. Every search is itself written to the audit log, so this only runs when the admin searches
+ * or turns the page: never again on window focus, reconnect or a remount with the same filters (hover preload runs no
+ * query, as the route has no loader for it).
+ */
+export const auditQuery = (search: AuditSearch) => queryOptions({
+  queryKey: ['admin', 'audit', search],
+  queryFn: () => data(api.GET('/api/admin/audit', { params: { query: auditParams(search) } })),
+  placeholderData: keepPreviousData,
+  staleTime: Infinity,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
 
 /** Blank import files with the header row the import reads (bold = required). */
 export const downloadOrgTemplate = () => downloadFile(api.GET('/api/admin/org/import-template', { parseAs: 'blob' }), '組織架構匯入範本.xlsx');

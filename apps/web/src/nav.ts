@@ -5,7 +5,7 @@
  */
 import {
   IconAdjustmentsHorizontal, IconArrowsExchange, IconBabyCarriage, IconBell, IconBuilding, IconChartBar, IconClipboardHeart,
-  IconClockExclamation, IconFileImport, IconLayoutDashboard, IconLogin2, IconShieldCheck,
+  IconClockExclamation, IconFileImport, IconHistory, IconLayoutDashboard, IconLogin2, IconShieldCheck,
   IconSitemap, IconStethoscope, IconStretching, IconUserPlus, IconUsers, IconUserShield,
 } from '@tabler/icons-react';
 import type { DataCategory, Feature, StaffMe, StaffRole } from '@yutis/api-client';
@@ -47,7 +47,8 @@ export const NAV: NavGroup[] = [
     { path: '/admin/accounts', label: '帳號與權限', icon: IconUserShield, access: ADMIN },
     { path: '/admin/rules', label: '分級標準、片語、簽核角色', icon: IconAdjustmentsHorizontal, access: ADMIN },
     { path: '/admin/exam-mapping', label: '健檢匯入對照', icon: IconArrowsExchange, access: ADMIN },
-    // 客服授權 (/admin/support-access) and 稽核查詢 (/admin/audit) come back once the tenant API has endpoints for them.
+    { path: '/admin/audit', label: '稽核查詢', icon: IconHistory, access: ADMIN },
+    // 客服授權 (/admin/support-access) comes back once the tenant API has endpoints for it.
   ] },
 ];
 
