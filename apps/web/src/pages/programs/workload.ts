@@ -13,13 +13,12 @@ export type OverloadBody = TenantPaths['/api/programs/workload/assessments/{id}/
 type Who = Pick<StaffMe, 'role' | 'features' | 'dataCategories'>;
 /**
  * What the page shows each role, from the controllers' decorators: assessments and interviews are @Clinical();
- * HR reads the work-arrangement advice (GET /api/programs/work-advice); a manager reads the notices sent to them.
+ * HR reads the work-arrangement advice (GET /api/programs/work-advice). Managers read their notices on /programs/notices.
  */
-export type WorkloadView = 'clinical' | 'advice' | 'notices' | 'none';
+export type WorkloadView = 'clinical' | 'advice' | 'none';
 export function workloadView(me: Who): WorkloadView {
   if (canAccess(me, { feature: 'programs', data: 'health', roles: ['職護', '職醫'] })) return 'clinical';
   if (canAccess(me, { feature: 'programs', data: 'work', roles: ['人資'] })) return 'advice';
-  if (me.role === '部門主管') return 'notices';
   return 'none';
 }
 

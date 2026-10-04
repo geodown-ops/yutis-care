@@ -1,16 +1,9 @@
 /* Overwork reads and writes. The assessment list is workloadAssessmentsQuery in src/queries.ts (also used by the profile). */
-import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { data } from '@yutis/api-client';
 import { api } from '../../api';
 import { workloadAssessmentsQuery } from '../../queries';
 import type { Assessment, FatigueBody, InterviewBody, OverloadBody } from './workload';
-
-/** Work-arrangement notices sent to me (部門主管). Reading marks them read, so it is fetched once per visit, not on focus. */
-export const myNoticesQuery = queryOptions({
-  queryKey: ['notices', 'mine'],
-  queryFn: () => data(api.GET('/api/programs/notices')),
-  refetchOnWindowFocus: false,
-});
 
 /**
  * Put a saved assessment into the list. The list never carries interview notes (GET blanks them), so neither does the

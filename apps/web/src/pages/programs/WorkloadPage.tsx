@@ -20,7 +20,7 @@ import {
   RESTRICTIONS, riskLevelOf, workloadCounts, type Assessment, type CbiDraft, type InterviewDraft, type InterviewFilter, type InterviewStatus, type RiskFilter,
 } from './workload';
 import { LoadBadge, RiskBadge, WorkloadMatrix } from './workloadMatrix';
-import { myNoticesQuery, useCreateAssessments, useSaveStep, useScheduleInterviews } from './workloadQueries';
+import { useCreateAssessments, useSaveStep, useScheduleInterviews } from './workloadQueries';
 
 export type WorkloadTab = 'assess' | 'interview' | 'log';
 
@@ -599,42 +599,6 @@ export function WorkloadAdvicePage() {
               </Table>
             </Table.ScrollContainer>
             {rows.length === 0 && <CardNote>目前沒有異常工作負荷的工作安排建議。</CardNote>}
-          </>
-        )}
-      </Card>
-    </Stack>
-  );
-}
-
-/** 部門主管: the work-arrangement notices sent to me (GET /api/programs/notices). Opening the list marks them read. */
-export function WorkloadNoticesPage() {
-  const notices = useQuery(myNoticesQuery);
-  return (
-    <Stack gap="lg">
-      <div>
-        <Title order={2}>異常工作負荷</Title>
-        <Text c="dimmed" size="sm" mt={4}>職護、職醫寄給你的工作安排建議（也包含母性健康保護的通知），不含健康資料。</Text>
-      </div>
-      <Card>
-        <Text fw={600} mb="sm">給我的工作安排通知</Text>
-        {notices.isPending ? <Skeleton h={160} /> : notices.isError ? <CardNote>{problemText(notices.error)}</CardNote> : (
-          <>
-            <Table.ScrollContainer minWidth={600}>
-              <Table verticalSpacing="sm">
-                <Table.Thead><Table.Tr><Table.Th>員工</Table.Th><Table.Th>工號</Table.Th><Table.Th>工作安排建議</Table.Th><Table.Th>通知日期</Table.Th></Table.Tr></Table.Thead>
-                <Table.Tbody>
-                  {notices.data.map(n => (
-                    <Table.Tr key={n.id}>
-                      <Table.Td fw={600}>{n.name}{!n.readAt && <Badge ml={6} size="sm" styles={tone('info')}>新</Badge>}</Table.Td>
-                      <Table.Td ff="monospace" fz="sm">{n.empNo}</Table.Td>
-                      <Table.Td>{n.advice}</Table.Td>
-                      <Table.Td>{dt(n.sentAt)}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-            {notices.data.length === 0 && <CardNote>目前沒有給你的工作安排通知。</CardNote>}
           </>
         )}
       </Card>

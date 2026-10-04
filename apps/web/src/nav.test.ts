@@ -43,6 +43,18 @@ describe('tenant admin navigation', () => {
     expect(paths('人資')).not.toContain('/service-records');
   });
 
+  it('shows the maternal and violence programmes to the roles their API routes allow', () => {
+    for (const r of ['職護', '職醫', '職安衛人員'] as const) expect(paths(r)).toEqual(expect.arrayContaining(['/programs/maternal', '/programs/violence']));
+    expect(paths('人資')).toContain('/programs/maternal');
+    expect(paths('人資')).not.toContain('/programs/violence');
+    expect(paths('部門主管')).not.toContain('/programs/maternal');
+    expect(paths('部門主管')).not.toContain('/programs/violence');
+  });
+
+  it('gives the work-arrangement inbox to managers only', () => {
+    expect(STAFF_ROLES.filter(r => paths(r).includes('/programs/notices'))).toEqual(['部門主管']);
+  });
+
   it('shows health data to occupational health staff only', () => {
     expect(STAFF_ROLES.filter(r => seesHealth(as(r)))).toEqual(['職護', '職醫']);
   });

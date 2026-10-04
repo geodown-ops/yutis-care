@@ -16,11 +16,11 @@ describe('who sees what', () => {
   const WORK = { features: ['programs'] as const, dataCategories: ['identity', 'work'] as const };
   const as = (role: '職護' | '職醫' | '職安衛人員' | '人資' | '部門主管', x: typeof CLINICAL | typeof WORK) => ({ role, features: [...x.features], dataCategories: [...x.dataCategories] });
 
-  it('follows the controllers: clinical staff run it, HR reads advice, managers read their notices', () => {
+  it('follows the controllers: clinical staff run it, HR reads advice, managers read notices elsewhere', () => {
     expect(workloadView(as('職護', CLINICAL))).toBe('clinical');
     expect(workloadView(as('職醫', CLINICAL))).toBe('clinical');
     expect(workloadView(as('人資', WORK))).toBe('advice');
-    expect(workloadView(as('部門主管', WORK))).toBe('notices');
+    expect(workloadView(as('部門主管', WORK))).toBe('none');
     expect(workloadView(as('職安衛人員', WORK))).toBe('none');
   });
 });
