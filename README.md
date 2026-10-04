@@ -16,6 +16,8 @@
 | `apps/portal` | 員工端（手機優先，網址 `/me`） |
 | `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
 | `prototype` | 可操作的純前端雛形（需求規格） |
+| `deploy` | 容器映像（後端、前端 nginx） |
+| `infra` | 正式站與示範站的 Terraform 與上線手冊，見 [infra/README.md](infra/README.md) |
 
 ## 開發
 
@@ -42,6 +44,7 @@ pnpm build
 ```bash
 cp apps/api/.env.example apps/api/.env          # 依本機資料庫的埠調整
 pnpm --filter @yutis/api db:seed                # 建立 API 登入角色與虛構的 demo 租戶
+pnpm --filter @yutis/api db:seed-demo           # 選用：把雛形的虛構示範資料（員工、健檢、四大計畫、個案）匯入 demo 租戶
 pnpm --filter @yutis/api jobs:install           # 建立背景工作佇列（pg-boss）
 pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.localhost:3000/api/tenant
 pnpm --filter @yutis/api worker                 # 另一個終端機：背景工作（匯出、每晚保存期限掃描）
@@ -94,6 +97,10 @@ pnpm dev:platform   # 平台後台 http://localhost:5182
 - 選單依 `GET /api/me` 的 `features` 與 `dataCategories` 顯示，只是方便；權限一律由 API 檢查。
 - 平台後台的 Vite 代理會替你加上 `X-Dev-Platform-User: ops@yutis.test`；正式環境由 IAP 提供身分，沒有登入頁。
 - API 型別在 `packages/api-client/src/generated`，由兩份 `openapi.json` 產生，不要手改。
+
+## 部署
+
+正式站 `care.yutis.com.tw` 與示範站 `demo.care.yutis.com.tw` 是兩個獨立的 GCP 專案，以 Terraform 建立、GitHub Actions 部署（`main` → 示範站自動；正式站手動並需核准）。步驟、需要準備的帳號與 DNS、以及正式營運前還缺的功能，見 [infra/README.md](infra/README.md)。
 
 ---
 

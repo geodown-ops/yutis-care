@@ -9110,6 +9110,55 @@
       }
     },
     "schemas": {
+      "SignInProviderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "登入 SDK 的提供者 id",
+            "example": "saml.acme"
+          },
+          "label": {
+            "type": "string",
+            "description": "登入按鈕文字",
+            "example": "Acme 公司帳號"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ]
+      },
+      "IdentityPlatformDto": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "Firebase Auth 的瀏覽器 API key（公開資訊）"
+          },
+          "authDomain": {
+            "type": "string",
+            "example": "yutis-care-prod.firebaseapp.com"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "這個租戶在 Identity Platform 的租戶 id"
+          },
+          "providers": {
+            "description": "已啟用的 SSO 提供者",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignInProviderDto"
+            }
+          }
+        },
+        "required": [
+          "apiKey",
+          "authDomain",
+          "tenantId",
+          "providers"
+        ]
+      },
       "TenantDto": {
         "type": "object",
         "properties": {
@@ -9145,6 +9194,16 @@
                 "dev"
               ]
             }
+          },
+          "identityPlatform": {
+            "nullable": true,
+            "description": "登入頁的 Identity Platform 設定；本機開發與示範站為 null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IdentityPlatformDto"
+              }
+            ]
           }
         },
         "required": [
@@ -9152,7 +9211,8 @@
           "name",
           "subdomain",
           "logoUrl",
-          "loginMethods"
+          "loginMethods",
+          "identityPlatform"
         ]
       },
       "ApiErrorDto": {
