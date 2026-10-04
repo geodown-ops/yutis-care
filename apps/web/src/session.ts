@@ -1,29 +1,40 @@
-import { createApiClient, type Me, type StaffRole, type TenantInfo } from '@yutis/api-client';
+import { ApiRequestError, data, type StaffMe, type TenantInfo } from '@yutis/api-client';
 import { queryOptions, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { CURRENT_STAFF, TENANT } from './demo';
+import { useNavigate } from '@tanstack/react-router';
+import { api } from './api';
 
-/** Until the tenant API exists the app runs on demo data. Set VITE_API=live to call /api. */
-export const DEMO = import.meta.env.VITE_API !== 'live';
-
-const api = createApiClient();
-
-export const tenantQuery = queryOptions<TenantInfo>({
+export const tenantQuery = queryOptions({
   queryKey: ['tenant'],
-  queryFn: () => (DEMO ? Promise.resolve(TENANT) : api.tenant()),
+  queryFn: () => data(api.GET('/api/tenant')) as Promise<TenantInfo>,
   staleTime: Infinity,
 });
 
-export const meQuery = queryOptions<Me>({
+/** Who is signed in. 401 when nobody is (or the session timed out); never retried. */
+export const meQuery = queryOptions({
   queryKey: ['me'],
-  queryFn: () => (DEMO ? Promise.resolve(CURRENT_STAFF) : api.me()),
+  queryFn: () => data(api.GET('/api/me')),
   staleTime: 5 * 60_000,
+  retry: false,
 });
 
-export const useTenant = () => useSuspenseQuery(tenantQuery).data;
-export const useMe = () => useSuspenseQuery(meQuery).data;
+export const isUnauthorized = (err: unknown) => err instanceof ApiRequestError && err.status === 401;
 
-/** Demo only: switch role to preview what each role's menu looks like. */
-export function useDemoRoleSwitch() {
+export const useTenant = () => useSuspenseQuery(tenantQuery).data;
+
+/** The signed-in staff member. Only used under the `_app` layout, which sends everyone else away. */
+export function useMe(): StaffMe {
+  const me = useSuspenseQuery(meQuery).data;
+  if (me.kind !== 'staff') throw new Error('Not a staff session');
+  return me;
+}
+
+/** Ends the session and returns to the sign-in page with nothing cached. */
+export function useSignOut() {
   const qc = useQueryClient();
-  return (role: StaffRole) => qc.setQueryData<Me>(['me'], me => (me ? { ...me, role } : me));
+  const navigate = useNavigate();
+  return async () => {
+    await data(api.POST('/api/auth/sign-out')).catch(() => undefined);
+    qc.clear();
+    await navigate({ to: '/login' });
+  };
 }

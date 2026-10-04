@@ -9,128 +9,172 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as CasesRouteImport } from './routes/cases'
-import { Route as EmployeesIndexRouteImport } from './routes/employees.index'
-import { Route as EmployeesEmployeeIdRouteImport } from './routes/employees.$employeeId'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSplatRouteImport } from './routes/_app/$'
+import { Route as AppCasesRouteImport } from './routes/_app/cases'
+import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
+import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const SplatRoute = SplatRouteImport.update({
+const AppSplatRoute = AppSplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const CasesRoute = CasesRouteImport.update({
+const AppCasesRoute = AppCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const EmployeesIndexRoute = EmployeesIndexRouteImport.update({
+const AppEmployeesIndexRoute = AppEmployeesIndexRouteImport.update({
   id: '/employees/',
   path: '/employees/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const EmployeesEmployeeIdRoute = EmployeesEmployeeIdRouteImport.update({
+const AppEmployeesEmployeeIdRoute = AppEmployeesEmployeeIdRouteImport.update({
   id: '/employees/$employeeId',
   path: '/employees/$employeeId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees/': typeof EmployeesIndexRoute
+  '/': typeof AppIndexRoute
+  '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
+  '/cases': typeof AppCasesRoute
+  '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees': typeof EmployeesIndexRoute
+  '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
+  '/cases': typeof AppCasesRoute
+  '/': typeof AppIndexRoute
+  '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/employees': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees/': typeof EmployeesIndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_app/$': typeof AppSplatRoute
+  '/_app/cases': typeof AppCasesRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/_app/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
+  fullPaths:
+    '/' | '/login' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/cases' | '/employees/$employeeId' | '/employees'
+  to: '/login' | '/$' | '/cases' | '/' | '/employees/$employeeId' | '/employees'
   id:
     | '__root__'
-    | '/'
-    | '/$'
-    | '/cases'
-    | '/employees/$employeeId'
-    | '/employees/'
+    | '/_app'
+    | '/login'
+    | '/_app/$'
+    | '/_app/cases'
+    | '/_app/'
+    | '/_app/employees/$employeeId'
+    | '/_app/employees/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SplatRoute: typeof SplatRoute
-  CasesRoute: typeof CasesRoute
-  EmployeesEmployeeIdRoute: typeof EmployeesEmployeeIdRoute
-  EmployeesIndexRoute: typeof EmployeesIndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/$': {
-      id: '/$'
+    '/_app/$': {
+      id: '/_app/$'
       path: '/$'
       fullPath: '/$'
-      preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppSplatRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/cases': {
-      id: '/cases'
+    '/_app/cases': {
+      id: '/_app/cases'
       path: '/cases'
       fullPath: '/cases'
-      preLoaderRoute: typeof CasesRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppCasesRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/employees/': {
-      id: '/employees/'
+    '/_app/employees/': {
+      id: '/_app/employees/'
       path: '/employees'
       fullPath: '/employees/'
-      preLoaderRoute: typeof EmployeesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppEmployeesIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/employees/$employeeId': {
-      id: '/employees/$employeeId'
+    '/_app/employees/$employeeId': {
+      id: '/_app/employees/$employeeId'
       path: '/employees/$employeeId'
       fullPath: '/employees/$employeeId'
-      preLoaderRoute: typeof EmployeesEmployeeIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppEmployeesEmployeeIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppSplatRoute: typeof AppSplatRoute
+  AppCasesRoute: typeof AppCasesRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
+  AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppSplatRoute: AppSplatRoute,
+  AppCasesRoute: AppCasesRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
+  AppEmployeesIndexRoute: AppEmployeesIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SplatRoute: SplatRoute,
-  CasesRoute: CasesRoute,
-  EmployeesEmployeeIdRoute: EmployeesEmployeeIdRoute,
-  EmployeesIndexRoute: EmployeesIndexRoute,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
