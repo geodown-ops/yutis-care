@@ -14,7 +14,7 @@
     "db:seed": "tsx --conditions=@yutis/source --env-file-if-exists=.env scripts/seed-dev.ts",
     "worker": "node --env-file-if-exists=.env dist/worker/main.js",
     "jobs:install": "tsx --conditions=@yutis/source --env-file-if-exists=.env scripts/install-jobs.ts",
-    "db:seed-demo": "tsx --conditions=@yutis/source --env-file-if-exists=.env scripts/seed-prototype.ts"
+    "db:seed-demo": "tsx --conditions=@yutis/source --env-file-if-exists=.env src/seed-prototype.ts"
   },
   "dependencies": {
     "@expo-google-fonts/noto-sans-tc": "^0.4.3",

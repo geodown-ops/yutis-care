@@ -59,3 +59,4 @@ jobs:
         run: |
           docker build -f deploy/server.Dockerfile -t yutis-server:ci .
           docker build -f deploy/web.Dockerfile --build-arg VITE_API=live -t yutis-web:ci .
+          docker build -f deploy/backup.Dockerfile -t yutis-backup:ci .

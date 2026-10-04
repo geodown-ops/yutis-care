@@ -4,7 +4,7 @@ output "load_balancer_ip" {
 }
 
 output "dns_records" {
-  description = "DNS records to create at the yutis.com.tw DNS host."
+  description = "DNS records to create at the DNS host of the domain."
   value = concat(
     [
       {

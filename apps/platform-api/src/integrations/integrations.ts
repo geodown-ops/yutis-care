@@ -6,7 +6,7 @@
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { PlatformConfig } from '../config.js';
-import { CloudKmsTenantKeys, GoogleApi, IdentityPlatformInvitations, IdentityPlatformTenants, MetadataTokenSource } from './gcp.js';
+import { CloudKmsTenantKeys, GoogleApi, IdentityPlatformInvitations, IdentityPlatformTenants, googleTokenSource } from './gcp.js';
 
 /** One Cloud KMS key per tenant; it wraps the tenant's data keys, so destroying it makes the tenant's `_enc` data unreadable. */
 export interface TenantKeyService {
@@ -112,7 +112,7 @@ export function defaultIntegrations(config: Pick<PlatformConfig, 'fakeIntegratio
     return { keys: new FakeTenantKeys(), identityTenants: new FakeIdentityTenants(), invitations: new FakeInvitations(), billing: new NoopBillingProvider() };
   }
   if (config.gcp) {
-    const api = new GoogleApi(new MetadataTokenSource());
+    const api = new GoogleApi(googleTokenSource());
     return {
       keys: new CloudKmsTenantKeys(api, config.gcp.kmsKeyRing),
       identityTenants: new IdentityPlatformTenants(api, config.gcp.projectId, config.tenantBaseDomain),

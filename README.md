@@ -76,7 +76,7 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 
 ### 平台 API
 
-平台管理後台（`admin.care.yutis.com.tw`）的 API，以 `yutis_platform` 資料庫角色連線：只能用租戶、方案、訂閱、用量計數與平台自己的資料表，對員工、健檢與四大計畫的資料表沒有任何權限（`packages/db` 有測試鎖住）。
+平台管理後台（`admin.care.yutis.net`）的 API，以 `yutis_platform` 資料庫角色連線：只能用租戶、方案、訂閱、用量計數與平台自己的資料表，對員工、健檢與四大計畫的資料表沒有任何權限（`packages/db` 有測試鎖住）。
 
 ```bash
 cp apps/platform-api/.env.example apps/platform-api/.env   # 依本機資料庫的埠調整
@@ -92,7 +92,7 @@ pnpm --filter @yutis/platform-api dev                      # http://localhost:30
 
 ## 部署
 
-正式站 `care.yutis.com.tw` 與示範站 `demo.care.yutis.com.tw` 是兩個獨立的 GCP 專案，以 Terraform 建立、GitHub Actions 部署（`main` → 示範站自動；正式站手動並需核准）。步驟、需要準備的帳號與 DNS、以及正式營運前還缺的功能，見 [infra/README.md](infra/README.md)。
+正式站 `care.yutis.net` 與示範站 `demo.care.yutis.net` 是兩個獨立的 GCP 專案，以 Terraform 建立、GitHub Actions 部署（`main` → 示範站自動；正式站手動並需核准）。步驟、需要準備的帳號與 DNS、以及正式營運前還缺的功能，見 [infra/README.md](infra/README.md)。
 
 ---
 
