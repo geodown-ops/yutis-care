@@ -1,11 +1,11 @@
-import { ApiRequestError, data, type StaffMe, type TenantInfo } from '@yutis/api-client';
+import { ApiRequestError, data, type StaffMe } from '@yutis/api-client';
 import { queryOptions, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { api } from './api';
 
 export const tenantQuery = queryOptions({
   queryKey: ['tenant'],
-  queryFn: () => data(api.GET('/api/tenant')) as Promise<TenantInfo>,
+  queryFn: () => data(api.GET('/api/tenant')),
   staleTime: Infinity,
 });
 

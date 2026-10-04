@@ -20,18 +20,8 @@ export type LoginMethod = Schemas['TenantDto']['loginMethods'][number];
 /** Staff roles, in the order the back office lists them. Same values as the `staff_role` enum. */
 export const STAFF_ROLES = ['職護', '職醫', '職安衛人員', '人資', '部門主管', '租戶管理員'] as const satisfies readonly StaffRole[];
 
-/**
- * Identity Platform settings for a tenant's sign-in page, agreed with the deployment thread (2026-10-04). Null on the
- * demo tenant and wherever only dev sign-in exists. Not in openapi.json yet: drop this once GET /api/tenant declares it.
- */
-export interface IdentityPlatformConfig {
-  apiKey: string;
-  authDomain: string;
-  /** The Identity Platform tenant; the API checks the ID token's firebase.tenant against the subdomain's tenant. */
-  tenantId: string;
-  /** SSO providers, e.g. `oidc.acme-entra`, `saml.acme`, `google.com`, `microsoft.com`. */
-  providers: { id: string; label: string }[];
-}
+/** Identity Platform settings for the sign-in page; null on the demo tenant and wherever only dev sign-in exists. */
+export type IdentityPlatformConfig = Schemas['IdentityPlatformDto'];
 
 /** GET /api/tenant: resolved from the subdomain, before sign-in. */
-export type TenantInfo = Schemas['TenantDto'] & { identityPlatform?: IdentityPlatformConfig | null };
+export type TenantInfo = Schemas['TenantDto'];

@@ -1491,6 +1491,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SignInProviderDto: {
+            /**
+             * @description 登入 SDK 的提供者 id
+             * @example saml.acme
+             */
+            id: string;
+            /**
+             * @description 登入按鈕文字
+             * @example Acme 公司帳號
+             */
+            label: string;
+        };
+        IdentityPlatformDto: {
+            /** @description Firebase Auth 的瀏覽器 API key（公開資訊） */
+            apiKey: string;
+            /** @example yutis-care-prod.firebaseapp.com */
+            authDomain: string;
+            /** @description 這個租戶在 Identity Platform 的租戶 id */
+            tenantId: string;
+            /** @description 已啟用的 SSO 提供者 */
+            providers: components["schemas"]["SignInProviderDto"][];
+        };
         TenantDto: {
             /** Format: uuid */
             id: string;
@@ -1508,6 +1530,8 @@ export interface components {
             logoUrl: string | null;
             /** @description 登入頁要顯示的登入方式；dev 只在本機開發模式出現 */
             loginMethods: ("sso" | "password" | "sms" | "email_otp" | "dev")[];
+            /** @description 登入頁的 Identity Platform 設定；本機開發與示範站為 null */
+            identityPlatform: components["schemas"]["IdentityPlatformDto"] | null;
         };
         ApiErrorDto: {
             /** @example 403 */
