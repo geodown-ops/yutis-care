@@ -244,7 +244,7 @@ describe('employee import', () => {
     expect(employeeAudits.every(a => a.employeeId === a.subjectId && a.dataCategory === 'identity' && a.actorUserId === ids.admin)).toBe(true);
   });
 
-  it('stores national ID numbers only as a per-tenant fingerprint, and refuses bad or duplicate ones', async () => {
+  it('stores national ID numbers only as a per-tenant fingerprint and a masked form, and refuses bad or duplicate ones', async () => {
     const cookie = await signIn('acme', 'admin@acme.test');
     const withIds = (rows: [string, string][]) => xlsx({ 員工: [[...header, '身分證字號'], ...rows.map(([empNo, id]) => [...row(empNo), id])] });
     const bad = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E101', 'Z12345'], ['E102', 'A123456789'], ['E103', 'a123456789']]) })).json();
@@ -256,7 +256,12 @@ describe('employee import', () => {
     expect(done).toMatchObject({ committed: true, create: 1 });
     const [e] = await owner.select().from(employees).where(eq(employees.empNo, 'E101'));
     expect(e!.nationalIdHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(e!.nationalIdMasked).toBe('B2•••••789');
     expect(JSON.stringify(e)).not.toContain('223456789');
+    // Employees imported before the masked form existed get it on their next import.
+    await owner.update(employees).set({ nationalIdMasked: null }).where(eq(employees.id, e!.id));
+    expect((await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await withIds([['E101', 'B223456789']]) })).json()).toMatchObject({ update: 1 });
+    expect((await owner.select().from(employees).where(eq(employees.id, e!.id)))[0]!.nationalIdMasked).toBe('B2•••••789');
     const taken = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E104', 'B223456789']]) })).json();
     expect(taken.issues).toEqual([{ row: 2, column: '身分證字號', message: '已屬於工號 E101' }]);
   });

@@ -57,6 +57,23 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
   });
 
+  it('allows dev sign-in and the local key on the demo site only', () => {
+    const demo = { ...env, NODE_ENV: 'production', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') };
+    expect(loadConfig({ ...demo, DEMO_SITE: 'true' })).toMatchObject({ production: true, demoSite: true, devSignIn: true });
+    expect(() => loadConfig(demo)).toThrow(/AUTH_DEV_SIGN_IN/);
+    expect(() => loadConfig({ ...demo, DEMO_SITE: 'true', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+  });
+
+  it('configures Identity Platform and Cloud KMS for production, and refuses mixing them with local shortcuts', () => {
+    const ip = { IDENTITY_PLATFORM_PROJECT_ID: 'p', IDENTITY_PLATFORM_API_KEY: 'k', IDENTITY_PLATFORM_AUTH_DOMAIN: 'p.firebaseapp.com' };
+    expect(loadConfig({ ...env, NODE_ENV: 'production', TENANT_CRYPTO_KMS: 'true', ...ip })).toMatchObject({
+      cryptoKms: true, identityPlatform: { projectId: 'p', apiKey: 'k', authDomain: 'p.firebaseapp.com' },
+    });
+    expect(() => loadConfig({ ...env, IDENTITY_PLATFORM_PROJECT_ID: 'p' })).toThrow(/IDENTITY_PLATFORM_API_KEY/);
+    expect(() => loadConfig({ ...env, ...ip, AUTH_DEV_SIGN_IN: 'true' })).toThrow(/either AUTH_DEV_SIGN_IN/);
+    expect(() => loadConfig({ ...env, TENANT_CRYPTO_KMS: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') })).toThrow(/either TENANT_CRYPTO_LOCAL_KEY/);
+  });
+
   it('requires a database URL', () => {
     expect(() => loadConfig({})).toThrow(/APP_DATABASE_URL/);
   });

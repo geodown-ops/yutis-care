@@ -16,6 +16,8 @@
 | `apps/portal` | 員工端（手機優先，網址 `/me`） |
 | `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
 | `prototype` | 可操作的純前端雛形（需求規格） |
+| `deploy` | 容器映像（後端、前端 nginx） |
+| `infra` | 正式站與示範站的 Terraform 與上線手冊，見 [infra/README.md](infra/README.md) |
 
 ## 開發
 
@@ -50,6 +52,7 @@ pnpm dev:platform   # 平台後台 http://localhost:5182
 ```bash
 cp apps/api/.env.example apps/api/.env          # 依本機資料庫的埠調整
 pnpm --filter @yutis/api db:seed                # 建立 API 登入角色與虛構的 demo 租戶
+pnpm --filter @yutis/api db:seed-demo           # 選用：把雛形的虛構示範資料（員工、健檢、四大計畫、個案）匯入 demo 租戶
 pnpm --filter @yutis/api jobs:install           # 建立背景工作佇列（pg-boss）
 pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.localhost:3000/api/tenant
 pnpm --filter @yutis/api worker                 # 另一個終端機：背景工作（匯出、每晚保存期限掃描）
@@ -60,10 +63,11 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 - API 必須以 `yutis_app` 的成員角色連線；若用資料表擁有者或 superuser，RLS 不會生效，API 會拒絕啟動。
 - 每個路由都要用 `@Public()`、`@SignedIn()`、`@StaffOnly({ data, feature })` 或 `@EmployeeOnly()` 宣告權限，沒宣告的一律拒絕。處理函式透過 `@Ctx()` 取得 `ctx.tx`（已在該租戶範圍內的交易），讀取健康資料與任何寫入都要在同一個交易內 `recordAudit`，涉及個別員工時先 `assertSiteAccess`。
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
+- 員工資料（`/api/employees`、`/api/employees/:id`）給職護、職醫與人資：只列負責廠區（或有效的破窗授權）的員工，可依姓名或工號、廠區、部門、狀態搜尋並分頁；單一員工另含遮罩後的身分證字號。每位回傳的員工都記入稽核。
 - 健檢、協助紀錄、個案（`/api/exams`、`/api/employees/:id/exams`、`/api/records`、`/api/cases`）只給職護、職醫，而且只限負責廠區（或有效的破窗授權）的員工；每次讀取都記入稽核，人資與租戶管理員一律拿不到。健檢以租戶管理員設定的「健檢匯入對照」匯入，依目前發布的分級標準分級並保留版本。
 - 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。
 - 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
-- 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號只存每個租戶各自的 HMAC。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
+- 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號不存完整號碼，只存每個租戶各自的 HMAC 與遮罩值。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
 - 附表八（`/api/service-records`）由職護、職醫、職安衛人員填寫，送出後依租戶設定的簽核角色寄出一次性簽核連結（`/api/sign/:token`），全部簽核後完成；整個簽核過程記入稽核。
 - 統計報表（`/api/reports`，16 種，與雛形相同）：職護、職醫看負責廠區的完整數字；職安衛人員與人資只看去識別統計，少於 5 人的格子（以及可由總數推算出的格子）不顯示。匯出（`/api/exports`）由背景工作產生 Excel／PDF，附匯出人與時間浮水印，以 5 分鐘、一次性的連結下載，申請與下載都記入稽核。
 - 保存期限：健檢匯入時依一般 7 年、特殊 10 年設定 `retain_until`（待法務確認）；背景工作每晚列出已過期的資料（`/api/retention`）供人工確認刪除，系統不會自動刪除。
@@ -85,6 +89,10 @@ pnpm --filter @yutis/platform-api dev                      # http://localhost:30
 - 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
 - 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。
+
+## 部署
+
+正式站 `care.yutis.com.tw` 與示範站 `demo.care.yutis.com.tw` 是兩個獨立的 GCP 專案，以 Terraform 建立、GitHub Actions 部署（`main` → 示範站自動；正式站手動並需核准）。步驟、需要準備的帳號與 DNS、以及正式營運前還缺的功能，見 [infra/README.md](infra/README.md)。
 
 ---
 

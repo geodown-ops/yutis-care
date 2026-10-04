@@ -9,8 +9,10 @@ export const employees = pgTable('employees', {
   name: text('name').notNull(),
   sex: sexEnum('sex').notNull(),
   birthDate: date('birth_date').notNull(),
-  /** HMAC of the national ID for matching imports; the ID itself is never stored. */
+  /** HMAC of the national ID for matching imports; the full ID is never stored. */
   nationalIdHash: text('national_id_hash'),
+  /** The national ID as shown to staff: first two and last three characters, e.g. A1•••••789. */
+  nationalIdMasked: text('national_id_masked'),
   legalEntityId: uuid('legal_entity_id').notNull(),
   siteId: uuid('site_id').notNull(),
   departmentId: uuid('department_id').notNull(),

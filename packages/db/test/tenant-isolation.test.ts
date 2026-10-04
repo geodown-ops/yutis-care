@@ -8,7 +8,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   announcements, auditLog, createDb, defaultTemplates, departments, employees, gradingRules, gradingRuleSets, healthExams, legalEntities, phrases, plans,
-  runMigrations, sessions, sites, tenantBySlug, tenants, tenantSettings, tenantSubscriptions, usageCounters, users, withTenant, type Db,
+  runMigrations, sessions, sites, tenantBySlug, tenantKeys, tenants, tenantSettings, tenantSubscriptions, usageCounters, users, withTenant, type Db,
 } from '../src/index.js';
 
 const adminUrl = process.env.DATABASE_URL;
@@ -136,7 +136,7 @@ describe('tenant isolation (Row-Level Security)', () => {
   });
 
   it('finds a tenant by exact subdomain before any tenant is set, and nothing else', async () => {
-    expect(await tenantBySlug(app, 'acme')).toEqual({ id: T.a, slug: 'acme', name: 'acme', status: 'active' });
+    expect(await tenantBySlug(app, 'acme')).toEqual({ id: T.a, slug: 'acme', name: 'acme', status: 'active', idpTenantId: null });
     expect(await tenantBySlug(app, 'nobody')).toBeUndefined();
     expect(await tenantBySlug(app, '%')).toBeUndefined();
   });
@@ -174,6 +174,19 @@ describe('audit log', () => {
 
   it("is isolated per tenant like everything else", async () => {
     expect(await withTenant(app, T.b, tx => tx.select().from(auditLog))).toHaveLength(0);
+  });
+});
+
+describe('tenant data keys', () => {
+  it('lets a tenant create and read its own wrapped keys, never change, delete or see another tenant\'s', async () => {
+    const key = { purpose: 'data' as const, wrappedKey: randomBytes(64), kmsKeyVersion: 'projects/p/locations/asia-east1/keyRings/tenants/cryptoKeys/acme/cryptoKeyVersions/1' };
+    await withTenant(app, T.a, tx => tx.insert(tenantKeys).values({ tenantId: T.a, ...key }));
+    expect(await withTenant(app, T.a, tx => tx.select().from(tenantKeys))).toHaveLength(1);
+    expect(await withTenant(app, T.b, tx => tx.select().from(tenantKeys))).toHaveLength(0);
+    expect(await pgError(withTenant(app, T.a, tx => tx.insert(tenantKeys).values({ tenantId: T.b, ...key })))).toMatch(/row-level security/);
+    expect(await pgError(withTenant(app, T.a, tx => tx.insert(tenantKeys).values({ tenantId: T.a, ...key })))).toMatch(/duplicate key/);
+    expect(await pgError(withTenant(app, T.a, tx => tx.update(tenantKeys).set({ wrappedKey: randomBytes(64) })))).toMatch(/permission denied/);
+    expect(await pgError(withTenant(app, T.a, tx => tx.delete(tenantKeys)))).toMatch(/permission denied/);
   });
 });
 

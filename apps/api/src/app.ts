@@ -6,6 +6,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 import { AdminModule } from './admin/admin.module.js';
 import { CareModule } from './care/care.module.js';
+import { EmployeesModule } from './employees/employees.module.js';
 import { ProgramsModule } from './programs/programs.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { MAX_IMPORT_BYTES, XLSX_MIME } from './admin/excel.js';
@@ -20,7 +21,7 @@ export class AppModule {
   static forRoot(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule.register({ devSignIn: config.devSignIn }), AdminModule, CareModule, ProgramsModule, ReportsModule],
+      imports: [CoreModule.forRoot(config), AuthModule.register(config), AdminModule, CareModule, EmployeesModule, ProgramsModule, ReportsModule],
       controllers: [TenantController],
     };
   }

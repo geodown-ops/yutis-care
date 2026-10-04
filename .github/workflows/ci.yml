@@ -42,3 +42,20 @@ jobs:
           pnpm --filter @yutis/api openapi
           pnpm --filter @yutis/platform-api openapi
           git diff --exit-code apps/api/openapi.json apps/platform-api/openapi.json || { echo 'Run pnpm build, then pnpm --filter @yutis/api openapi and pnpm --filter @yutis/platform-api openapi, and commit the openapi.json files.'; exit 1; }
+
+  deploy-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform format and validate
+        run: |
+          terraform -chdir=infra/terraform fmt -check -recursive
+          for env in production demo; do
+            terraform -chdir=infra/terraform/$env init -backend=false -input=false
+            terraform -chdir=infra/terraform/$env validate
+          done
+      - name: Container images build
+        run: |
+          docker build -f deploy/server.Dockerfile -t yutis-server:ci .
+          docker build -f deploy/web.Dockerfile --build-arg VITE_API=live -t yutis-web:ci .

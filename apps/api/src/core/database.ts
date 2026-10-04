@@ -5,7 +5,8 @@ import type { FastifyRequest } from 'fastify';
 import pg from 'pg';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import type { ApiConfig } from '../config.js';
-import { LocalTenantCrypto, TENANT_CRYPTO, UnconfiguredTenantCrypto } from './crypto.js';
+import { KmsTenantCrypto, LocalTenantCrypto, TENANT_CRYPTO, UnconfiguredTenantCrypto, type TenantCrypto } from './crypto.js';
+import { KmsClient, MetadataTokenSource } from './gcp.js';
 import { ApiExceptionFilter } from './errors.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
@@ -65,12 +66,22 @@ export class CoreModule {
         { provide: DB, useFactory: (pool: pg.Pool) => createDb(pool), inject: [PG_POOL] },
         { provide: APP_INTERCEPTOR, useClass: TenantTransactionInterceptor },
         { provide: APP_FILTER, useClass: ApiExceptionFilter },
-        { provide: TENANT_CRYPTO, useValue: config.cryptoLocalKey ? new LocalTenantCrypto(config.cryptoLocalKey) : new UnconfiguredTenantCrypto() },
+        { provide: TENANT_CRYPTO, useFactory: () => tenantCrypto(config) },
         PoolLifecycle,
       ],
       exports: [API_CONFIG, PG_POOL, DB, TENANT_CRYPTO],
     };
   }
+}
+
+/** The TenantCrypto for this deployment: Cloud KMS in production, the local key elsewhere, otherwise unavailable (503). */
+export function tenantCrypto(config: Pick<ApiConfig, 'databaseUrl' | 'cryptoKms' | 'cryptoLocalKey'>): TenantCrypto {
+  if (config.cryptoKms) {
+    // Its own small pool: requests already hold a connection from the main pool while they encrypt.
+    const keyPool = new pg.Pool({ connectionString: config.databaseUrl, max: 2 });
+    return new KmsTenantCrypto(createDb(keyPool), new KmsClient(new MetadataTokenSource()));
+  }
+  return config.cryptoLocalKey ? new LocalTenantCrypto(config.cryptoLocalKey) : new UnconfiguredTenantCrypto();
 }
 
 /**

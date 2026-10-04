@@ -150,7 +150,7 @@ describe('tenant from subdomain', () => {
   it('returns the tenant for its subdomain, before sign-in', async () => {
     const res = await call('acme', 'GET', '/api/tenant');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ id: ids.acme, name: 'acme 股份有限公司', subdomain: 'acme', logoUrl: null, loginMethods: ['dev'] });
+    expect(res.json()).toEqual({ id: ids.acme, name: 'acme 股份有限公司', subdomain: 'acme', logoUrl: null, loginMethods: ['dev'], identityPlatform: null });
   });
 
   it.each([['nobody'], ['admin'], ['www'], ['a.acme']])('refuses %s', async slug => {

@@ -4108,6 +4108,179 @@
         ]
       }
     },
+    "/api/employees": {
+      "get": {
+        "description": "只列出負責廠區（或有效破窗授權）的員工，依工號排序。q 比對姓名或工號。每位列出的員工都記入稽核。",
+        "operationId": "EmployeeDirectoryController_list",
+        "parameters": [
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "略過的筆數，預設 0",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每頁筆數，預設 50，最多 200",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "在職",
+                "留停",
+                "離職"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "departmentId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "siteId",
+            "required": false,
+            "in": "query",
+            "description": "只看某個廠區；不是負責廠區時回 403",
+            "schema": {}
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "姓名或工號的一部分",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeePageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "搜尋負責廠區的員工",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{id}": {
+      "get": {
+        "description": "只限負責廠區（或有效破窗授權）的員工；讀取記入稽核。",
+        "operationId": "EmployeeDirectoryController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工基本資料",
+        "tags": [
+          "employees"
+        ]
+      }
+    },
     "/api/programs/ergo/dispatches": {
       "post": {
         "description": "員工在員工端看到待填問卷；也可由職護代填。",
@@ -8937,6 +9110,55 @@
       }
     },
     "schemas": {
+      "SignInProviderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "登入 SDK 的提供者 id",
+            "example": "saml.acme"
+          },
+          "label": {
+            "type": "string",
+            "description": "登入按鈕文字",
+            "example": "Acme 公司帳號"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ]
+      },
+      "IdentityPlatformDto": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "description": "Firebase Auth 的瀏覽器 API key（公開資訊）"
+          },
+          "authDomain": {
+            "type": "string",
+            "example": "yutis-care-prod.firebaseapp.com"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "這個租戶在 Identity Platform 的租戶 id"
+          },
+          "providers": {
+            "description": "已啟用的 SSO 提供者",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignInProviderDto"
+            }
+          }
+        },
+        "required": [
+          "apiKey",
+          "authDomain",
+          "tenantId",
+          "providers"
+        ]
+      },
       "TenantDto": {
         "type": "object",
         "properties": {
@@ -8972,6 +9194,16 @@
                 "dev"
               ]
             }
+          },
+          "identityPlatform": {
+            "nullable": true,
+            "description": "登入頁的 Identity Platform 設定；本機開發與示範站為 null",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/IdentityPlatformDto"
+              }
+            ]
           }
         },
         "required": [
@@ -8979,7 +9211,8 @@
           "name",
           "subdomain",
           "logoUrl",
-          "loginMethods"
+          "loginMethods",
+          "identityPlatform"
         ]
       },
       "ApiErrorDto": {
@@ -10238,6 +10471,201 @@
           "case",
           "events",
           "history"
+        ]
+      },
+      "SiteRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "TY"
+          },
+          "name": {
+            "type": "string",
+            "example": "桃園廠"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ]
+      },
+      "DepartmentRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "製造一課"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "EmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string",
+            "example": "E10234",
+            "description": "工號"
+          },
+          "name": {
+            "type": "string",
+            "example": "林志明"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "男",
+              "女"
+            ]
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteRefDto"
+          },
+          "department": {
+            "$ref": "#/components/schemas/DepartmentRefDto"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "技術員"
+          },
+          "shift": {
+            "type": "string",
+            "nullable": true,
+            "example": "常日班"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "在職",
+              "留停",
+              "離職"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "empNo",
+          "name",
+          "sex",
+          "birthDate",
+          "site",
+          "department",
+          "title",
+          "shift",
+          "status"
+        ]
+      },
+      "EmployeePageDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "符合條件的總人數"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "items"
+        ]
+      },
+      "EmployeeDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string",
+            "example": "E10234",
+            "description": "工號"
+          },
+          "name": {
+            "type": "string",
+            "example": "林志明"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "男",
+              "女"
+            ]
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteRefDto"
+          },
+          "department": {
+            "$ref": "#/components/schemas/DepartmentRefDto"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "技術員"
+          },
+          "shift": {
+            "type": "string",
+            "nullable": true,
+            "example": "常日班"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "在職",
+              "留停",
+              "離職"
+            ]
+          },
+          "nationalIdMasked": {
+            "type": "string",
+            "nullable": true,
+            "example": "A1•••••789",
+            "description": "遮罩後的身分證字號；系統不存完整號碼，所以無法顯示全碼。員工主檔沒有匯入身分證字號時為 null。"
+          }
+        },
+        "required": [
+          "id",
+          "empNo",
+          "name",
+          "sex",
+          "birthDate",
+          "site",
+          "department",
+          "title",
+          "shift",
+          "status",
+          "nationalIdMasked"
         ]
       },
       "DispatchDto": {
