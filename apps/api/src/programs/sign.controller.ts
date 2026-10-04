@@ -7,6 +7,7 @@
 import { Body, Controller, Get, GoneException, HttpCode, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiExtraModels, ApiGoneResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags, getSchemaPath } from '@nestjs/swagger';
 import { departments, employeeAcknowledgements, serviceRecords, signatures, sites, violenceReviews } from '@yutis/db';
+import { EMPLOYEE_LANGS, type EmployeeLang } from '@yutis/domain';
 import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { Public } from '../auth/access.js';
@@ -53,6 +54,7 @@ class SignDocumentDto {
   @ApiProperty({ enum: ['acknowledgement', 'signature'], description: '員工確認紀錄，或簽核（附表八、不法侵害預防措施查核）' }) kind!: 'acknowledgement' | 'signature';
   @ApiProperty({ enum: DOCUMENTS, description: '哪一種文件，決定 content 的格式' }) document!: (typeof DOCUMENTS)[number];
   @ApiProperty() title!: string;
+  @ApiProperty({ enum: EMPLOYEE_LANGS, description: '畫面語言：員工確認依員工帳號的語言，簽核一律為 zh' }) lang!: EmployeeLang;
   @ApiProperty({
     nullable: true,
     oneOf: [{ $ref: getSchemaPath(AcknowledgementContentDto) }, { $ref: getSchemaPath(ServiceSignContentDto) }, { $ref: getSchemaPath(ReviewSignContentDto) }],
@@ -130,7 +132,9 @@ export class SignController {
   /** What a signer sees: the record they are asked to sign, and who they sign as. */
   private async signedDocument(ctx: RequestContext, sig: typeof signatures.$inferSelect): Promise<SignDocumentDto> {
     const signer = { role: sig.signerRole, name: sig.signerName };
-    const base = { id: sig.id, kind: 'signature' as const, title: SIGNED_DOCUMENTS[sig.subjectTable as SignedTable] ?? '', confirmedAt: sig.signedAt, comment: sig.comment };
+    const base = {
+      id: sig.id, kind: 'signature' as const, title: SIGNED_DOCUMENTS[sig.subjectTable as SignedTable] ?? '', lang: 'zh' as const, confirmedAt: sig.signedAt, comment: sig.comment,
+    };
     if (sig.subjectTable === 'violence_reviews') {
       const [review] = await ctx.tx.select({ r: violenceReviews, site: sites.name, department: departments.name }).from(violenceReviews)
         .innerJoin(sites, eq(sites.id, violenceReviews.siteId)).leftJoin(departments, eq(departments.id, violenceReviews.departmentId))

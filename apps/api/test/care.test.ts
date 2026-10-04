@@ -214,6 +214,13 @@ describe('exam import', () => {
     expect(header.getCell(1).font?.bold).toBe(true);
     expect(header.getCell(3).font?.bold).toBeFalsy();
     expect((await call('acme', 'GET', `/api/exams/mappings/${ids.idMapping}/template`, { cookie: await as('hr@acme.test') })).statusCode).toBe(403);
+    // Tenant admins, who set the mappings up, get the same file from the settings page.
+    const forAdmin = await call('acme', 'GET', `/api/admin/exam-mappings/${ids.idMapping}/template`, { cookie: await as('admin@acme.test') });
+    expect(forAdmin.statusCode).toBe(200);
+    const adminBook = new ExcelJS.Workbook();
+    await adminBook.xlsx.load(forAdmin.rawPayload as unknown as ArrayBuffer);
+    expect((adminBook.getWorksheet('健檢結果')!.getRow(1).values as unknown[]).slice(1)).toEqual(['身分證號', '檢查日期', '收縮壓', '舒張壓']);
+    expect((await call('acme', 'GET', `/api/admin/exam-mappings/${ids.idMapping}/template`, { cookie: await as('nurse@acme.test') })).statusCode).toBe(403);
   });
 
   it("grades every prototype report exactly as the prototype does", async () => {

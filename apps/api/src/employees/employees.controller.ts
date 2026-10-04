@@ -82,7 +82,7 @@ const toDto = (r: Row): EmployeeDto => ({
 });
 
 /** `%` and `_` typed by the user are literal characters, not wildcards. */
-const contains = (text: string) => `%${text.replace(/[\\%_]/g, '\\$&')}%`;
+export const contains = (text: string) => `%${text.replace(/[\\%_]/g, '\\$&')}%`;
 
 @ApiTags('employees')
 @Controller('employees')

@@ -102,3 +102,35 @@ export function surveyReminderEmail(r: { to: string; employeeId: string; subject
     subject: t.subject, text: t.text(r.name, r.tenantName, r.url).join('\n'),
   };
 }
+
+const INTERVIEW_SCHEDULED: Record<string, { subject: string; text: (name: string, tenant: string, on: string, url: string) => string[] }> = {
+  zh: {
+    subject: '健康面談通知',
+    text: (name, tenant, on, url) => [`${name} 您好：`, '', `${tenant} 的勞工健康服務人員為您安排了健康面談，日期：${on}。`, '如需更改時間，請與勞工健康服務人員聯繫。', '', `員工健康專區：${url}`],
+  },
+  en: {
+    subject: 'Health consultation scheduled',
+    text: (name, tenant, on, url) => [`Dear ${name},`, '', `The occupational health staff at ${tenant} have scheduled a health consultation with you on ${on}.`, 'If you need to change the date, please contact the occupational health staff.', '', `Employee health portal: ${url}`],
+  },
+  ja: {
+    subject: '健康面談のお知らせ',
+    text: (name, tenant, on, url) => [`${name} 様`, '', `${tenant} の産業保健スタッフが ${on} に健康面談を予定しました。`, '日程の変更が必要な場合は、産業保健スタッフにご連絡ください。', '', `従業員健康ポータル：${url}`],
+  },
+  vi: {
+    subject: 'Thông báo lịch phỏng vấn sức khỏe',
+    text: (name, tenant, on, url) => [`Kính gửi ${name},`, '', `Nhân viên y tế lao động của ${tenant} đã sắp xếp một buổi phỏng vấn sức khỏe với bạn vào ngày ${on}.`, 'Nếu cần đổi ngày, vui lòng liên hệ nhân viên y tế lao động.', '', `Cổng sức khỏe nhân viên: ${url}`],
+  },
+  th: {
+    subject: 'แจ้งนัดหมายสัมภาษณ์สุขภาพ',
+    text: (name, tenant, on, url) => [`เรียน ${name}`, '', `เจ้าหน้าที่บริการอาชีวอนามัยของ ${tenant} ได้นัดหมายสัมภาษณ์สุขภาพกับคุณในวันที่ ${on}`, 'หากต้องการเปลี่ยนวันนัด โปรดติดต่อเจ้าหน้าที่บริการอาชีวอนามัย', '', `พอร์ทัลสุขภาพพนักงาน: ${url}`],
+  },
+};
+
+/** The date of a scheduled interview, in the employee's portal language; it never says which programme it is for. */
+export function interviewScheduledEmail(i: { to: string; employeeId: string; interviewId: string; name: string; lang: string; tenantName: string; on: string; url: string }): Email {
+  const t = INTERVIEW_SCHEDULED[isEmployeeLang(i.lang) ? i.lang : 'zh']!;
+  return {
+    to: i.to, template: 'interview_scheduled', params: { employeeId: i.employeeId, interviewId: i.interviewId, on: i.on },
+    subject: t.subject, text: t.text(i.name, i.tenantName, i.on, i.url).join('\n'),
+  };
+}

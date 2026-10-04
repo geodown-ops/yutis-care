@@ -79,7 +79,9 @@ const UpdateIncident = z.object({
 class EnvAssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
   @ApiProperty() area!: string;
+  @ApiProperty({ type: String, nullable: true, example: '輪班' }) shiftType!: string | null;
   @ApiProperty({ type: String, format: 'date' }) assessedOn!: string;
   @ApiProperty({ type: 'object', additionalProperties: true }) hazards!: unknown;
   @ApiProperty({ enum: MAT_LEVELS, description: '依危害評估建議的管理分級' }) level!: string;
@@ -96,10 +98,13 @@ class MaternalInterviewDto {
 class MaternalCaseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
+  @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ format: 'uuid', description: '員工目前所屬部門' }) departmentId!: string;
   @ApiProperty({ enum: ['妊娠', '產後'], description: '產後指分娩後未滿一年' }) type!: string;
   @ApiProperty({ type: String, format: 'date' }) notifiedOn!: string;
-  @ApiProperty({ type: String, format: 'date', nullable: true }) dueDate!: string | null;
+  @ApiProperty({ type: String, format: 'date', nullable: true, description: '預產期' }) dueDate!: string | null;
+  @ApiProperty({ type: String, format: 'date', nullable: true, description: '分娩日（產後）' }) birthDate!: string | null;
   @ApiProperty({ type: Number, nullable: true, description: '今日妊娠週數' }) weeks!: number | null;
   @ApiProperty({ type: String, enum: MAT_LEVELS, nullable: true }) level!: string | null;
   @ApiProperty({ type: String, nullable: true, description: '自述症狀、風險因子（醫療資料，加密儲存）' }) detail!: string | null;
@@ -171,15 +176,15 @@ export class MaternalViolenceController {
     await assertSitesInScope(ctx, input.siteId);
     const [row] = await ctx.tx.insert(maternalEnvAssessments).values({ ...input, level: suggestMaternalLevel(input.hazards), tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning();
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_env_assessments', subjectId: row!.id, dataCategory: 'work' });
-    return { id: row!.id, siteId: row!.siteId, area: row!.area, assessedOn: row!.assessedOn, hazards: row!.hazards, level: row!.level };
+    return toEnv(row!);
   }
 
   @Get('maternal/env-assessments') @Environment() @ApiOperation({ summary: '負責廠區的母性健康危害評估' }) @ApiOkResponse({ type: [EnvAssessmentDto] })
   async envs(@Ctx() ctx: RequestContext): Promise<EnvAssessmentDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    return ctx.tx.select({ id: maternalEnvAssessments.id, siteId: maternalEnvAssessments.siteId, area: maternalEnvAssessments.area, assessedOn: maternalEnvAssessments.assessedOn, hazards: maternalEnvAssessments.hazards, level: maternalEnvAssessments.level })
-      .from(maternalEnvAssessments).where(inArray(maternalEnvAssessments.siteId, sites)).orderBy(desc(maternalEnvAssessments.assessedOn));
+    const rows = await ctx.tx.select().from(maternalEnvAssessments).where(inArray(maternalEnvAssessments.siteId, sites)).orderBy(desc(maternalEnvAssessments.assessedOn));
+    return rows.map(toEnv);
   }
 
   @Post('maternal/cases') @Clinical()
@@ -199,14 +204,14 @@ export class MaternalViolenceController {
     }).returning();
     await raiseEvent(ctx, { employeeId: employee.id, type: 'mat', sourceTable: 'maternal_cases', sourceId: row!.id, occurredOn: input.notifiedOn, description: `工作場所母性健康保護：${input.type}通報` });
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_cases', subjectId: row!.id, employeeId: employee.id, dataCategory: 'medical' });
-    return (await this.toCases(ctx, [{ c: row!, name: employee.name }]))[0]!;
+    return (await this.toCases(ctx, [{ c: row!, empNo: employee.empNo, name: employee.name, departmentId: employee.departmentId }]))[0]!;
   }
 
   @Get('maternal/cases') @Clinical() @ApiOperation({ summary: '負責廠區的母性健康保護個案', description: '每位列出的員工都記入稽核。' }) @ApiOkResponse({ type: [MaternalCaseDto] })
   async maternal(@Ctx() ctx: RequestContext): Promise<MaternalCaseDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    const rows = await ctx.tx.select({ c: maternalCases, name: employees.name }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId))
+    const rows = await ctx.tx.select({ c: maternalCases, empNo: employees.empNo, name: employees.name, departmentId: employees.departmentId }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId))
       .where(inArray(employees.siteId, sites)).orderBy(desc(maternalCases.notifiedOn));
     if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'maternal_cases', subjectId: r.c.id, employeeId: r.c.employeeId, dataCategory: 'medical' })));
     return this.toCases(ctx, rows);
@@ -426,7 +431,9 @@ export class MaternalViolenceController {
     };
   }
 
-  private async toCases(ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; name: string }[]): Promise<MaternalCaseDto[]> {
+  private async toCases(
+    ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; empNo: string; name: string; departmentId: string }[],
+  ): Promise<MaternalCaseDto[]> {
     const ivs = rows.length
       ? await ctx.tx.select().from(maternalInterviews).where(inArray(maternalInterviews.caseId, rows.map(r => r.c.id))).orderBy(asc(maternalInterviews.interviewedOn), asc(maternalInterviews.createdAt))
       : [];
@@ -435,8 +442,8 @@ export class MaternalViolenceController {
       ? await ctx.tx.select().from(employeeAcknowledgements).where(and(eq(employeeAcknowledgements.subjectTable, 'maternal_interviews'), inArray(employeeAcknowledgements.subjectId, ivIds)))
       : [];
     const notices = await noticesBySubject(ctx, 'maternal_interviews', ivIds);
-    return Promise.all(rows.map(async ({ c, name }) => ({
-      id: c.id, employeeId: c.employeeId, name, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate,
+    return Promise.all(rows.map(async ({ c, empNo, name, departmentId }) => ({
+      id: c.id, employeeId: c.employeeId, empNo, name, departmentId, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate, birthDate: c.birthDate,
       weeks: pregnancyWeeks(c.type, c.dueDate, todayTw()), level: c.level, detail: await decryptOptional(this.crypto, ctx.tenant.id, c.detailEnc),
       interviews: ivs.filter(i => i.caseId === c.id).map(i => {
         const ack = acks.find(a => a.subjectId === i.id);
@@ -448,4 +455,8 @@ export class MaternalViolenceController {
       }),
     })));
   }
+}
+
+function toEnv(r: typeof maternalEnvAssessments.$inferSelect): EnvAssessmentDto {
+  return { id: r.id, siteId: r.siteId, departmentId: r.departmentId, area: r.area, shiftType: r.shiftType, assessedOn: r.assessedOn, hazards: r.hazards, level: r.level };
 }

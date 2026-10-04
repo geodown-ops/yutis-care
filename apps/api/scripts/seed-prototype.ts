@@ -138,7 +138,7 @@ await db.transaction(async tx => {
           fatigue: iv.fatigue || null, mentalConcern: iv.mind || null, diagnosis: iv.diag || null, guidance: iv.guide || null,
           needMeasure: iv.needMeasure ? iv.needMeasure === '是' : null, seeDoctor: iv.seeDoctor ?? '', special: iv.special ?? '',
         })) : null,
-        nextOn: iv.nextDate || null,
+        nextInterview: iv.nextInterview === '是' ? true : iv.nextInterview === '否' ? false : null, nextOn: iv.nextDate || null,
       }).returning({ id: interviews.id });
       if (iv.status === '已面談') {
         await tx.insert(employeeAcknowledgements).values({
@@ -158,7 +158,9 @@ await db.transaction(async tx => {
     const max = s.nmq ? Math.max(...Object.values(s.nmq as Record<string, number>)) : null;
     const [row] = await tx.insert(ergoSurveys).values({
       tenantId, dispatchId: dispatchId.get(s.batch)!, employeeId: empId.get(s.empId)!, status: s.status, lang: s.lang ?? 'zh', formVersion: 'nmq-v1',
-      answers: s.nmq ? { scores: s.nmq, yesNo: {} } : null, maxScore: max, suspectedHazard: max == null ? null : max >= 3,
+      // The form's two yes/no questions, as the prototype derives them: any discomfort at all, and work injury or sick leave.
+      answers: s.nmq ? { scores: s.nmq, yesNo: { any: Object.values(s.nmq as Record<string, number>).some(v => v > 0), injury: Boolean(s.injury) } } : null,
+      maxScore: max, suspectedHazard: max == null ? null : max >= 3,
       filledAt: s.filledAt ? new Date(`${s.filledAt}T12:00:00+08:00`) : null, filledBy: s.filledBy ?? null, reminders: s.remind ?? 0,
     }).returning();
     surveyId.set(s.id, row!.id);

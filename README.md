@@ -58,7 +58,7 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
 - 員工資料（`/api/employees`、`/api/employees/:id`）給職護、職醫與人資：只列負責廠區（或有效的破窗授權）的員工，可依姓名或工號、廠區、部門、狀態搜尋並分頁；單一員工另含遮罩後的身分證字號。每位回傳的員工都記入稽核。
 - 健檢、協助紀錄、個案（`/api/exams`、`/api/employees/:id/exams`、`/api/records`、`/api/cases`）只給職護、職醫，而且只限負責廠區（或有效的破窗授權）的員工；每次讀取都記入稽核，人資與租戶管理員一律拿不到。健檢以租戶管理員設定的「健檢匯入對照」匯入，依目前發布的分級標準分級並保留版本。
-- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。過勞與母性面談會帶出面談 id、員工確認狀態與已通知主管的讀取狀態，職護、職醫可隨時用 `/api/programs/managers` 選主管、以 `POST /api/programs/notices` 通知。
+- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。過勞與母性面談會帶出面談 id、員工確認狀態與已通知主管的讀取狀態，職護、職醫可隨時用 `/api/programs/managers` 選主管、以 `POST /api/programs/notices` 通知；主管看到的通知不標示計畫（一律「工作調整」），以免透露員工可能懷孕。過勞面談改為已安排並有日期時，寄信通知員工（信中不提計畫）。表單的固定選項由 `/api/programs/options` 提供。
 - 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。任務標題與確認紀錄依員工設定的語言（中文、English、日本語、Tiếng Việt、ภาษาไทย，`PUT /api/portal/profile`）。問卷可存草稿（`PUT /api/portal/tasks/{kind}/{id}/draft`），閒置登出後可接著填；送出後草稿刪除，草稿只有本人看得到。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
 - 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號不存完整號碼，只存每個租戶各自的 HMAC 與遮罩值。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
 - 附表八（`/api/service-records`）由職護、職醫、職安衛人員填寫，送出後依租戶設定的簽核角色（`/api/admin/sign-off-roles`）寄出一次性簽核連結（`/api/sign/:token`），全部簽核後完成；整個簽核過程記入稽核。不法侵害預防措施查核（`/api/programs/violence/reviews`）用同一套簽核。
@@ -66,7 +66,7 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 - 人員與組織名稱（`/api/staff?roles=職護,職醫`、`/api/org`）給所有後台人員選人與篩選用，不含聯絡方式。
 - 統計報表（`/api/reports`，16 種，與雛形相同）：職護、職醫看負責廠區的完整數字；職安衛人員與人資只看去識別統計，少於 5 人的格子（以及可由總數推算出的格子）不顯示。匯出（`/api/exports`）由背景工作產生 Excel／PDF，附匯出人與時間浮水印，以 5 分鐘、一次性的連結下載，申請與下載都記入稽核。
 - 保存期限：健檢匯入時依一般 7 年、特殊 10 年設定 `retain_until`（待法務確認）；背景工作每晚列出已過期的資料（`/api/retention`）供人工確認刪除，系統不會自動刪除。
-- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入、片語庫、稽核查詢（`/api/admin/audit`，依員工、操作者、動作、資料等級與日期查，每次查詢也記入稽核）。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
+- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入、片語庫、稽核查詢（`/api/admin/audit`，依員工、操作者、動作、資料等級與日期查，每次查詢也記入稽核；選員工用 `/api/admin/employees?q=`，只回 id、工號與姓名）。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json`，再執行 `pnpm --filter @yutis/api-client generate` 更新前端型別，全部一起提交；CI 會檢查三者一致。
 
 ### 平台 API

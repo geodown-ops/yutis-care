@@ -166,7 +166,7 @@ describe('staff accounts', () => {
     expect((await call('acme', 'POST', '/api/auth/sign-in', { body: { token: 'doctor@acme.test', as: 'staff' } })).statusCode).toBe(401);
     const res = await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'Doctor@Acme.test', name: '張醫師', role: '職醫', siteIds: [ids.s1] } });
     expect(res.statusCode, res.body).toBe(201);
-    expect(res.json()).toMatchObject({ email: 'doctor@acme.test', role: '職醫', active: true, signedInBefore: false, siteIds: [ids.s1] });
+    expect(res.json()).toMatchObject({ email: 'doctor@acme.test', role: '職醫', active: true, signedInBefore: false, siteIds: [ids.s1], emailed: true });
     expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'doctor@acme.test', name: 'x', role: '職醫' } })).json()).toMatchObject({ code: 'account_exists' });
     expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'x@acme.test', name: 'x', role: '職護', siteIds: ['00000000-0000-4000-8000-000000000000'] } })).json()).toMatchObject({ code: 'unknown_site' });
     const doctor = await signIn('acme', 'doctor@acme.test');
@@ -354,6 +354,19 @@ describe('phrases and audit search', () => {
     const globex = (await call('globex', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie: await signIn('globex', 'admin@globex.test') })).json();
     expect(globex).toEqual({ total: 0, items: [] });
   });
+  it('lets tenant admins find an employee by name or number, with nothing but the id, number and name', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    expect((await call('acme', 'GET', '/api/admin/employees?q=員工E101', { cookie })).json()).toEqual([{ id: expect.any(String), empNo: 'E101', name: '員工E101' }]);
+    const byNumber = (await call('acme', 'GET', '/api/admin/employees?q=e10', { cookie })).json();
+    expect(byNumber.length).toBeGreaterThan(0);
+    expect(byNumber.every((e: { empNo: string }) => e.empNo.startsWith('E10'))).toBe(true);
+    expect(Object.keys(byNumber[0]).sort()).toEqual(['empNo', 'id', 'name']);
+    expect((await call('acme', 'GET', `/api/admin/employees?q=${encodeURIComponent('%')}`, { cookie })).json()).toEqual([]);
+    expect((await call('acme', 'GET', '/api/admin/employees?limit=1', { cookie })).json()).toHaveLength(1);
+    expect((await audits('employees')).filter(a => a.reason === 'admin employee search').length).toBeGreaterThan(0);
+    expect((await call('acme', 'GET', '/api/admin/employees', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    expect((await call('globex', 'GET', '/api/admin/employees?q=E101', { cookie: await signIn('globex', 'admin@globex.test') })).json()).toEqual([]);
+  });
 });
 
 describe('import templates', () => {
@@ -382,10 +395,10 @@ describe('import templates', () => {
 });
 
 describe('staff and organisation directory', () => {
-  it('lets any staff list active staff by role and the organisation names, without contact details', async () => {
+  it('lets any staff list active staff by role, with their work email, and the organisation names', async () => {
     const nurse = await signIn('acme', 'nurse@acme.test');
     const staff = (await call('acme', 'GET', '/api/staff?roles=職護,職醫', { cookie: nurse })).json();
-    expect(staff).toEqual(expect.arrayContaining([{ id: expect.any(String), name: '王護理師', role: '職護' }]));
+    expect(staff).toEqual(expect.arrayContaining([{ id: expect.any(String), name: '王護理師', email: 'nurse@acme.test', role: '職護' }]));
     expect(staff.every((u: { role: string }) => ['職護', '職醫'].includes(u.role))).toBe(true);
     expect((await call('acme', 'GET', '/api/staff', { cookie: nurse })).json().map((u: { name: string }) => u.name)).toContain('陳管理員');
     expect((await call('acme', 'GET', '/api/staff?roles=老闆', { cookie: nurse })).statusCode).toBe(400);

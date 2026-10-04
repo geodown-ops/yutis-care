@@ -19,7 +19,7 @@ import { Ctx, staff, type Principal, type RequestContext } from '../core/context
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { API_CONFIG } from '../core/database.js';
 import { RemindResultDto } from '../core/dto.js';
-import { surveyReminderEmail } from '../core/emails.js';
+import { interviewScheduledEmail, surveyReminderEmail } from '../core/emails.js';
 import { Notifier } from '../core/mail.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { AcknowledgementStatusDto } from './acknowledgements.js';
@@ -71,6 +71,8 @@ const Interview = z.object({
   workAdvice: WorkAdvice.nullable(),
   guidance: Guidance.nullable(),
   notes: z.string().max(10000).nullable(),
+  /** 是否安排下次面談 */
+  nextInterview: z.boolean().nullable(),
   nextOn: z.iso.date().nullable(),
 }).partial().strict();
 const Remind = z.object({ assessmentIds: z.array(z.uuid()).min(1).max(5000) }).strict();
@@ -103,7 +105,8 @@ class InterviewDto {
   @ApiProperty({ type: InterviewGuidanceDto, nullable: true, description: '面談指導結果（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有' })
   guidance!: GuidanceInput | null;
   @ApiProperty({ type: String, nullable: true, description: '面談紀錄（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有' }) notes!: string | null;
-  @ApiProperty({ type: String, format: 'date', nullable: true }) nextOn!: string | null;
+  @ApiProperty({ type: Boolean, nullable: true, description: '是否安排下次面談；未填為 null' }) nextInterview!: boolean | null;
+  @ApiProperty({ type: String, format: 'date', nullable: true, description: '下次面談預定日期' }) nextOn!: string | null;
   @ApiProperty({
     type: AcknowledgementStatusDto, nullable: true,
     description: '員工確認狀態：面談狀態改為已面談時建立，之後用 POST /api/programs/acknowledgements/{id}/link 寄確認信給員工',
@@ -120,7 +123,9 @@ class AssessmentDto {
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
   @ApiProperty({ example: '桃園廠' }) site!: string;
+  @ApiProperty({ format: 'uuid' }) departmentId!: string;
   @ApiProperty({ example: '製造一課' }) department!: string;
   @ApiProperty({ type: String, format: 'date' }) sentOn!: string;
   @ApiProperty({ type: CbiAnswersDto, nullable: true, description: 'CBI 各題作答；直接輸入分數時為 null' }) cbiAnswers!: CbiAnswersDto | null;
@@ -293,7 +298,8 @@ export class WorkloadController {
   @Clinical()
   @ApiOperation({
     summary: '醫師面談與健康指導',
-    description: '面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。',
+    description: '面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。'
+      + '狀態為已安排且有日期（interviewedOn）時，寄信通知員工面談日期（改期會再寄一次；信中不提是哪個計畫）。',
   })
   @ApiBody({ schema: openApiSchema(Interview) })
   @ApiOkResponse({ type: AssessmentDto })
@@ -309,7 +315,8 @@ export class WorkloadController {
       ...(guidance !== undefined ? { guidanceEnc: await encryptOptional(this.crypto, ctx.tenant.id, guidance && JSON.stringify(guidance)) } : {}),
       updatedAt: new Date(), updatedBy: staff(ctx).userId,
     };
-    const [existing] = await ctx.tx.select({ id: interviews.id }).from(interviews).where(eq(interviews.assessmentId, id));
+    const [existing] = await ctx.tx.select({ id: interviews.id, status: interviews.status, interviewedOn: interviews.interviewedOn }).from(interviews)
+      .where(eq(interviews.assessmentId, id));
     const [saved] = existing
       ? await ctx.tx.update(interviews).set(values).where(eq(interviews.id, existing.id)).returning()
       : await ctx.tx.insert(interviews).values({ ...values, tenantId: ctx.tenant.id, assessmentId: id, createdBy: staff(ctx).userId }).returning();
@@ -317,6 +324,16 @@ export class WorkloadController {
       throw new BadRequestException({ code: 'interview_date_required', message: 'Give the interview date (interviewedOn) for a completed interview' });
     }
     await recordAudit(ctx, { action: existing ? 'update' : 'create', subjectTable: 'interviews', subjectId: id, employeeId, dataCategory: 'medical' });
+    const scheduled = saved!.status === '已安排' && saved!.interviewedOn;
+    if (scheduled && (existing?.status !== '已安排' || existing.interviewedOn !== saved!.interviewedOn)) {
+      const [employee] = await ctx.tx.select({ name: employees.name, email: employees.email, lang: employees.lang }).from(employees).where(eq(employees.id, employeeId));
+      if (employee?.email) {
+        await this.notifier.email(ctx, interviewScheduledEmail({
+          to: employee.email, employeeId, interviewId: saved!.id, name: employee.name, lang: employee.lang, tenantName: ctx.tenant.name,
+          on: saved!.interviewedOn!, url: `${tenantOrigin(this.config, ctx.tenant.slug)}/me/`,
+        }));
+      }
+    }
     if (saved!.status === '已面談') {
       // The employee confirms the outcome (工作區分、採取措施建議) in the portal or through an emailed link.
       const [ack] = await ctx.tx.select({ id: employeeAcknowledgements.id }).from(employeeAcknowledgements)
@@ -338,7 +355,10 @@ export class WorkloadController {
   private async list(ctx: RequestContext, ids?: string[], opts: { notes?: boolean } = {}): Promise<AssessmentDto[]> {
     const mine = await mySiteIds(ctx);
     if (!mine.length) return [];
-    const rows = await ctx.tx.select({ a: workloadAssessments, empNo: employees.empNo, name: employees.name, site: sites.name, department: departments.name })
+    const rows = await ctx.tx.select({
+      a: workloadAssessments, empNo: employees.empNo, name: employees.name,
+      siteId: employees.siteId, site: sites.name, departmentId: employees.departmentId, department: departments.name,
+    })
       .from(workloadAssessments)
       .innerJoin(employees, eq(employees.id, workloadAssessments.employeeId))
       .innerJoin(sites, eq(sites.id, employees.siteId))
@@ -353,11 +373,11 @@ export class WorkloadController {
       ? await ctx.tx.select().from(employeeAcknowledgements)
         .where(and(eq(employeeAcknowledgements.subjectTable, 'interviews'), inArray(employeeAcknowledgements.subjectId, ivs.map(i => i.iv.id))))
       : [];
-    return Promise.all(rows.map(async ({ a, empNo, name, site, department }) => {
+    return Promise.all(rows.map(async ({ a, empNo, name, siteId, site, departmentId, department }) => {
       const found = ivs.find(i => i.iv.assessmentId === a.id);
       const iv = found?.iv;
       return {
-        id: a.id, employeeId: a.employeeId, empNo, name, site, department, sentOn: a.sentOn,
+        id: a.id, employeeId: a.employeeId, empNo, name, siteId, site, departmentId, department, sentOn: a.sentOn,
         cbiAnswers: a.cbiAnswers as CbiAnswersDto | null, personalBurnout: num(a.personalBurnout), workBurnout: num(a.workBurnout),
         fatigueAt: a.fatigueAt, fatigueBy: a.fatigueBy, overloadAt: a.overloadAt, reminders: a.reminders, lastRemindedAt: a.lastRemindedAt,
         overtime1m: num(a.overtime1m), overtime6mAvg: num(a.overtime6mAvg), workPatterns: a.workPatterns, evaluation: a.evaluation, riskLevel: a.riskLevel,
@@ -366,7 +386,7 @@ export class WorkloadController {
           id: iv.id, status: iv.status, interviewedOn: iv.interviewedOn, doctorUserId: iv.doctorUserId, doctorName: found.doctorName,
           workAdvice: workAdviceOf(iv.workAdvice),
           guidance: opts.notes ? parseGuidance(await decryptOptional(this.crypto, ctx.tenant.id, iv.guidanceEnc)) : null,
-          notes: opts.notes ? await decryptOptional(this.crypto, ctx.tenant.id, iv.notesEnc) : null, nextOn: iv.nextOn,
+          notes: opts.notes ? await decryptOptional(this.crypto, ctx.tenant.id, iv.notesEnc) : null, nextInterview: iv.nextInterview, nextOn: iv.nextOn,
           acknowledgement: ackStatus(acks.find(k => k.subjectId === iv.id)), notices: notices.get(iv.id) ?? [],
         } : null,
       };

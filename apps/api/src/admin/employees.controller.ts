@@ -8,8 +8,9 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Query, Res } from '@nest
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { currentSubscriptionFirst, departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
 import { EMPLOYEE_LANGS, isEmployeeLang } from '@yutis/domain';
-import { eq, sql } from 'drizzle-orm';
+import { asc, eq, ilike, or, sql } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
@@ -18,6 +19,7 @@ import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
 import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue } from './excel.js';
 import { ImportQuery } from './org.controller.js';
+import { contains } from '../employees/employees.controller.js';
 import { raiseAgeEvents } from '../programs/common.js';
 
 export const EMPLOYEE_COLUMNS = {
@@ -47,6 +49,16 @@ class EmployeeImportReportDto {
   @ApiProperty({ type: SeatsDto }) seats!: SeatsDto;
 }
 
+class EmployeeNameDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() empNo!: string;
+  @ApiProperty() name!: string;
+}
+const EmployeeSearch = z.object({
+  q: z.string().trim().max(50).default(''),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 type EmployeeValues = Omit<typeof employees.$inferInsert, 'id' | 'tenantId' | 'empNo' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'nationalIdHash' | 'nationalIdMasked'>;
 const COMPARED: (keyof EmployeeValues)[] = [
   'name', 'sex', 'birthDate', 'legalEntityId', 'siteId', 'departmentId', 'title', 'shift', 'examCategory', 'specialOperations', 'lang', 'hireDate', 'email', 'phone', 'status',
@@ -56,6 +68,26 @@ const COMPARED: (keyof EmployeeValues)[] = [
 @Controller('admin/employees')
 export class EmployeesController {
   constructor(@Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto) {}
+
+  @Get()
+  @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
+  @ApiOperation({
+    summary: '找員工（租戶管理員）',
+    description: '依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。',
+  })
+  @ApiQuery({ name: 'q', required: false, type: String, description: '姓名或工號的一部分' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '最多幾筆（1–50，預設 20）' })
+  @ApiOkResponse({ type: [EmployeeNameDto] })
+  async search(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<EmployeeNameDto[]> {
+    const { q, limit } = parse(EmployeeSearch, query);
+    const like = contains(q);
+    const rows = await ctx.tx.select({ id: employees.id, empNo: employees.empNo, name: employees.name }).from(employees)
+      .where(q ? or(ilike(employees.name, like), ilike(employees.empNo, like)) : undefined).orderBy(asc(employees.empNo)).limit(limit);
+    if (rows.length) {
+      await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'employees', subjectId: r.id, employeeId: r.id, dataCategory: 'identity', reason: 'admin employee search' })));
+    }
+    return rows;
+  }
 
   @Get('import-template')
   @StaffOnly({ feature: 'tenant-admin' })

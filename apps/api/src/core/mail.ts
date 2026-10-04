@@ -82,6 +82,11 @@ export class Notifier {
 
   constructor(private readonly mailer: Mailer, private readonly db: Db) {}
 
+  /** False when EMAIL_PROVIDER=log: messages are recorded but never delivered. */
+  get delivers(): boolean {
+    return this.mailer.delivers;
+  }
+
   async email(ctx: RequestContext, email: Email): Promise<void> {
     const createdBy = ctx.principal?.kind === 'staff' ? ctx.principal.userId : null;
     const [row] = await ctx.tx.insert(notifications)

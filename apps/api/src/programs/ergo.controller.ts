@@ -45,7 +45,9 @@ class SurveyDto {
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
   @ApiProperty({ example: '桃園廠' }) site!: string;
+  @ApiProperty({ format: 'uuid' }) departmentId!: string;
   @ApiProperty({ example: '製造一課' }) department!: string;
   @ApiProperty({ enum: ['未填寫', '已填寫'] }) status!: string;
   @ApiProperty({ type: Number, nullable: true, description: '各部位最高分（0–5）' }) maxScore!: number | null;
@@ -224,7 +226,8 @@ export class ErgoController {
 
   private async load(ctx: RequestContext, where: SQL): Promise<SurveyDto[]> {
     const rows = await ctx.tx.select({
-      id: ergoSurveys.id, employeeId: employees.id, empNo: employees.empNo, name: employees.name, site: siteTable.name, department: departments.name, status: ergoSurveys.status,
+      id: ergoSurveys.id, employeeId: employees.id, empNo: employees.empNo, name: employees.name,
+      siteId: employees.siteId, site: siteTable.name, departmentId: employees.departmentId, department: departments.name, status: ergoSurveys.status,
       maxScore: ergoSurveys.maxScore, suspectedHazard: ergoSurveys.suspectedHazard, filledAt: ergoSurveys.filledAt, filledBy: ergoSurveys.filledBy, answers: ergoSurveys.answers,
       reminders: ergoSurveys.reminders, lastRemindedAt: ergoSurveys.lastRemindedAt, tracking: ergoSurveys.tracking,
     }).from(ergoSurveys).innerJoin(employees, eq(employees.id, ergoSurveys.employeeId))

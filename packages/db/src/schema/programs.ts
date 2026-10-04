@@ -103,6 +103,8 @@ export const interviews = pgTable('interviews', {
   /** 面談指導結果 (fatigue, mental-health concern, diagnosis and guidance classes, remarks) as encrypted JSON. */
   guidanceEnc: bytea('guidance_enc'),
   notesEnc: bytea('notes_enc'),
+  /** 是否安排下次面談; null until answered. */
+  nextInterview: boolean('next_interview'),
   nextOn: date('next_on'),
 }, t => [
   tenantKey(t),

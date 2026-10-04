@@ -44,6 +44,7 @@ export class SignLinkDto {
   @ApiProperty() role!: string;
   @ApiProperty() name!: string;
   @ApiProperty({ description: '一次性簽核連結（只回傳這一次，不儲存）；同時寄給簽核人員' }) url!: string;
+  @ApiProperty({ description: '簽核信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出，請把連結另外交給簽核人員' }) emailed!: boolean;
 }
 
 export async function signOffRoles(ctx: RequestContext): Promise<string[]> {
@@ -106,7 +107,7 @@ export async function issueSignLink(
     to: sig.signerEmail, signatureId: sig.id, signerName: sig.signerName, role: sig.signerRole, tenantName: ctx.tenant.name,
     title: SIGNED_DOCUMENTS[sig.subjectTable as SignedTable] ?? '紀錄', siteName: site?.name ?? '', on: record.on, url, days: SIGN_LINK_DAYS,
   }));
-  return { signatureId: sig.id, role: sig.signerRole, name: sig.signerName, url };
+  return { signatureId: sig.id, role: sig.signerRole, name: sig.signerName, url, emailed: deps.notifier.delivers };
 }
 
 const SignOffRoles = z.object({ roles: z.array(z.string().trim().min(1).max(50)).min(1).max(30) }).strict()

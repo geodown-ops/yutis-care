@@ -277,6 +277,8 @@ describe('附表八 sign-off', () => {
     const before = sent.length;
     const links = (await call('POST', `/api/service-records/${created.id}/submit`, { cookie: safety })).json();
     expect(links).toHaveLength(2);
+    // Mail is only logged in tests (EMAIL_PROVIDER=log): the response says so, so staff can hand the links over themselves.
+    expect(links.map((l: { emailed: boolean }) => l.emailed)).toEqual([false, false]);
     // Each signer gets their own link by email; the email names the record, not its content.
     const mails = sent.slice(before);
     expect(mails.map(m => [m.to, m.subject])).toEqual([
@@ -292,7 +294,7 @@ describe('附表八 sign-off', () => {
     expect((await call('PUT', `/api/service-records/${created.id}`, { cookie: safety, body })).json()).toMatchObject({ code: 'not_draft' });
     const token = (u: string) => u.split('/').pop()!;
     const hrLink = token(links[0].url);
-    expect((await call('GET', `/api/sign/${hrLink}`)).json()).toMatchObject({ title: '勞工健康服務執行紀錄表（附表八）', content: { signer: { role: '人力資源管理人員' } } });
+    expect((await call('GET', `/api/sign/${hrLink}`)).json()).toMatchObject({ title: '勞工健康服務執行紀錄表（附表八）', lang: 'zh', content: { signer: { role: '人力資源管理人員' } } });
     expect((await call('POST', `/api/sign/${hrLink}`, { body: { comment: '同意' } })).json()).toMatchObject({ comment: '同意' });
     expect((await call('POST', `/api/sign/${hrLink}`, { body: {} })).json()).toMatchObject({ code: 'token_used' });
     const [stillOpen] = await owner.select().from(serviceRecords).where(eq(serviceRecords.id, created.id));

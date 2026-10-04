@@ -335,6 +335,26 @@ export interface paths {
         patch: operations["UsersController_update"];
         trace?: never;
     };
+    "/api/admin/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 找員工（租戶管理員）
+         * @description 依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。
+         */
+        get: operations["EmployeesController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/employees/import-template": {
         parameters: {
             query?: never;
@@ -387,6 +407,26 @@ export interface paths {
         put?: never;
         /** 新增健檢醫院的欄位對照 */
         post: operations["ExamSettingsController_createMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/exam-mappings/{id}/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 依健檢匯入對照產生的空白檔（.xlsx）
+         * @description 欄位名稱與這家醫院的對照相同；粗體為必填。可提供給健檢醫院。
+         */
+        get: operations["ExamSettingsController_mappingTemplate"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1089,7 +1129,7 @@ export interface paths {
         get?: never;
         /**
          * 醫師面談與健康指導
-         * @description 面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。
+         * @description 面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。狀態為已安排且有日期（interviewedOn）時，寄信通知員工面談日期（改期會再寄一次；信中不提是哪個計畫）。
          */
         put: operations["WorkloadController_interview"];
         post?: never;
@@ -1424,6 +1464,26 @@ export interface paths {
          * @description 一次性、14 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；員工有 Email 時同時寄通知信（員工端語言，信中不含健康內容）。
          */
         post: operations["AdviceController_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 四大計畫表單的選項
+         * @description 與雛形相同的固定選項；各租戶目前相同。
+         */
+        get: operations["OptionsController_options"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2019,6 +2079,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description 公司 Email（例如帶入簽核人員） */
+            email: string;
             /** @enum {string} */
             role: "職護" | "職醫" | "職安衛人員" | "人資" | "部門主管" | "租戶管理員";
         };
@@ -2167,6 +2229,32 @@ export interface components {
             lastSignInAt: string | null;
             /** @description 負責廠區 */
             siteIds: string[];
+        };
+        InvitedStaffDto: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "職護" | "職醫" | "職安衛人員" | "人資" | "部門主管" | "租戶管理員";
+            phone: string | null;
+            /** @description 勞工健康服務人員資格 */
+            qualification: string | null;
+            active: boolean;
+            /** @description 已用公司帳號（SSO）登入過；未登入過表示邀請尚未接受 */
+            signedInBefore: boolean;
+            /** Format: date-time */
+            lastSignInAt: string | null;
+            /** @description 負責廠區 */
+            siteIds: string[];
+            /** @description 邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方 */
+            emailed: boolean;
+        };
+        EmployeeNameDto: {
+            /** Format: uuid */
+            id: string;
+            empNo: string;
+            name: string;
         };
         SeatsDto: {
             /** @description 匯入後的在職員工數 */
@@ -2638,8 +2726,12 @@ export interface components {
             employeeId: string;
             empNo: string;
             name: string;
+            /** Format: uuid */
+            siteId: string;
             /** @example 桃園廠 */
             site: string;
+            /** Format: uuid */
+            departmentId: string;
             /** @example 製造一課 */
             department: string;
             /** @enum {string} */
@@ -2783,7 +2875,12 @@ export interface components {
             guidance: components["schemas"]["InterviewGuidanceDto"] | null;
             /** @description 面談紀錄（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有 */
             notes: string | null;
-            /** Format: date */
+            /** @description 是否安排下次面談；未填為 null */
+            nextInterview: boolean | null;
+            /**
+             * Format: date
+             * @description 下次面談預定日期
+             */
             nextOn: string | null;
             /** @description 員工確認狀態：面談狀態改為已面談時建立，之後用 POST /api/programs/acknowledgements/{id}/link 寄確認信給員工 */
             acknowledgement: components["schemas"]["AcknowledgementStatusDto"] | null;
@@ -2797,8 +2894,12 @@ export interface components {
             employeeId: string;
             empNo: string;
             name: string;
+            /** Format: uuid */
+            siteId: string;
             /** @example 桃園廠 */
             site: string;
+            /** Format: uuid */
+            departmentId: string;
             /** @example 製造一課 */
             department: string;
             /** Format: date */
@@ -2846,7 +2947,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             siteId: string;
+            /** Format: uuid */
+            departmentId: string | null;
             area: string;
+            /** @example 輪班 */
+            shiftType: string | null;
             /** Format: date */
             assessedOn: string;
             hazards: {
@@ -2882,7 +2987,13 @@ export interface components {
             id: string;
             /** Format: uuid */
             employeeId: string;
+            empNo: string;
             name: string;
+            /**
+             * Format: uuid
+             * @description 員工目前所屬部門
+             */
+            departmentId: string;
             /**
              * @description 產後指分娩後未滿一年
              * @enum {string}
@@ -2890,8 +3001,16 @@ export interface components {
             type: "妊娠" | "產後";
             /** Format: date */
             notifiedOn: string;
-            /** Format: date */
+            /**
+             * Format: date
+             * @description 預產期
+             */
             dueDate: string | null;
+            /**
+             * Format: date
+             * @description 分娩日（產後）
+             */
+            birthDate: string | null;
             /** @description 今日妊娠週數 */
             weeks: number | null;
             /** @enum {string|null} */
@@ -3012,6 +3131,8 @@ export interface components {
             name: string;
             /** @description 一次性簽核連結（只回傳這一次，不儲存）；同時寄給簽核人員 */
             url: string;
+            /** @description 簽核信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出，請把連結另外交給簽核人員 */
+            emailed: boolean;
         };
         WorkAdviceDto: {
             /** Format: uuid */
@@ -3045,10 +3166,10 @@ export interface components {
             empNo: string;
             name: string;
             /**
-             * @description 建議來自哪個計畫的面談
+             * @description 建議來自哪個計畫的面談。部門主管看到的一律是「工作調整」，不透露計畫（例如母性健康保護會讓主管知道員工可能懷孕）。
              * @enum {string}
              */
-            programme: "異常工作負荷" | "母性健康保護";
+            programme: "異常工作負荷" | "母性健康保護" | "工作調整";
             advice: string;
             /** Format: date-time */
             sentAt: string;
@@ -3064,8 +3185,24 @@ export interface components {
             url: string;
             /** Format: date-time */
             expiresAt: string;
-            /** @description 已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工 */
+            /** @description 會寄通知信給員工（寄信服務已設定，且員工有 Email）；false 時請用其他方式把連結交給員工 */
             emailed: boolean;
+        };
+        ProgrammeOptionsDto: {
+            /** @description 工作型態（過勞評估，可複選） */
+            workPatterns: string[];
+            /** @description 工作區分（過勞面談） */
+            workloadFitness: string[];
+            /** @description 調整或縮短工作時間（過勞面談） */
+            adjustHours: string[];
+            /** @description 變更工作（過勞面談） */
+            changeWork: string[];
+            /** @description 改善措施（人因列管） */
+            ergoMeasures: string[];
+            /** @description 特別危害健康作業類別 */
+            specialOperations: string[];
+            /** @description 作業型態（母性作業環境評估） */
+            shiftTypes: string[];
         };
         ProfileDto: {
             /** Format: uuid */
@@ -3095,6 +3232,13 @@ export interface components {
             title: string;
             /** Format: date */
             dueOn: string | null;
+            /** @description 有尚未送出的草稿 */
+            hasDraft: boolean;
+            /**
+             * Format: date-time
+             * @description 草稿最後儲存時間
+             */
+            draftSavedAt: string | null;
         };
         DraftDto: {
             /** @description 尚未送出的作答，格式由前端決定 */
@@ -3119,6 +3263,13 @@ export interface components {
             title: string;
             /** Format: date */
             dueOn: string | null;
+            /** @description 有尚未送出的草稿 */
+            hasDraft: boolean;
+            /**
+             * Format: date-time
+             * @description 草稿最後儲存時間
+             */
+            draftSavedAt: string | null;
             /** @description 已填寫或已確認 */
             done: boolean;
             /** @description 尚未送出的草稿；紀錄確認沒有草稿 */
@@ -3157,6 +3308,11 @@ export interface components {
              * @example 母性健康保護面談紀錄
              */
             title: string;
+            /**
+             * @description 員工端語言：畫面文字用這個語言
+             * @enum {string}
+             */
+            lang: "zh" | "en" | "ja" | "vi" | "th";
             /** @description 要確認的內容（不含醫護內部紀錄）；找不到原始紀錄時為 null */
             content: components["schemas"]["AcknowledgementContentDto"] | null;
             /** Format: date-time */
@@ -3298,6 +3454,11 @@ export interface components {
              */
             document: "employee_acknowledgements" | "service_records" | "violence_reviews";
             title: string;
+            /**
+             * @description 畫面語言：員工確認依員工帳號的語言，簽核一律為 zh
+             * @enum {string}
+             */
+            lang: "zh" | "en" | "ja" | "vi" | "th";
             /** @description document 為 employee_acknowledgements 時是 AcknowledgementContentDto，service_records 時是 ServiceSignContentDto，violence_reviews 時是 ReviewSignContentDto */
             content: (components["schemas"]["AcknowledgementContentDto"] | components["schemas"]["ServiceSignContentDto"] | components["schemas"]["ReviewSignContentDto"]) | null;
             /**
@@ -4485,7 +4646,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StaffAccountDto"];
+                    "application/json": components["schemas"]["InvitedStaffDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -4555,6 +4716,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffAccountDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    EmployeesController_search: {
+        parameters: {
+            query?: {
+                /** @description 最多幾筆（1–50，預設 20） */
+                limit?: number;
+                /** @description 姓名或工號的一部分 */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeNameDto"][];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -4802,6 +5014,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ExamSettingsController_mappingTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
                 };
             };
         };
@@ -7141,6 +7401,7 @@ export interface operations {
                         special?: string;
                     } | null;
                     notes?: string | null;
+                    nextInterview?: boolean | null;
                     nextOn?: string | null;
                 };
             };
@@ -8459,6 +8720,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    OptionsController_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgrammeOptionsDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
