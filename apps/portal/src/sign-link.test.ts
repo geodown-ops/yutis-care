@@ -14,9 +14,13 @@ describe('emailed confirmation links', () => {
     expect(linkProblem(new TypeError('offline'))).toBeNull();
   });
 
-  it('sends sign-offs (附表八, violence-prevention reviews) to the back office', () => {
-    expect(isSignOff({ kind: 'signature' })).toBe(true);
-    expect(isSignOff({ kind: 'acknowledgement' })).toBe(false);
+  it('sends every document but an employee acknowledgement (附表八, violence-prevention reviews) to the back office', () => {
+    expect(isSignOff({ kind: 'signature', document: 'service_records' })).toBe(true);
+    expect(isSignOff({ kind: 'signature', document: 'violence_reviews' })).toBe(true);
+    expect(isSignOff({ kind: 'acknowledgement', document: 'employee_acknowledgements' })).toBe(false);
+    // Whichever field says so: a sign-off is never shown here as an acknowledgement.
+    expect(isSignOff({ kind: 'acknowledgement', document: 'service_records' })).toBe(true);
+    expect(isSignOff({ kind: 'signature', document: 'employee_acknowledgements' })).toBe(true);
   });
 
   it('reads the interview record only from an employee acknowledgement', () => {

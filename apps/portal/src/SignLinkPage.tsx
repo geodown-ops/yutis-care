@@ -20,8 +20,12 @@ export function linkProblem(err: unknown): 'linkUsed' | 'linkExpired' | 'linkInv
   return null;
 }
 
-/** A signer's sign-off (附表八 service record, violence-prevention review) rather than a record about the employee; those are signed on the back office. */
-export const isSignOff = (doc: Pick<SignDocument, 'kind'>) => doc.kind === 'signature';
+/**
+ * Anything but an employee acknowledgement: a signer's sign-off (附表八 service record, violence-prevention review),
+ * signed on the back office's /sign/{token}. Read from `kind` and `document`, never from the content's shape.
+ */
+export const isSignOff = (doc: Pick<SignDocument, 'kind' | 'document'>) =>
+  doc.kind === 'signature' || doc.document !== 'employee_acknowledgements';
 
 /** The record the employee confirms; null when the link is for something else or the API could not find the record. */
 export function ackContent(doc: Pick<SignDocument, 'document' | 'content'>): AckContent | null {
