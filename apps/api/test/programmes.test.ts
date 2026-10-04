@@ -86,8 +86,9 @@ beforeAll(async () => {
   ]).returning();
   ids.s1 = s1!.id; ids.s2 = s2!.id;
   const [d1, d2] = await owner.insert(departments).values([
-    { tenantId: ids.acme!, siteId: s1!.id, name: '製造一課' }, { tenantId: ids.acme!, siteId: s2!.id, name: '研發部' },
+    { tenantId: ids.acme!, siteId: s1!.id, name: '製造一課', managerEmail: 'Boss@Acme.test' }, { tenantId: ids.acme!, siteId: s2!.id, name: '研發部', managerEmail: 'boss2@acme.test' },
   ]).returning();
+  ids.d1 = d1!.id; ids.d2 = d2!.id;
   const emp = (empNo: string, sex: '男' | '女', birthDate: string, site = s1!, dept = d1!) => ({
     tenantId: ids.acme!, empNo, name: `員工${empNo}`, sex, birthDate, legalEntityId: le!.id, siteId: site.id, departmentId: dept.id, email: `${empNo.toLowerCase()}@acme.test`,
   });
@@ -115,6 +116,7 @@ beforeAll(async () => {
     { tenantId: ids.acme!, email: 'hr@acme.test', name: '李人資', role: '人資' },
     { tenantId: ids.acme!, email: 'boss@acme.test', name: '周課長', role: '部門主管' },
     { tenantId: ids.acme!, email: 'boss2@acme.test', name: '林課長', role: '部門主管' },
+    { tenantId: ids.acme!, email: 'gone@acme.test', name: '陳前課長', role: '部門主管', active: false },
     { tenantId: ids.globex!, email: 'nurse@globex.test', name: 'Globex', role: '職護' },
   ]).returning();
   for (const u of staffRows) ids[u.email] = u.id;
@@ -165,6 +167,7 @@ describe('overwork (異常工作負荷)', () => {
       body: { status: '已面談', interviewedOn: '2026-10-01', workAdvice: { fitness: '需調整工作', restrictions: ['不宜加班'], suggestion: '三個月內暫停夜班' }, notes: '血壓控制不佳，轉介心臟內科。' },
     });
     expect(res.json().interview.notes).toBe('血壓控制不佳，轉介心臟內科。');
+    expect(res.json().interview).toMatchObject({ id: expect.any(String), notices: [] });
     const stored = await owner.execute<{ notes_enc: Buffer }>(sql`select notes_enc from interviews`);
     expect(Buffer.from(stored.rows[0]!.notes_enc).toString('utf8')).not.toContain('心臟內科');
     const advice = (await call('acme', 'GET', '/api/programs/work-advice', { cookie: await as('hr@acme.test') })).json();
@@ -289,6 +292,14 @@ describe('maternal protection, confirmations and sign links', () => {
     const [ack] = await owner.select().from(employeeAcknowledgements).where(eq(employeeAcknowledgements.id, iv.acknowledgementId));
     expect([ack!.tokenHash, ack!.confirmedAt]).toEqual([null, expect.any(Date)]);
     expect((await owner.select().from(auditLog).where(and(eq(auditLog.subjectTable, 'employee_acknowledgements'), eq(auditLog.actorEmployeeId, a))))).toHaveLength(2);
+
+    // The case list carries each interview with its confirmation status, so links and notices can be sent later.
+    const listed = (await call('acme', 'GET', '/api/programs/maternal/cases', { cookie: await nurse() })).json().find((x: { id: string }) => x.id === c.id);
+    expect(listed.interviews).toEqual([{
+      id: iv.id, interviewedOn: '2026-09-25', fitAdvice: '可繼續工作，避免接觸有機溶劑', limits: ['不從事塗裝作業'], agreedArrangement: '調至組裝線',
+      acknowledgement: { id: iv.acknowledgementId, sentAt: expect.any(String), confirmedAt: expect.any(String) }, notices: [],
+    }]);
+    expect(JSON.stringify(listed.interviews)).not.toContain('118/76');
   });
 
   it('refuses expired links', async () => {
@@ -308,7 +319,9 @@ describe('maternal protection, confirmations and sign links', () => {
 describe('managers, violence, age and scope', () => {
   it('shows a manager only the notices sent to them', async () => {
     const a = await empId('A001');
-    const [iv] = (await owner.execute<{ id: string }>(sql`select id from maternal_interviews limit 1`)).rows;
+    const [iv] = (await owner.execute<{ id: string }>(sql`select id from maternal_interviews order by interviewed_on limit 1`)).rows;
+    const notice = (caseList: { interviews: { id: string; notices: unknown[] }[] }[]) => caseList.flatMap(x => x.interviews).find(i => i.id === iv!.id)!.notices;
+    expect(notice((await call('acme', 'GET', '/api/programs/maternal/cases', { cookie: await nurse() })).json())).toEqual([]);
     const res = await call('acme', 'POST', '/api/programs/notices', {
       cookie: await nurse(), body: { employeeId: a, managerUserId: ids['boss@acme.test'], subjectTable: 'maternal_interviews', subjectId: iv!.id, advice: '請安排調至組裝線，不從事塗裝作業。' },
     });
@@ -318,11 +331,29 @@ describe('managers, violence, age and scope', () => {
     const boss = await as('boss@acme.test');
     const notices = (await call('acme', 'GET', '/api/programs/notices', { cookie: boss })).json();
     expect(notices).toEqual([expect.objectContaining({ empNo: 'A001', advice: '請安排調至組裝線，不從事塗裝作業。' })]);
+    expect(notice((await call('acme', 'GET', '/api/programs/maternal/cases', { cookie: await nurse() })).json())).toEqual([{
+      id: res.json().id, managerUserId: ids['boss@acme.test'], managerName: '周課長', sentAt: expect.any(String), readAt: expect.any(String),
+    }]);
     expect((await call('acme', 'GET', '/api/programs/notices', { cookie: await as('boss2@acme.test') })).json()).toEqual([]);
     for (const url of ['/api/programs/work-advice', '/api/programs/maternal/cases', '/api/programs/violence/incidents', '/api/programs/violence/risk-assessments', `/api/employees/${a}/exams`]) {
       expect((await call('acme', 'GET', url, { cookie: boss })).statusCode, url).toBe(403);
     }
     expect((await call('acme', 'GET', '/api/programs/notices', { cookie: await nurse() })).statusCode).toBe(403);
+  });
+
+  it('lists the department managers clinical staff can notify, with their departments in the caller\'s sites', async () => {
+    const managers = (await call('acme', 'GET', '/api/programs/managers', { cookie: await nurse() })).json();
+    expect(managers).toHaveLength(2);
+    expect(managers).toEqual(expect.arrayContaining([
+      { id: ids['boss@acme.test'], name: '周課長', departmentIds: [ids.d1] },
+      { id: ids['boss2@acme.test'], name: '林課長', departmentIds: [] },
+    ]));
+    const fromHsinchu = (await call('acme', 'GET', '/api/programs/managers', { cookie: await as('nurse2@acme.test') })).json();
+    expect(fromHsinchu.find((m: { id: string }) => m.id === ids['boss2@acme.test']).departmentIds).toEqual([ids.d2]);
+    for (const email of ['hr@acme.test', 'safety@acme.test', 'boss@acme.test']) {
+      expect((await call('acme', 'GET', '/api/programs/managers', { cookie: await as(email) })).statusCode, email).toBe(403);
+    }
+    expect((await call('globex', 'GET', '/api/programs/managers', { cookie: await as('nurse@globex.test', 'staff', 'globex') })).json()).toEqual([]);
   });
 
   it('keeps violence incidents encrypted and with clinical staff; risk follows likelihood × severity', async () => {

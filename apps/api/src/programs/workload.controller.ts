@@ -18,6 +18,7 @@ import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } fr
 import { openApiSchema, parse } from '../core/validation.js';
 import { employeeInScope, latestExamFor, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
+import { noticesBySubject, NoticeStatusDto } from './notices.js';
 
 const answer = z.number().int().min(0).max(4);
 export const CbiAnswers = z.object({ p: z.array(answer).length(CBI_PERSONAL_ITEMS), w: z.array(answer).length(CBI_WORK_ITEMS) }).strict();
@@ -46,12 +47,14 @@ const Interview = z.object({
 const CreateAssessments = z.object({ employeeIds: z.array(z.uuid()).min(1).max(5000), sentOn: z.iso.date().optional() }).strict();
 
 class InterviewDto {
+  @ApiProperty({ format: 'uuid', description: '通知主管時的 subjectId（subjectTable 為 interviews）' }) id!: string;
   @ApiProperty({ enum: ['待安排', '已安排', '已面談', '拒絕面談'] }) status!: string;
   @ApiProperty({ type: String, format: 'date', nullable: true }) interviewedOn!: string | null;
   @ApiProperty({ type: String, format: 'uuid', nullable: true }) doctorUserId!: string | null;
   @ApiProperty({ type: 'object', nullable: true, additionalProperties: true, description: '工作安排建議（人資、主管可見）' }) workAdvice!: WorkAdviceInput | null;
   @ApiProperty({ type: String, nullable: true, description: '面談紀錄（醫療資料，加密儲存）' }) notes!: string | null;
   @ApiProperty({ type: String, format: 'date', nullable: true }) nextOn!: string | null;
+  @ApiProperty({ type: [NoticeStatusDto], description: '已寄給部門主管的通知與讀取狀態' }) notices!: NoticeStatusDto[];
 }
 class AssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -201,14 +204,15 @@ export class WorkloadController {
       .innerJoin(employees, eq(employees.id, workloadAssessments.employeeId))
       .where(and(inArray(employees.siteId, sites), ids ? inArray(workloadAssessments.id, ids) : undefined)).orderBy(asc(employees.empNo));
     const ivs = rows.length ? await ctx.tx.select().from(interviews).where(inArray(interviews.assessmentId, rows.map(r => r.a.id))) : [];
+    const notices = await noticesBySubject(ctx, 'interviews', ivs.map(i => i.id));
     return Promise.all(rows.map(async ({ a, empNo, name }) => {
       const iv = ivs.find(i => i.assessmentId === a.id);
       return {
         id: a.id, employeeId: a.employeeId, empNo, name, sentOn: a.sentOn, personalBurnout: num(a.personalBurnout), workBurnout: num(a.workBurnout),
         overtime1m: num(a.overtime1m), overtime6mAvg: num(a.overtime6mAvg), workPatterns: a.workPatterns, evaluation: a.evaluation, riskLevel: a.riskLevel,
         interview: iv ? {
-          status: iv.status, interviewedOn: iv.interviewedOn, doctorUserId: iv.doctorUserId, workAdvice: iv.workAdvice as WorkAdviceInput | null,
-          notes: await decryptOptional(this.crypto, ctx.tenant.id, iv.notesEnc), nextOn: iv.nextOn,
+          id: iv.id, status: iv.status, interviewedOn: iv.interviewedOn, doctorUserId: iv.doctorUserId, workAdvice: iv.workAdvice as WorkAdviceInput | null,
+          notes: await decryptOptional(this.crypto, ctx.tenant.id, iv.notesEnc), nextOn: iv.nextOn, notices: notices.get(iv.id) ?? [],
         } : null,
       };
     }));

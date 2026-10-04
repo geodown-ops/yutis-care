@@ -6,8 +6,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { employeeAcknowledgements, employees, interviews, managerNotices, maternalCases, maternalInterviews, notifications, users, workloadAssessments } from '@yutis/db';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { departments, employeeAcknowledgements, employees, interviews, managerNotices, maternalCases, maternalInterviews, notifications, users, workloadAssessments } from '@yutis/db';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { ADVICE_ROLES } from '../auth/permissions.js';
@@ -40,6 +40,15 @@ class NoticeDto {
   @ApiProperty() advice!: string;
   @ApiProperty({ type: String, format: 'date-time' }) sentAt!: Date;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) readAt!: Date | null;
+}
+class ManagerDto {
+  @ApiProperty({ format: 'uuid', description: '通知主管時的 managerUserId' }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({
+    type: [String], format: 'uuid',
+    description: '這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門',
+  })
+  departmentIds!: string[];
 }
 class LinkDto {
   @ApiProperty({ description: '寄給員工的一次性連結（只回傳這一次，不儲存）' }) url!: string;
@@ -83,6 +92,27 @@ export class AdviceController {
     ];
     if (result.length) await recordAudit(ctx, result.map((r): AuditEntry => ({ action: 'read', subjectTable: 'work_advice', employeeId: r.employeeId, dataCategory: 'work' })));
     return result;
+  }
+
+  @Get('managers')
+  @Clinical()
+  @ApiOperation({
+    summary: '可通知的部門主管',
+    description: '租戶內所有啟用中的部門主管帳號；departmentIds 依部門設定的主管 Email 對應，可用來預先選好員工所屬部門的主管。',
+  })
+  @ApiOkResponse({ type: [ManagerDto] })
+  async managers(@Ctx() ctx: RequestContext): Promise<ManagerDto[]> {
+    const managers = await ctx.tx.select({ id: users.id, name: users.name, email: users.email }).from(users)
+      .where(and(eq(users.role, '部門主管'), eq(users.active, true))).orderBy(asc(users.name));
+    const sites = await mySiteIds(ctx);
+    const depts = sites.length
+      ? await ctx.tx.select({ id: departments.id, managerEmail: departments.managerEmail }).from(departments)
+        .where(and(inArray(departments.siteId, sites), sql`${departments.managerEmail} is not null`))
+      : [];
+    return managers.map(m => ({
+      id: m.id, name: m.name,
+      departmentIds: depts.filter(d => d.managerEmail!.toLowerCase() === m.email.toLowerCase()).map(d => d.id),
+    }));
   }
 
   @Post('notices')

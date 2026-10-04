@@ -6434,6 +6434,67 @@
         ]
       }
     },
+    "/api/programs/managers": {
+      "get": {
+        "description": "租戶內所有啟用中的部門主管帳號；departmentIds 依部門設定的主管 Email 對應，可用來預先選好員工所屬部門的主管。",
+        "operationId": "AdviceController_managers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagerDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "可通知的部門主管",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
     "/api/programs/notices": {
       "post": {
         "description": "主管只會看到這段建議文字。",
@@ -10767,9 +10828,47 @@
           "filledBy"
         ]
       },
+      "NoticeStatusDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "managerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "managerName": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "主管開啟通知的時間；尚未讀取時為 null"
+          }
+        },
+        "required": [
+          "id",
+          "managerUserId",
+          "managerName",
+          "sentAt",
+          "readAt"
+        ]
+      },
       "InterviewDto": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "通知主管時的 subjectId（subjectTable 為 interviews）"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -10804,15 +10903,24 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "notices": {
+            "description": "已寄給部門主管的通知與讀取狀態",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoticeStatusDto"
+            }
           }
         },
         "required": [
+          "id",
           "status",
           "interviewedOn",
           "doctorUserId",
           "workAdvice",
           "notes",
-          "nextOn"
+          "nextOn",
+          "notices"
         ]
       },
       "AssessmentDto": {
@@ -10938,6 +11046,90 @@
           "level"
         ]
       },
+      "AcknowledgementStatusDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "產生員工確認連結用（POST /api/programs/acknowledgements/{id}/link）"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "最近一次寄出確認連結的時間"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "員工確認的時間"
+          }
+        },
+        "required": [
+          "id",
+          "sentAt",
+          "confirmedAt"
+        ]
+      },
+      "MaternalInterviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "通知主管時的 subjectId（subjectTable 為 maternal_interviews）"
+          },
+          "interviewedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "fitAdvice": {
+            "type": "string",
+            "nullable": true,
+            "description": "適性評估（工作安排建議）"
+          },
+          "limits": {
+            "description": "工作限制",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agreedArrangement": {
+            "type": "string",
+            "nullable": true,
+            "description": "雙方同意的工作調整"
+          },
+          "acknowledgement": {
+            "nullable": true,
+            "description": "員工確認狀態",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AcknowledgementStatusDto"
+              }
+            ]
+          },
+          "notices": {
+            "description": "已寄給部門主管的通知與讀取狀態",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoticeStatusDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "interviewedOn",
+          "fitAdvice",
+          "limits",
+          "agreedArrangement",
+          "acknowledgement",
+          "notices"
+        ]
+      },
       "MaternalCaseDto": {
         "type": "object",
         "properties": {
@@ -10986,6 +11178,13 @@
             "type": "string",
             "nullable": true,
             "description": "自述症狀、風險因子（醫療資料，加密儲存）"
+          },
+          "interviews": {
+            "description": "面談紀錄（舊的在前，不含面談內文）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaternalInterviewDto"
+            }
           }
         },
         "required": [
@@ -10997,7 +11196,8 @@
           "dueDate",
           "weeks",
           "level",
-          "detail"
+          "detail",
+          "interviews"
         ]
       },
       "RiskAssessmentDto": {
@@ -11076,6 +11276,32 @@
           "on",
           "advice",
           "restrictions"
+        ]
+      },
+      "ManagerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "通知主管時的 managerUserId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "departmentIds": {
+            "description": "這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "departmentIds"
         ]
       },
       "NoticeDto": {

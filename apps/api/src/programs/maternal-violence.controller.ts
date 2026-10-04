@@ -10,7 +10,7 @@ import {
   employeeAcknowledgements, employees, maternalCases, maternalEnvAssessments, maternalInterviews, violenceChecklists, violenceIncidents, violenceRiskAssessments,
 } from '@yutis/db';
 import { MAT_LEVELS, pregnancyWeeks, suggestMaternalLevel, VIO_LIKELIHOOD, VIO_SEVERITY, violenceRisk } from '@yutis/domain';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { ENVIRONMENT_ROLES } from '../auth/permissions.js';
@@ -20,6 +20,7 @@ import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } fr
 import { openApiSchema, parse } from '../core/validation.js';
 import { assertSitesInScope, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
+import { noticesBySubject, NoticeStatusDto } from './notices.js';
 
 const Environment = () => StaffOnly({ feature: 'programs', roles: ENVIRONMENT_ROLES });
 
@@ -60,6 +61,20 @@ class EnvAssessmentDto {
   @ApiProperty({ type: 'object', additionalProperties: true }) hazards!: unknown;
   @ApiProperty({ enum: MAT_LEVELS, description: '依危害評估建議的管理分級' }) level!: string;
 }
+class AcknowledgementStatusDto {
+  @ApiProperty({ format: 'uuid', description: '產生員工確認連結用（POST /api/programs/acknowledgements/{id}/link）' }) id!: string;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true, description: '最近一次寄出確認連結的時間' }) sentAt!: Date | null;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true, description: '員工確認的時間' }) confirmedAt!: Date | null;
+}
+class MaternalInterviewDto {
+  @ApiProperty({ format: 'uuid', description: '通知主管時的 subjectId（subjectTable 為 maternal_interviews）' }) id!: string;
+  @ApiProperty({ type: String, format: 'date' }) interviewedOn!: string;
+  @ApiProperty({ type: String, nullable: true, description: '適性評估（工作安排建議）' }) fitAdvice!: string | null;
+  @ApiProperty({ type: [String], description: '工作限制' }) limits!: string[];
+  @ApiProperty({ type: String, nullable: true, description: '雙方同意的工作調整' }) agreedArrangement!: string | null;
+  @ApiProperty({ type: AcknowledgementStatusDto, nullable: true, description: '員工確認狀態' }) acknowledgement!: AcknowledgementStatusDto | null;
+  @ApiProperty({ type: [NoticeStatusDto], description: '已寄給部門主管的通知與讀取狀態' }) notices!: NoticeStatusDto[];
+}
 class MaternalCaseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
@@ -70,6 +85,7 @@ class MaternalCaseDto {
   @ApiProperty({ type: Number, nullable: true, description: '今日妊娠週數' }) weeks!: number | null;
   @ApiProperty({ type: String, enum: MAT_LEVELS, nullable: true }) level!: string | null;
   @ApiProperty({ type: String, nullable: true, description: '自述症狀、風險因子（醫療資料，加密儲存）' }) detail!: string | null;
+  @ApiProperty({ type: [MaternalInterviewDto], description: '面談紀錄（舊的在前，不含面談內文）' }) interviews!: MaternalInterviewDto[];
 }
 class RiskAssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -122,7 +138,7 @@ export class MaternalViolenceController {
     }).returning();
     await raiseEvent(ctx, { employeeId: employee.id, type: 'mat', sourceTable: 'maternal_cases', sourceId: row!.id, occurredOn: input.notifiedOn, description: `工作場所母性健康保護：${input.type}通報` });
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_cases', subjectId: row!.id, employeeId: employee.id, dataCategory: 'medical' });
-    return this.toCase(ctx, row!, employee.name);
+    return (await this.toCases(ctx, [{ c: row!, name: employee.name }]))[0]!;
   }
 
   @Get('maternal/cases') @Clinical() @ApiOperation({ summary: '負責廠區的母性健康保護個案', description: '每位列出的員工都記入稽核。' }) @ApiOkResponse({ type: [MaternalCaseDto] })
@@ -132,7 +148,7 @@ export class MaternalViolenceController {
     const rows = await ctx.tx.select({ c: maternalCases, name: employees.name }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId))
       .where(inArray(employees.siteId, sites)).orderBy(desc(maternalCases.notifiedOn));
     if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'maternal_cases', subjectId: r.c.id, employeeId: r.c.employeeId, dataCategory: 'medical' })));
-    return Promise.all(rows.map(r => this.toCase(ctx, r.c, r.name)));
+    return this.toCases(ctx, rows);
   }
 
   @Post('maternal/cases/:id/interviews') @Clinical()
@@ -221,10 +237,26 @@ export class MaternalViolenceController {
     })));
   }
 
-  private async toCase(ctx: RequestContext, c: typeof maternalCases.$inferSelect, name: string): Promise<MaternalCaseDto> {
-    return {
+  private async toCases(ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; name: string }[]): Promise<MaternalCaseDto[]> {
+    const ivs = rows.length
+      ? await ctx.tx.select().from(maternalInterviews).where(inArray(maternalInterviews.caseId, rows.map(r => r.c.id))).orderBy(asc(maternalInterviews.interviewedOn), asc(maternalInterviews.createdAt))
+      : [];
+    const ivIds = ivs.map(i => i.id);
+    const acks = ivIds.length
+      ? await ctx.tx.select().from(employeeAcknowledgements).where(and(eq(employeeAcknowledgements.subjectTable, 'maternal_interviews'), inArray(employeeAcknowledgements.subjectId, ivIds)))
+      : [];
+    const notices = await noticesBySubject(ctx, 'maternal_interviews', ivIds);
+    return Promise.all(rows.map(async ({ c, name }) => ({
       id: c.id, employeeId: c.employeeId, name, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate,
       weeks: pregnancyWeeks(c.type, c.dueDate, todayTw()), level: c.level, detail: await decryptOptional(this.crypto, ctx.tenant.id, c.detailEnc),
-    };
+      interviews: ivs.filter(i => i.caseId === c.id).map(i => {
+        const ack = acks.find(a => a.subjectId === i.id);
+        return {
+          id: i.id, interviewedOn: i.interviewedOn, fitAdvice: i.fitAdvice, limits: i.limits, agreedArrangement: i.agreedArrangement,
+          acknowledgement: ack ? { id: ack.id, sentAt: ack.sentAt, confirmedAt: ack.confirmedAt } : null,
+          notices: notices.get(i.id) ?? [],
+        };
+      }),
+    })));
   }
 }
