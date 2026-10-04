@@ -1,7 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
-import { IAP_HEADER, IapIdentityVerifier } from '../src/auth/identity.js';
+import { GoogleSignInIdentityVerifier, IAP_HEADER, IapIdentityVerifier } from '../src/auth/identity.js';
 import { can, ROLE_PERMISSIONS } from '../src/auth/permissions.js';
 import { loadConfig } from '../src/config.js';
 
@@ -31,6 +31,31 @@ describe('IAP identity', async () => {
   });
 });
 
+describe('Google sign-in identity (instead of IAP)', async () => {
+  const project = 'yutis-care-prod';
+  const { privateKey, publicKey } = await generateKeyPair('RS256');
+  const verifier = new GoogleSignInIdentityVerifier(project, createLocalJWKSet({ keys: [{ ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256' }] }));
+  const google = { email: 'Ops@Yutis.test', email_verified: true, firebase: { sign_in_provider: 'google.com' } };
+  const sign = (claims: Record<string, unknown>, opts: { aud?: string; key?: CryptoKey } = {}) =>
+    new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid: 'k1' }).setIssuedAt().setSubject('uid-1')
+      .setIssuer(`https://securetoken.google.com/${opts.aud ?? project}`).setAudience(opts.aud ?? project).setExpirationTime('5m')
+      .sign(opts.key ?? privateKey);
+  const req = (token?: string) => ({ headers: token ? { authorization: `Bearer ${token}` } : {} }) as unknown as FastifyRequest;
+
+  it('accepts a Google sign-in with a verified email', async () => {
+    expect(await verifier.identify(req(await sign(google)))).toBe('ops@yutis.test');
+  });
+
+  it("rejects customer tenants' sign-ins, other providers, unverified emails, other projects and forged tokens", async () => {
+    expect(await verifier.identify(req())).toBeUndefined();
+    expect(await verifier.identify(req(await sign({ ...google, firebase: { sign_in_provider: 'google.com', tenant: 'y-acme-1a2b' } })))).toBeUndefined();
+    expect(await verifier.identify(req(await sign({ ...google, firebase: { sign_in_provider: 'password' } })))).toBeUndefined();
+    expect(await verifier.identify(req(await sign({ ...google, email_verified: false })))).toBeUndefined();
+    expect(await verifier.identify(req(await sign(google, { aud: 'someone-else' })))).toBeUndefined();
+    expect(await verifier.identify(req(await sign(google, { key: (await generateKeyPair('RS256')).privateKey })))).toBeUndefined();
+  });
+});
+
 describe('platform roles', () => {
   it('lets only operations onboard or suspend tenants and change subscriptions', () => {
     const who = (p: Parameters<typeof can>[1]) => Object.keys(ROLE_PERMISSIONS).filter(r => can(r as never, p));
@@ -43,9 +68,13 @@ describe('platform roles', () => {
 describe('loadConfig', () => {
   const env = { PLATFORM_DATABASE_URL: 'postgres://x/y' };
 
-  it('requires the IAP audience unless dev sign-in is on', () => {
+  it('requires exactly one way to identify platform staff: IAP, Google sign-in or dev sign-in', () => {
+    const signIn = { PLATFORM_SIGN_IN_PROJECT_ID: 'p', PLATFORM_SIGN_IN_API_KEY: 'k', PLATFORM_SIGN_IN_AUTH_DOMAIN: 'p.firebaseapp.com' };
     expect(() => loadConfig(env)).toThrow(/IAP_AUDIENCE/);
     expect(loadConfig({ ...env, IAP_AUDIENCE: '/projects/1/global/backendServices/2' })).toMatchObject({ devAuth: false, fakeIntegrations: false });
+    expect(loadConfig({ ...env, NODE_ENV: 'production', ...signIn })).toMatchObject({ signIn: { projectId: 'p', apiKey: 'k', authDomain: 'p.firebaseapp.com' } });
+    expect(() => loadConfig({ ...env, PLATFORM_SIGN_IN_PROJECT_ID: 'p' })).toThrow(/go together/);
+    expect(() => loadConfig({ ...env, ...signIn, IAP_AUDIENCE: 'a' })).toThrow(/exactly one/);
   });
 
   it('refuses dev sign-in or fake integrations in production', () => {

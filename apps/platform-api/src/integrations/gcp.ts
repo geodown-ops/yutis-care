@@ -1,11 +1,12 @@
 /*
  * Production implementations of the onboarding integrations on Google Cloud, through the REST APIs and the Cloud Run
- * service account's token from the metadata server (no client libraries):
+ * service account's token from the metadata server, or a service account key outside Google Cloud (no client libraries):
  *   - Cloud KMS: one key per tenant in the `tenants` key ring, rotated every 90 days;
  *   - Identity Platform: one tenant per Yutis tenant (email-link sign-in for the first admin; SSO is added later);
  *   - the first tenant admin's invitation: an Identity Platform email sign-in link to {tenant}/login.
  */
 import { randomBytes } from 'node:crypto';
+import { importPKCS8, SignJWT } from 'jose';
 import type { IdentityTenantService, Invitation, InvitationMailer, TenantKeyService } from './integrations.js';
 
 const METADATA_TOKEN = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
@@ -26,6 +27,47 @@ export class MetadataTokenSource {
     this.token = { value: body.access_token, expiresAt: Date.now() + (body.expires_in - 60) * 1000 };
     return body.access_token;
   }
+}
+
+/**
+ * Access tokens for a service account from its JSON key (GOOGLE_SERVICE_ACCOUNT_KEY), for running outside Google Cloud
+ * (Railway): a self-signed JWT exchanged at Google's token endpoint, cached until a minute before it expires.
+ */
+export class ServiceAccountTokenSource {
+  private token?: { value: string; expiresAt: number };
+  private readonly key: { client_email: string; private_key: string; token_uri?: string };
+
+  constructor(keyJson: string, private readonly fetchFn: Fetch = fetch) {
+    const key = JSON.parse(keyJson) as Partial<ServiceAccountTokenSource['key']>;
+    if (!key.client_email || !key.private_key) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not a service account JSON key');
+    this.key = { client_email: key.client_email, private_key: key.private_key, token_uri: key.token_uri };
+  }
+
+  async get(): Promise<string> {
+    if (this.token && Date.now() < this.token.expiresAt) return this.token.value;
+    const tokenUri = this.key.token_uri ?? 'https://oauth2.googleapis.com/token';
+    const assertion = await new SignJWT({ scope: 'https://www.googleapis.com/auth/cloud-platform' })
+      .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+      .setIssuer(this.key.client_email)
+      .setAudience(tokenUri)
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(await importPKCS8(this.key.private_key, 'RS256'));
+    const res = await this.fetchFn(tokenUri, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }).toString(),
+    });
+    if (!res.ok) throw new Error(`Service account token request failed: ${res.status} ${await res.text()}`);
+    const body = await res.json() as { access_token: string; expires_in: number };
+    this.token = { value: body.access_token, expiresAt: Date.now() + (body.expires_in - 60) * 1000 };
+    return body.access_token;
+  }
+}
+
+/** The service account key when one is configured (outside Google Cloud), otherwise the metadata server. */
+export function googleTokenSource(env: Record<string, string | undefined> = process.env): { get(): Promise<string> } {
+  return env.GOOGLE_SERVICE_ACCOUNT_KEY ? new ServiceAccountTokenSource(env.GOOGLE_SERVICE_ACCOUNT_KEY) : new MetadataTokenSource();
 }
 
 /** Authenticated JSON calls to Google APIs. */

@@ -2,15 +2,15 @@
  * Production sign-in (Identity Platform ID tokens) and envelope encryption (Cloud KMS), with the Google endpoints
  * replaced by local fakes: a local signing key, a fake Identity Toolkit admin API and an in-memory KMS.
  */
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { createDb, tenantKeys, tenants, type TenantSummary } from '@yutis/db';
 import { eq } from 'drizzle-orm';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, importSPKI, jwtVerify, SignJWT } from 'jose';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { IdentityPlatformVerifier } from '../src/auth/identity.js';
 import { KmsTenantCrypto } from '../src/core/crypto.js';
-import type { Fetch } from '../src/core/gcp.js';
+import { googleTokenSource, MetadataTokenSource, ServiceAccountTokenSource, type Fetch } from '../src/core/gcp.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 const PROJECT = 'yutis-care-prod';
@@ -162,5 +162,36 @@ describe('KmsTenantCrypto', () => {
     const data = await new KmsTenantCrypto(createDb(pool), kms).encrypt(T.acme!, 'secret');
     kms.destroy(`projects/p/locations/asia-east1/keyRings/tenants/cryptoKeys/acme`);
     await expect(new KmsTenantCrypto(createDb(pool), kms).decrypt(T.acme!, data)).rejects.toThrow();
+  });
+});
+
+describe('ServiceAccountTokenSource', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const keyJson = JSON.stringify({
+    type: 'service_account', client_email: 'yutis-api@p.iam.gserviceaccount.com', token_uri: 'https://oauth2.googleapis.com/token',
+    private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+  });
+
+  it('exchanges a JWT signed with the key for an access token, and caches it', async () => {
+    const calls: URLSearchParams[] = [];
+    const fetchFn: Fetch = async (_url, init) => {
+      calls.push(new URLSearchParams(String(init?.body)));
+      return new Response(JSON.stringify({ access_token: 'ya29.token', expires_in: 3600 }));
+    };
+    const source = new ServiceAccountTokenSource(keyJson, fetchFn);
+    expect(await source.get()).toBe('ya29.token');
+    expect(await source.get()).toBe('ya29.token');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+    const assertion = calls[0]!.get('assertion')!;
+    const spki = await importSPKI(publicKey.export({ type: 'spki', format: 'pem' }).toString(), 'RS256');
+    await jwtVerify(assertion, spki, { issuer: 'yutis-api@p.iam.gserviceaccount.com', audience: 'https://oauth2.googleapis.com/token' });
+    expect(decodeJwt(assertion).scope).toBe('https://www.googleapis.com/auth/cloud-platform');
+  });
+
+  it('is used only when a key is configured', () => {
+    expect(googleTokenSource({ GOOGLE_SERVICE_ACCOUNT_KEY: keyJson })).toBeInstanceOf(ServiceAccountTokenSource);
+    expect(googleTokenSource({})).toBeInstanceOf(MetadataTokenSource);
+    expect(() => googleTokenSource({ GOOGLE_SERVICE_ACCOUNT_KEY: '{}' })).toThrow(/service account JSON key/);
   });
 });
