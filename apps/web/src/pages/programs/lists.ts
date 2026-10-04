@@ -11,7 +11,7 @@ export type OrgEntity = Schemas['DirectoryLegalEntityDto'];
 export interface OrgFilter { siteId: string | null; departmentId: string | null }
 export const NO_ORG_FILTER: OrgFilter = { siteId: null, departmentId: null };
 
-/** Where a row belongs. Some lists carry only the site (risk assessments) or only the department (maternal cases). */
+/** Where a row belongs. Records about a whole site have no department. */
 export interface OrgPlace { siteId?: string | null; departmentId?: string | null }
 /** Labels for site and department ids. */
 export interface OrgNames { site: (id: string) => string; department: (id: string) => string }
@@ -45,16 +45,21 @@ export function rowNames(rows: readonly { siteId: string; site: string; departme
   return { site: id => sites.get(id) ?? '—', department: id => deps.get(id) ?? '—' };
 }
 
-/** Labels, and each department's site, from the organisation tree (GET /api/org). */
-export function treeNames(org: readonly OrgEntity[]): OrgNames & { siteOf: (departmentId: string) => string | null } {
+/** Labels from the organisation tree (GET /api/org). */
+export function treeNames(org: readonly OrgEntity[]): OrgNames {
   const sites = org.flatMap(e => e.sites);
   const siteNames = new Map(sites.map(s => [s.id, s.name]));
-  const deps = new Map(sites.flatMap(s => s.departments.map(d => [d.id, { name: d.name, siteId: s.id }] as const)));
-  return {
-    site: id => siteNames.get(id) ?? '—',
-    department: id => deps.get(id)?.name ?? '—',
-    siteOf: id => deps.get(id)?.siteId ?? null,
-  };
+  const deps = new Map(sites.flatMap(s => s.departments.map(d => [d.id, d.name] as const)));
+  return { site: id => siteNames.get(id) ?? '—', department: id => deps.get(id) ?? '—' };
+}
+
+/**
+ * Department labels from the names the rows carry (departmentName), else from `names`; sites from `names`. The
+ * row's own name does not wait for the organisation tree to load.
+ */
+export function withRowDepartments(names: OrgNames, rows: readonly { departmentId?: string | null; departmentName?: string | null }[]): OrgNames {
+  const deps = new Map(rows.flatMap(r => (r.departmentId && r.departmentName ? [[r.departmentId, r.departmentName] as const] : [])));
+  return { site: names.site, department: id => deps.get(id) ?? names.department(id) };
 }
 
 /** Departments of one site from GET /api/org, for pickers. */
@@ -77,11 +82,12 @@ export function markReminded<T extends Remindable>(list: readonly T[], asked: Re
 }
 
 /**
- * What to tell the nurse after sending reminders. RemindResultDto.emailed counts everyone with an email address; it
- * does not say whether the mail service really sent anything (it never does on the demo site), so neither does this.
+ * What to tell the nurse after sending reminders. RemindResultDto.emailed counts everyone with an email address;
+ * delivered says whether the mail service really sends (never on the demo site). Only then does the text say an
+ * email went out.
  */
-export function reminderText(reminded: number, unreachable: readonly string[]): string {
-  const done = reminded ? `已催填 ${reminded} 位員工。` : '沒有可以寄提醒信的員工。';
+export function reminderText(r: Pick<Schemas['RemindResultDto'], 'emailed' | 'delivered'>, unreachable: readonly string[]): string {
+  const done = !r.emailed ? '沒有可以寄提醒信的員工。' : r.delivered ? `已寄催填信給 ${r.emailed} 位員工。` : `已催填 ${r.emailed} 位員工。`;
   return unreachable.length ? `${done}${unreachable.join('、')} 沒有 Email，請另行通知。` : done;
 }
 

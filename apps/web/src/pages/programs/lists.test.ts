@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { csvCell, csvText, markReminded, matchOrg, orgOptions, reminderText, rowNames, siteDepartments, treeNames, type OrgEntity } from './lists';
+import {
+  csvCell, csvText, markReminded, matchOrg, orgOptions, reminderText, rowNames, siteDepartments, treeNames, withRowDepartments, type OrgEntity,
+} from './lists';
 
 const rows = [
   { siteId: 'ty', site: '桃園廠', departmentId: 'ty-m2', department: '製造二課' },
@@ -50,13 +52,21 @@ describe('site and department filters', () => {
     expect(siteDepartments(org, null)).toEqual([]);
   });
 
-  it('names sites and departments, and finds the site of a department, from the organisation tree', () => {
+  it('names sites and departments from the organisation tree', () => {
     const t = treeNames(org);
     expect(t.site('s2')).toBe('新竹廠');
     expect(t.department('d1')).toBe('製造一課');
-    expect(t.siteOf('d1')).toBe('s1');
-    expect(t.siteOf('nope')).toBeNull();
     expect(t.department('nope')).toBe('—');
+  });
+
+  it('prefers the department names the rows carry, and falls back to the tree', () => {
+    const t = withRowDepartments(treeNames(org), [
+      { departmentId: 'd1', departmentName: '製造一課（改名後）' }, { departmentId: 'd9', departmentName: '倉儲課' }, { departmentId: null, departmentName: null },
+    ]);
+    expect(t.department('d1')).toBe('製造一課（改名後）');
+    expect(t.department('d9')).toBe('倉儲課');
+    expect(t.department('nope')).toBe('—');
+    expect(t.site('s1')).toBe('桃園廠');
   });
 });
 
@@ -74,9 +84,15 @@ describe('reminders', () => {
     expect(out[1]!.lastRemindedAt).toBe('2026-09-01T00:00:00Z');
   });
 
+  it('says an email went out only when the mail service really sends', () => {
+    expect(reminderText({ emailed: 3, delivered: true }, [])).toBe('已寄催填信給 3 位員工。');
+    expect(reminderText({ emailed: 3, delivered: false }, [])).toBe('已催填 3 位員工。');
+    expect(reminderText({ emailed: 2, delivered: true }, ['王小明'])).toBe('已寄催填信給 2 位員工。王小明 沒有 Email，請另行通知。');
+  });
+
   it('says who could not be reached', () => {
-    expect(reminderText(3, [])).toBe('已催填 3 位員工。');
-    expect(reminderText(0, ['王小明', '林小美'])).toBe('沒有可以寄提醒信的員工。王小明、林小美 沒有 Email，請另行通知。');
+    expect(reminderText({ emailed: 0, delivered: true }, ['王小明', '林小美'])).toBe('沒有可以寄提醒信的員工。王小明、林小美 沒有 Email，請另行通知。');
+    expect(reminderText({ emailed: 0, delivered: false }, [])).toBe('沒有可以寄提醒信的員工。');
   });
 });
 

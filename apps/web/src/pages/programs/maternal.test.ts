@@ -7,7 +7,7 @@ import {
 const iv = (id: string, interviewedOn: string, acknowledgement: MaternalInterview['acknowledgement'] = null): MaternalInterview =>
   ({ id, interviewedOn, fitAdvice: null, limits: [], agreedArrangement: null, acknowledgement, notices: [] });
 const kase = (p: Partial<MaternalCase> = {}): MaternalCase =>
-  ({ id: 'c', employeeId: 'e', empNo: 'E1', name: 'x', departmentId: 'd', type: '妊娠', notifiedOn: '2026-09-01', dueDate: null, birthDate: null, weeks: null, level: null, detail: null, interviews: [], ...p });
+  ({ id: 'c', employeeId: 'e', empNo: 'E1', name: 'x', siteId: 's', departmentId: 'd', departmentName: '製造一課', type: '妊娠', notifiedOn: '2026-09-01', dueDate: null, birthDate: null, weeks: null, level: null, detail: null, interviews: [], ...p });
 
 describe('maternal environment assessment', () => {
   it('suggests the level the API will store', () => {

@@ -9,9 +9,11 @@ import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { CardNote, problemText } from '../states';
 import { OrgFilterSelects } from './listControls';
-import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
-import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
-import { countByRisk, emptyRiskDraft, RISK_TONE, riskBody, riskRows, VIO_QUESTIONS, type RiskAssessment, type RiskDraftRow } from './violence';
+import { matchOrg, NO_ORG_FILTER, withRowDepartments, type OrgFilter } from './lists';
+import { DateField, DepartmentSelect, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
+import {
+  countByRisk, emptyRiskDraft, pickSite, RISK_TONE, riskBody, riskRows, VIO_QUESTIONS, type Place, type RiskAssessment, type RiskDraftRow,
+} from './violence';
 import { riskAssessmentsQuery } from './violenceQueries';
 
 export function RiskBadge({ risk }: { risk: VioRisk | null }) {
@@ -21,7 +23,7 @@ export function RiskBadge({ risk }: { risk: VioRisk | null }) {
 const Count = ({ n, risk }: { n: number; risk: VioRisk }) => (n ? <ToneBadge tone={RISK_TONE[risk]}>{n}</ToneBadge> : <Text span size="sm" c="dimmed">0</Text>);
 
 export function ViolenceRiskTab({ risks }: { risks: UseQueryResult<RiskAssessment[]> }) {
-  const names = useOrgNames();
+  const names = withRowDepartments(useOrgNames(), risks.data ?? []);
   const sites = useMySites();
   const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState(false);
@@ -38,18 +40,22 @@ export function ViolenceRiskTab({ risks }: { risks: UseQueryResult<RiskAssessmen
       </Group>
       {risks.isPending ? <Skeleton h={200} /> : risks.isError ? <CardNote>{problemText(risks.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={640}>
+          <Table.ScrollContainer minWidth={720}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr><Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th ta="right">潛在風險</Table.Th><Table.Th ta="center">高度</Table.Th><Table.Th ta="center">中度</Table.Th><Table.Th ta="center">低度</Table.Th><Table.Th /></Table.Tr>
+                <Table.Tr>
+                  <Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th ta="right">潛在風險</Table.Th>
+                  <Table.Th ta="center">高度</Table.Th><Table.Th ta="center">中度</Table.Th><Table.Th ta="center">低度</Table.Th><Table.Th />
+                </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.map(r => {
                   const c = countByRisk(riskRows(r.items));
                   return (
                     <Table.Tr key={r.id}>
-                      <Table.Td>{dt(r.assessedOn)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(r.assessedOn)}</Table.Td>
                       <Table.Td>{names.site(r.siteId)}</Table.Td>
+                      <Table.Td>{r.departmentName ?? <Text span size="sm" c="dimmed">全廠</Text>}</Table.Td>
                       <Table.Td ta="right">{r.items.length} 項</Table.Td>
                       <Table.Td ta="center"><Count n={c['高度風險']} risk="高度風險" /></Table.Td>
                       <Table.Td ta="center"><Count n={c['中度風險']} risk="中度風險" /></Table.Td>
@@ -78,9 +84,10 @@ function RiskDetailModal({ assessment, onClose }: { assessment: RiskAssessment |
     <Modal opened={!!assessment} onClose={onClose} title="不法侵害危害辨識及風險評估" {...size}>
       {assessment && (
         <Stack gap="md">
-          <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
             <Kv label="評估日期" value={dt(assessment.assessedOn)} />
             <Kv label="廠區" value={siteName(assessment.siteId)} />
+            <Kv label="部門" value={assessment.departmentName ?? '全廠'} />
             <Kv label="潛在風險" value={`${rows.length} 項`} />
           </SimpleGrid>
           <Table.ScrollContainer minWidth={640}>
@@ -119,13 +126,15 @@ function NewRiskForm({ onDone }: { onDone: () => void }) {
   const sites = useMySites();
   const today = todayIso();
   const [assessedOn, setAssessedOn] = useState(today);
-  const [siteId, setSiteId] = useState<string | null>(sites[0]?.id ?? null);
+  const [place, setPlace] = useState<Place>({ siteId: sites[0]?.id ?? null, departmentId: null });
   const [rows, setRows] = useState<RiskDraftRow[]>(emptyRiskDraft);
   const [tried, setTried] = useState(false);
   const body = riskBody(rows);
-  const problem = !assessedOn ? '請填寫評估日期。' : assessedOn > today ? '評估日期不能晚於今天。' : !siteId ? '請選擇廠區。' : 'problem' in body ? body.problem : null;
+  const problem = !assessedOn ? '請填寫評估日期。' : assessedOn > today ? '評估日期不能晚於今天。' : !place.siteId ? '請選擇廠區。' : 'problem' in body ? body.problem : null;
   const save = useMutation({
-    mutationFn: () => data(api.POST('/api/programs/violence/risk-assessments', { body: { siteId: siteId!, assessedOn, items: 'items' in body ? body.items : [] } })),
+    mutationFn: () => data(api.POST('/api/programs/violence/risk-assessments', {
+      body: { siteId: place.siteId!, departmentId: place.departmentId, assessedOn, items: 'items' in body ? body.items : [] },
+    })),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: riskAssessmentsQuery.queryKey }); onDone(); },
   });
   const setRow = (i: number, patch: Partial<RiskDraftRow>) => setRows(rs => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -133,9 +142,11 @@ function NewRiskForm({ onDone }: { onDone: () => void }) {
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
         <DateField label="評估日期" required max={today} value={assessedOn} onChange={e => setAssessedOn(e.currentTarget.value)} />
-        <Select label="廠區" required value={siteId} onChange={setSiteId} data={sites.map(s => ({ value: s.id, label: s.name }))} allowDeselect={false} />
+        <Select label="廠區" required value={place.siteId} onChange={v => setPlace(p => pickSite(p, v))} data={sites.map(s => ({ value: s.id, label: s.name }))}
+          allowDeselect={false} />
+        <DepartmentSelect siteId={place.siteId} value={place.departmentId} onChange={departmentId => setPlace(p => ({ ...p, departmentId }))} />
       </SimpleGrid>
       <Text size="sm" c="dimmed">勾選該場所存在的潛在風險，再評估可能性與嚴重性。</Text>
       <Stack gap="xs">

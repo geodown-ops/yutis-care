@@ -4,9 +4,9 @@ import {
 } from './advice';
 
 const managers = [
-  { id: 'm1', name: '簡志遠', departmentIds: ['d2'] },
-  { id: 'm2', name: '周課長', departmentIds: ['d1'] },
-  { id: 'm3', name: '溫雅惠', departmentIds: [] },
+  { id: 'm1', name: '簡志遠', email: 'jian@example.test', departmentIds: ['d2'] },
+  { id: 'm2', name: '周課長', email: 'chou@example.test', departmentIds: ['d1'] },
+  { id: 'm3', name: '溫雅惠', email: 'wen@example.test', departmentIds: [] },
 ];
 
 describe('notice recipient', () => {
@@ -14,7 +14,7 @@ describe('notice recipient', () => {
     expect(defaultManager(managers, 'd1')).toBe('m2');
     expect(defaultManager(managers, 'd9')).toBeNull();
     expect(defaultManager(managers, null)).toBeNull();
-    expect(defaultManager([...managers, { id: 'm4', name: '另一位', departmentIds: ['d1'] }], 'd1')).toBeNull();
+    expect(defaultManager([...managers, { id: 'm4', name: '另一位', email: 'other@example.test', departmentIds: ['d1'] }], 'd1')).toBeNull();
   });
 
   it('lists the department manager first but offers everyone', () => {

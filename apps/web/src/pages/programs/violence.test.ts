@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkedItems, checklistBody, countByRisk, emptyRiskDraft, reviewBody, reviewDraft, reviewNames, reviewProblem, riskBody, riskRows, signLinksText, signProgress,
-  staffMatches, VIO_QUESTIONS, VIO_REVIEW, type Review,
+  checkedItems, checklistBody, countByRisk, emptyRiskDraft, incidentBody, incidentDraft, incidentPatch, incidentProblem, pickSite, reviewBody, reviewDraft, reviewNames,
+  reviewProblem, riskBody, riskRows, signLinksText, signProgress, staffMatches, VIO_QUESTIONS, VIO_REVIEW, withSaved, type Incident, type Review,
 } from './violence';
 
 describe('violence risk assessment', () => {
@@ -34,6 +34,62 @@ describe('violence checklists', () => {
   it('sends answered factors only', () => {
     expect(checklistBody({ 照明: { ok: false, note: ' 加裝 ' }, 噪音: { ok: null, note: '' }, 溫度: { ok: true, note: '' } }))
       .toEqual([{ item: '照明', ok: false, note: '加裝' }, { item: '溫度', ok: true, note: '' }]);
+  });
+});
+
+describe('site and department in the forms', () => {
+  it('drops the department when another site is picked, and keeps it otherwise', () => {
+    const d = { siteId: 's1', departmentId: 'd1', note: 'x' };
+    expect(pickSite(d, 's2')).toEqual({ siteId: 's2', departmentId: null, note: 'x' });
+    expect(pickSite(d, 's1')).toBe(d);
+  });
+});
+
+describe('事件通報與處理', () => {
+  const saved: Incident = {
+    id: 'i1', occurredOn: '2026-09-30', siteId: 's1', departmentId: 'd1', departmentName: '客服部', type: '語言暴力', victimEmployeeId: 'e1',
+    followUps: ['報警處理'], status: '處理中', detail: '櫃台客訴',
+  };
+  const today = '2026-10-04';
+
+  it('starts a new report on today and my first site, or an edit from the record', () => {
+    expect(incidentDraft(null, { today, siteId: 's1' }))
+      .toEqual({ occurredOn: today, siteId: 's1', departmentId: null, type: '', victimEmployeeId: null, detail: '', followUps: [] });
+    expect(incidentDraft({ ...saved, detail: null }, { today, siteId: 's9' }))
+      .toEqual({ occurredOn: '2026-09-30', siteId: 's1', departmentId: 'd1', type: '語言暴力', victimEmployeeId: 'e1', detail: '', followUps: ['報警處理'] });
+  });
+
+  it('checks the date, site and type, and trims what it sends', () => {
+    const d = { ...incidentDraft(null, { today, siteId: 's1' }), type: '肢體暴力', departmentId: 'd2', detail: '  ' };
+    expect(incidentProblem(d, today)).toBeNull();
+    expect(incidentProblem({ ...d, occurredOn: '2026-10-05' }, today)).toBe('發生日期不能晚於今天。');
+    expect(incidentProblem({ ...d, siteId: null }, today)).toBe('請選擇廠區。');
+    expect(incidentProblem({ ...d, type: ' ' }, today)).toBe('請選擇不法侵害類型。');
+    expect(incidentBody(d)).toEqual({ occurredOn: today, siteId: 's1', departmentId: 'd2', type: '肢體暴力', victimEmployeeId: null, detail: null, followUps: [] });
+  });
+
+  it('sends only what changed in an edit', () => {
+    const d = incidentDraft(saved, { today, siteId: null });
+    expect(incidentPatch(saved, d)).toEqual({});
+    expect(incidentPatch(saved, { ...d, detail: '櫃台客訴 ' })).toEqual({});
+    expect(incidentPatch(saved, { ...d, detail: '', followUps: ['報警處理', '轉介心理諮商'] })).toEqual({ detail: null, followUps: ['報警處理', '轉介心理諮商'] });
+    expect(incidentPatch(saved, { ...d, departmentId: null })).toEqual({ departmentId: null });
+    expect(incidentPatch(saved, { ...d, victimEmployeeId: null, type: '其他' })).toEqual({ victimEmployeeId: null, type: '其他' });
+  });
+
+  it('takes the department along when the site moves', () => {
+    const d = incidentDraft(saved, { today, siteId: null });
+    expect(incidentPatch(saved, pickSite(d, 's2'))).toEqual({ siteId: 's2', departmentId: null });
+    expect(incidentPatch(saved, { ...pickSite(d, 's2'), departmentId: 'd9' })).toEqual({ siteId: 's2', departmentId: 'd9' });
+    // Back on the old site with no department picked: the department was cleared.
+    expect(incidentPatch(saved, pickSite(pickSite(d, 's2'), 's1'))).toEqual({ departmentId: null });
+    // A record without a department moved to another site still says so.
+    expect(incidentPatch({ ...saved, departmentId: null, departmentName: null }, pickSite({ ...d, departmentId: null }, 's2'))).toEqual({ siteId: 's2', departmentId: null });
+  });
+
+  it('keeps saved choices that are not in the fixed lists', () => {
+    expect(withSaved(['語言暴力', '其他'], ['跟蹤'])).toEqual(['語言暴力', '其他', '跟蹤']);
+    expect(withSaved(['語言暴力', '其他'], ['其他', ''])).toEqual(['語言暴力', '其他']);
   });
 });
 

@@ -5,7 +5,6 @@ import { data } from '@yutis/api-client';
 import { useState } from 'react';
 import { api } from '../../api';
 import { employeeQuery } from '../../queries';
-import { managerStaffQuery } from '../programs/directory';
 import { saveProblem, staffOptionRenderer } from '../programs/maternalViolenceCommon';
 import { problemText } from '../states';
 import { defaultManager, managerOptions, NOTICE_MAX, sentNoticeStatus, type Manager, type NoticeStatus, type NoticeSubject } from './advice';
@@ -51,9 +50,8 @@ function NotifyForm({ onClose, employee, subjectTable, subjectId, advice: prefil
   managers: Manager[]; departmentId: string | null; empNo?: string;
 }) {
   const [managerId, setManagerId] = useState<string | null>(() => defaultManager(managers, departmentId));
-  // GET /api/programs/managers has no email; the staff list does (same account ids).
-  const staff = useQuery(managerStaffQuery);
-  const renderManager = staffOptionRenderer(new Map((staff.data ?? []).map(s => [s.id, s.email])));
+  // The email under each name tells two managers with the same name apart; the notice goes to that address.
+  const renderManager = staffOptionRenderer(new Map(managers.map(m => [m.id, m.email])));
   const [advice, setAdvice] = useState(prefill);
   const [tried, setTried] = useState(false);
   const send = useMutation({

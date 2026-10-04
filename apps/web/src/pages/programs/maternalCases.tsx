@@ -11,7 +11,7 @@ import { ACK_LABEL, ACK_TONE, maternalNoticeText } from '../advice/advice';
 import { InterviewFollowUp } from '../advice/InterviewFollowUp';
 import { CardNote, problemText } from '../states';
 import { OrgFilterSelects } from './listControls';
-import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { matchOrg, NO_ORG_FILTER, withRowDepartments, type OrgFilter } from './lists';
 import {
   caseAckState, caseDraftProblem, composeArrangement, composeDetail, FIT_ADVICE, FIT_LIMITS, interviewsNewestFirst, isPostpartum, keyDate, latestInterview, MAT_AGREE,
   MAT_SELF, stageOf, typeLabel, type CaseDraft, type EnvAssessment, type MaternalCase, type MaternalInterview,
@@ -37,15 +37,14 @@ function StageCell({ c, today }: { c: MaternalCase; today: string }) {
 
 export function MaternalCasesTab({ cases, envs }: { cases: UseQueryResult<MaternalCase[]>; envs: EnvAssessment[] }) {
   const today = todayIso();
-  const names = useOrgNames();
   const [type, setType] = useState<'all' | '妊娠' | '產後'>('all');
   const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState<Preset | 'blank' | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [fresh, setFresh] = useState<MaternalCase | null>(null);
-  // Cases carry the employee's department; its site comes from the organisation tree.
-  const place = (c: MaternalCase) => ({ siteId: names.siteOf(c.departmentId), departmentId: c.departmentId });
-  const rows = (cases.data ?? []).filter(c => (type === 'all' || c.type === type) && matchOrg(place(c), org));
+  // Cases carry the employee's current site and department; only site names come from the organisation tree.
+  const names = withRowDepartments(useOrgNames(), cases.data ?? []);
+  const rows = (cases.data ?? []).filter(c => (type === 'all' || c.type === type) && matchOrg(c, org));
   // A just-created case may not be in the refetched list yet.
   const open = cases.data?.find(c => c.id === openId) ?? (fresh?.id === openId ? fresh : null);
 
@@ -55,7 +54,7 @@ export function MaternalCasesTab({ cases, envs }: { cases: UseQueryResult<Matern
         <Group gap="sm">
           <SegmentedControl size="xs" value={type} onChange={v => setType(v as typeof type)} aria-label="通報類型"
             data={[{ value: 'all', label: '全部' }, { value: '妊娠', label: '妊娠' }, { value: '產後', label: '產後一年內' }]} />
-          <OrgFilterSelects rows={(cases.data ?? []).map(place)} names={names} value={org} onChange={setOrg} />
+          <OrgFilterSelects rows={cases.data ?? []} names={names} value={org} onChange={setOrg} />
         </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setCreating('blank')}>新增通報</Button>
       </Group>
@@ -78,7 +77,7 @@ export function MaternalCasesTab({ cases, envs }: { cases: UseQueryResult<Matern
                       <Table.Td><ToneBadge tone={isPostpartum(c.type) ? 'info' : 'warn'}>{typeLabel(c.type)}</ToneBadge></Table.Td>
                       <Table.Td style={{ whiteSpace: 'nowrap' }}>
                         <PersonLink employeeId={c.employeeId} name={c.name} empNo={c.empNo} />
-                        <Text size="xs" c="dimmed">{names.department(c.departmentId)}</Text>
+                        <Text size="xs" c="dimmed">{c.departmentName}</Text>
                       </Table.Td>
                       <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(keyDate(c).date)}</Table.Td>
                       <Table.Td ta="right"><StageCell c={c} today={today} /></Table.Td>
@@ -209,14 +208,13 @@ function CaseDetail({ kase, today, onPostpartum }: { kase: MaternalCase; today: 
   const [adding, setAdding] = useState(false);
   const [saved, setSaved] = useState(false);
   const patch = usePatchInterview(kase.id);
-  const names = useOrgNames();
   const stage = stageOf(kase, today);
   const key = keyDate(kase);
   return (
     <Stack gap="lg">
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
         <Kv label="員工" value={<PersonLink employeeId={kase.employeeId} name={kase.name} empNo={kase.empNo} />} />
-        <Kv label="部門" value={names.department(kase.departmentId)} />
+        <Kv label="部門" value={kase.departmentName} />
         <Kv label="通報" value={`${typeLabel(kase.type)} · ${dt(kase.notifiedOn)}`} />
         <Kv label="作業環境分級" value={<LevelBadge level={kase.level} />} />
         <Kv label={key.label} value={dt(key.date)} />

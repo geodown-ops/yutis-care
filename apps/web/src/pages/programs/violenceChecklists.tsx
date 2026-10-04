@@ -8,20 +8,20 @@ import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { CardNote, problemText } from '../states';
 import { OrgFilterSelects } from './listControls';
-import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
-import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
-import { CHECKLIST_GROUPS, checklistBody, type Checklist, type ChecklistKind } from './violence';
+import { matchOrg, NO_ORG_FILTER, withRowDepartments, type OrgFilter } from './lists';
+import { DateField, DepartmentSelect, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
+import { CHECKLIST_GROUPS, checklistBody, pickSite, type Checklist, type ChecklistKind, type Place } from './violence';
 import { checklistsQuery } from './violenceQueries';
 
 const TITLE: Record<ChecklistKind, string> = { 作業場所: '作業場所檢點表', 人力: '人力配置檢點表' };
 
 export function ViolenceChecklistTab({ kind, checklists }: { kind: ChecklistKind; checklists: UseQueryResult<Checklist[]> }) {
-  const names = useOrgNames();
   const sites = useMySites();
   const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Checklist | null>(null);
   const ofKind = (checklists.data ?? []).filter(c => c.kind === kind);
+  const names = withRowDepartments(useOrgNames(), ofKind);
   const rows = ofKind.filter(c => matchOrg(c, org));
   return (
     <Card>
@@ -34,18 +34,19 @@ export function ViolenceChecklistTab({ kind, checklists }: { kind: ChecklistKind
       </Group>
       {checklists.isPending ? <Skeleton h={200} /> : checklists.isError ? <CardNote>{problemText(checklists.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={560}>
+          <Table.ScrollContainer minWidth={640}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr><Table.Th>檢點日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th ta="right">已檢點項目</Table.Th><Table.Th>需改善</Table.Th><Table.Th /></Table.Tr>
+                <Table.Tr><Table.Th>檢點日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th ta="right">已檢點項目</Table.Th><Table.Th>需改善</Table.Th><Table.Th /></Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.map(c => {
                   const bad = c.items.filter(i => !i.ok).length;
                   return (
                     <Table.Tr key={c.id}>
-                      <Table.Td>{dt(c.checkedOn)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(c.checkedOn)}</Table.Td>
                       <Table.Td>{names.site(c.siteId)}</Table.Td>
+                      <Table.Td>{c.departmentName ?? <Text span size="sm" c="dimmed">全廠</Text>}</Table.Td>
                       <Table.Td ta="right">{c.items.length} 項</Table.Td>
                       <Table.Td>{bad ? <ToneBadge tone="warn">{bad} 項</ToneBadge> : <ToneBadge tone="ok">無</ToneBadge>}</Table.Td>
                       <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewing(c)}>檢視</Button></Table.Td>
@@ -71,9 +72,10 @@ function ChecklistDetailModal({ checklist, onClose }: { checklist: Checklist | n
     <Modal opened={!!checklist} onClose={onClose} title={checklist ? TITLE[checklist.kind] : ''} {...size}>
       {checklist && (
         <Stack gap="md">
-          <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
             <Kv label="檢點日期" value={dt(checklist.checkedOn)} />
             <Kv label="廠區" value={siteName(checklist.siteId)} />
+            <Kv label="部門" value={checklist.departmentName ?? '全廠'} />
             <Kv label="需改善" value={`${checklist.items.filter(i => !i.ok).length} 項`} />
           </SimpleGrid>
           <Table verticalSpacing={6}>
@@ -111,23 +113,27 @@ function NewChecklistForm({ kind, onDone }: { kind: ChecklistKind; onDone: () =>
   const sites = useMySites();
   const today = todayIso();
   const [checkedOn, setCheckedOn] = useState(today);
-  const [siteId, setSiteId] = useState<string | null>(sites[0]?.id ?? null);
+  const [place, setPlace] = useState<Place>({ siteId: sites[0]?.id ?? null, departmentId: null });
   const [answers, setAnswers] = useState<Record<string, Answer>>(() =>
     Object.fromEntries(CHECKLIST_GROUPS[kind].flatMap(g => g.items).map(i => [i, { ok: null, note: '' }])));
   const [tried, setTried] = useState(false);
   const items = checklistBody(answers);
-  const problem = !checkedOn ? '請填寫檢點日期。' : checkedOn > today ? '檢點日期不能晚於今天。' : !siteId ? '請選擇廠區。' : !items.length ? '請至少檢點一個項目。' : null;
+  const problem = !checkedOn ? '請填寫檢點日期。' : checkedOn > today ? '檢點日期不能晚於今天。' : !place.siteId ? '請選擇廠區。' : !items.length ? '請至少檢點一個項目。' : null;
   const save = useMutation({
-    mutationFn: () => data(api.POST('/api/programs/violence/checklists', { body: { kind, siteId: siteId!, checkedOn, items } })),
+    mutationFn: () => data(api.POST('/api/programs/violence/checklists', {
+      body: { kind, siteId: place.siteId!, departmentId: place.departmentId, checkedOn, items },
+    })),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: checklistsQuery.queryKey }); onDone(); },
   });
   const set = (item: string, patch: Partial<Answer>) => setAnswers(a => ({ ...a, [item]: { ...a[item]!, ...patch } }));
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
         <DateField label="檢點日期" required max={today} value={checkedOn} onChange={e => setCheckedOn(e.currentTarget.value)} />
-        <Select label="廠區" required value={siteId} onChange={setSiteId} data={sites.map(s => ({ value: s.id, label: s.name }))} allowDeselect={false} />
+        <Select label="廠區" required value={place.siteId} onChange={v => setPlace(p => pickSite(p, v))} data={sites.map(s => ({ value: s.id, label: s.name }))}
+          allowDeselect={false} />
+        <DepartmentSelect siteId={place.siteId} value={place.departmentId} onChange={departmentId => setPlace(p => ({ ...p, departmentId }))} />
       </SimpleGrid>
       {CHECKLIST_GROUPS[kind].map(g => (
         <div key={g.name}>

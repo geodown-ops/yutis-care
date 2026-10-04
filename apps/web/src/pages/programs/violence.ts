@@ -89,6 +89,65 @@ export function checklistBody(answers: Record<string, { ok: boolean | null; note
   return Object.entries(answers).filter(([, a]) => a.ok !== null).map(([item, a]) => ({ item, ok: a.ok!, note: a.note.trim() }));
 }
 
+/** The site a record is about, and optionally one of its departments (none: the whole site, or not given). */
+export interface Place { siteId: string | null; departmentId: string | null }
+
+/** A form's site and department: another site drops the department, which belongs to the old one. */
+export function pickSite<T extends Place>(d: T, siteId: string | null): T {
+  return siteId === d.siteId ? d : { ...d, siteId, departmentId: null };
+}
+
+/* ---------- 事件通報與處理 (incidents) ---------- */
+
+export interface IncidentDraft {
+  occurredOn: string; siteId: string | null; departmentId: string | null; type: string; victimEmployeeId: string | null; detail: string; followUps: string[];
+}
+export type IncidentBody = TenantPaths['/api/programs/violence/incidents']['post']['requestBody']['content']['application/json'];
+export type IncidentPatch = NonNullable<TenantPaths['/api/programs/violence/incidents/{id}']['patch']['requestBody']>['content']['application/json'];
+
+export function incidentDraft(i: Incident | null, defaults: { today: string; siteId: string | null }): IncidentDraft {
+  return i
+    ? { occurredOn: i.occurredOn, siteId: i.siteId, departmentId: i.departmentId, type: i.type, victimEmployeeId: i.victimEmployeeId, detail: i.detail ?? '', followUps: [...i.followUps] }
+    : { occurredOn: defaults.today, siteId: defaults.siteId, departmentId: null, type: '', victimEmployeeId: null, detail: '', followUps: [] };
+}
+
+export function incidentProblem(d: IncidentDraft, today: string): string | null {
+  if (!d.occurredOn) return '請填寫發生日期。';
+  if (d.occurredOn > today) return '發生日期不能晚於今天。';
+  if (!d.siteId) return '請選擇廠區。';
+  if (!d.type.trim()) return '請選擇不法侵害類型。';
+  return null;
+}
+
+/** POST body for a new incident; check incidentProblem first (the site is required). */
+export function incidentBody(d: IncidentDraft): IncidentBody {
+  return {
+    occurredOn: d.occurredOn, siteId: d.siteId!, departmentId: d.departmentId, type: d.type.trim(), victimEmployeeId: d.victimEmployeeId,
+    detail: d.detail.trim() || null, followUps: d.followUps,
+  };
+}
+
+/**
+ * PATCH body for an edit: only the fields that changed, since the API records each one sent as changed. A move to
+ * another site always takes departmentId along (null when none is picked): the old department is not in the new site.
+ */
+export function incidentPatch(i: Incident, d: IncidentDraft): IncidentPatch {
+  const out: IncidentPatch = {};
+  const type = d.type.trim();
+  const detail = d.detail.trim() || null;
+  if (d.occurredOn !== i.occurredOn) out.occurredOn = d.occurredOn;
+  if (d.siteId && d.siteId !== i.siteId) out.siteId = d.siteId;
+  if (out.siteId || d.departmentId !== i.departmentId) out.departmentId = d.departmentId;
+  if (type !== i.type) out.type = type;
+  if (d.victimEmployeeId !== i.victimEmployeeId) out.victimEmployeeId = d.victimEmployeeId;
+  if (detail !== (i.detail ?? null)) out.detail = detail;
+  if (d.followUps.length !== i.followUps.length || d.followUps.some((f, n) => f !== i.followUps[n])) out.followUps = d.followUps;
+  return out;
+}
+
+/** Fixed choices plus whatever the record already holds outside them (the API takes any text). */
+export const withSaved = (choices: readonly string[], saved: readonly string[]) => [...choices, ...saved.filter(s => s && !choices.includes(s))];
+
 /* ---------- 措施查核及評估 (reviews): a draft, then sign-off by email ---------- */
 
 /** The seven review items and the points to check under each, as in the prototype. */

@@ -2,7 +2,7 @@
 import { data } from '@yutis/api-client';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
-import type { Incident, Review, ReviewBody } from './violence';
+import type { IncidentBody, IncidentPatch, Review, ReviewBody } from './violence';
 
 export const riskAssessmentsQuery = queryOptions({
   queryKey: ['violence', 'risk-assessments'],
@@ -34,12 +34,20 @@ export const signOffRolesQuery = queryOptions({
   staleTime: 10 * 60_000,
 });
 
-/** 結案 or 重新開啟: PATCH sends only the status. */
-export function useIncidentStatus() {
+export function useCreateIncident() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Incident['status'] }) =>
-      data(api.PATCH('/api/programs/violence/incidents/{id}', { params: { path: { id } }, body: { status } })),
+    mutationFn: (body: IncidentBody) => data(api.POST('/api/programs/violence/incidents', { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: incidentsQuery.queryKey }),
+  });
+}
+
+/** 結案, 重新開啟 or an edit: PATCH sends only what changed (incidentPatch); the answer replaces the cached row. */
+export function useUpdateIncident() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: IncidentPatch }) =>
+      data(api.PATCH('/api/programs/violence/incidents/{id}', { params: { path: { id } }, body })),
     onSuccess: row => qc.setQueryData(incidentsQuery.queryKey, list => list?.map(i => (i.id === row.id ? row : i))),
   });
 }
