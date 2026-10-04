@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byUrgency, countByStatus, dueFollowUps, eventTypes, filterByEvents, monthlyEvents, type EmployeeCase, type FollowUp } from './cases';
+import { addDays, byUrgency, caseMoves, countByStatus, dueFollowUps, eventTypes, filterByEvents, hasNewEvents, knownStaff, monthlyEvents, openAction, runningCase, type EmployeeCase, type FollowUp } from './cases';
 
 const ev = (type: EmployeeCase['events'][number]['type'], occurredOn: string, status: EmployeeCase['status'] = '未開單') =>
   ({ id: `${type}-${occurredOn}`, type, occurredOn, description: '', status });
@@ -40,6 +40,35 @@ describe('case helpers', () => {
     expect(rows.find(r => r.month === '8月')).toMatchObject({ 計畫問卷與通報: 1 });
     // 2025-09 is outside the window.
     expect(rows.reduce((n, r) => n + (r['健檢'] as number), 0)).toBe(2);
+  });
+
+  it('adds days across month ends', () => {
+    expect(addDays('2026-10-25', 14)).toBe('2026-11-08');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('offers only the status changes the case flow allows', () => {
+    expect(caseMoves('起單')).toEqual(['處理中', '結案']);
+    expect(caseMoves('處理中')).toEqual(['結案']);
+    expect(caseMoves('結案')).toEqual([]);
+    // 未開單 → 起單 is the open endpoint, not a PATCH.
+    expect(caseMoves('未開單')).toEqual([]);
+  });
+
+  it('opens new events, or adds them to the running case', () => {
+    const lead = (status: EmployeeCase['status']) => ({ id: 'c', status, leadUserId: 'u1', leadName: '王護理師', openedOn: '2026-09-01', noticeOn: null, plannedOn: null, repliedOn: null, agreed: null, closedOn: null });
+    expect(openAction({ case: null, events: [ev('hc', '2026-09-02')] })).toBe('開單');
+    expect(openAction({ case: lead('結案'), events: [ev('hc', '2026-09-02')] })).toBe('開單');
+    expect(openAction({ case: lead('處理中'), events: [ev('hc', '2026-09-02', '處理中'), ev('er', '2026-09-03')] })).toBe('併入個案');
+    expect(openAction({ case: lead('處理中'), events: [ev('hc', '2026-09-02', '處理中')] })).toBeNull();
+    expect(runningCase({ case: lead('結案') })).toBeNull();
+    expect(hasNewEvents(CASES[1]!)).toBe(true);
+  });
+
+  it('names me first, then case leads once each', () => {
+    const lead = (leadUserId: string | null, leadName: string | null) => ({ case: { id: 'c', status: '處理中' as const, leadUserId, leadName, openedOn: '', noticeOn: null, plannedOn: null, repliedOn: null, agreed: null, closedOn: null } });
+    expect(knownStaff([lead('u2', '陳醫師'), { case: null }, lead('me', '王護理師'), lead('u2', '陳醫師'), lead(null, null)], { id: 'me', name: '王護理師' }))
+      .toEqual([{ value: 'me', label: '王護理師（我）' }, { value: 'u2', label: '陳醫師' }]);
   });
 
   it('keeps follow-ups due within a week, overdue first', () => {

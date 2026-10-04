@@ -1,6 +1,6 @@
 /* Pure helpers over GET /api/cases and GET /api/records/follow-ups for the nurse home and the case list. */
 import type { Schemas } from '@yutis/api-client';
-import { CASE_STATUSES, diffDays, parseDate, toIsoDate, type CaseStatus, type EventType, type IsoDate } from '@yutis/domain';
+import { CASE_STATUSES, CASE_TRANSITIONS, diffDays, parseDate, toIsoDate, type CaseStatus, type EventType, type IsoDate } from '@yutis/domain';
 
 export type EmployeeCase = Schemas['EmployeeCaseDto'];
 export type FollowUp = Schemas['FollowUpDto'];
@@ -62,3 +62,41 @@ export function dueFollowUps(items: readonly FollowUp[], today: IsoDate, days = 
 }
 
 export const todayIso = (): IsoDate => toIsoDate(new Date());
+
+export function addDays(d: IsoDate, n: number): IsoDate {
+  const x = parseDate(d);
+  x.setDate(x.getDate() + n);
+  return toIsoDate(x);
+}
+
+export type CaseMove = '處理中' | '結案';
+
+/** Status changes PATCH /api/cases/{id} accepts from a case's status; opening (起單) is POST …/case/open instead. */
+export function caseMoves(status: CaseStatus): CaseMove[] {
+  return CASE_TRANSITIONS[status].filter((s): s is CaseMove => s === '處理中' || s === '結案');
+}
+
+type CaseRef = Pick<EmployeeCase, 'case' | 'events'>;
+
+/** The case still being worked (起單／處理中). A closed case is history: new events start a new one. */
+export const runningCase = (c: Pick<EmployeeCase, 'case'>) => (c.case && c.case.status !== '結案' ? c.case : null);
+
+/** Events not in a case yet. 開單 opens a case for them, or adds them to the running one. */
+export const hasNewEvents = (c: Pick<EmployeeCase, 'events'>) => c.events.some(e => e.status === '未開單');
+
+/** What the 開單 button does for this employee, or null when there is nothing to open. */
+export const openAction = (c: CaseRef): '開單' | '併入個案' | null => (!hasNewEvents(c) ? null : runningCase(c) ? '併入個案' : '開單');
+
+export interface StaffOption { value: string; label: string }
+
+/**
+ * Staff to pick as case lead or follow-up owner: me, then everyone already leading a case in my sites. The API has no
+ * staff directory for care staff, so these are the only colleagues the page can name.
+ */
+export function knownStaff(cases: readonly Pick<EmployeeCase, 'case'>[], me: { id: string; name: string }): StaffOption[] {
+  const out: StaffOption[] = [{ value: me.id, label: `${me.name}（我）` }];
+  for (const { case: c } of cases) {
+    if (c?.leadUserId && c.leadName && !out.some(o => o.value === c.leadUserId)) out.push({ value: c.leadUserId, label: c.leadName });
+  }
+  return out;
+}
