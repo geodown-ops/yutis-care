@@ -14,6 +14,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCasesRouteImport } from './routes/_app/cases'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
+import { Route as AppServiceRecordsRouteImport } from './routes/_app/service-records'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as AppAdminAccountsRouteImport } from './routes/_app/admin.accounts'
 import { Route as AppAdminCompanyRouteImport } from './routes/_app/admin.company'
 import { Route as AppAdminEmployeeImportRouteImport } from './routes/_app/admin.employee-import'
@@ -53,6 +56,21 @@ const AppCasesRoute = AppCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
   getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServiceRecordsRoute = AppServiceRecordsRouteImport.update({
+  id: '/service-records',
+  path: '/service-records',
+  getParentRoute: () => AppRoute,
+} as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppAdminAccountsRoute = AppAdminAccountsRouteImport.update({
   id: '/admin/accounts',
@@ -135,6 +153,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/admin/accounts': typeof AppAdminAccountsRoute
   '/admin/company': typeof AppAdminCompanyRoute
   '/admin/employee-import': typeof AppAdminEmployeeImportRoute
@@ -155,6 +176,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/': typeof AppIndexRoute
   '/admin/accounts': typeof AppAdminAccountsRoute
   '/admin/company': typeof AppAdminCompanyRoute
@@ -178,6 +202,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/$': typeof AppSplatRoute
   '/_app/cases': typeof AppCasesRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/admin/accounts': typeof AppAdminAccountsRoute
   '/_app/admin/company': typeof AppAdminCompanyRoute
@@ -202,6 +229,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/$'
     | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
     | '/admin/accounts'
     | '/admin/company'
     | '/admin/employee-import'
@@ -222,6 +252,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/$'
     | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
     | '/'
     | '/admin/accounts'
     | '/admin/company'
@@ -244,6 +277,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/$'
     | '/_app/cases'
+    | '/_app/reports'
+    | '/_app/service-records'
+    | '/sign/$token'
     | '/_app/'
     | '/_app/admin/accounts'
     | '/_app/admin/company'
@@ -265,6 +301,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignTokenRoute: typeof SignTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -303,6 +340,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/cases'
       preLoaderRoute: typeof AppCasesRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/service-records': {
+      id: '/_app/service-records'
+      path: '/service-records'
+      fullPath: '/service-records'
+      preLoaderRoute: typeof AppServiceRecordsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/admin/accounts': {
       id: '/_app/admin/accounts'
@@ -415,6 +473,8 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppSplatRoute: typeof AppSplatRoute
   AppCasesRoute: typeof AppCasesRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppServiceRecordsRoute: typeof AppServiceRecordsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAdminAccountsRoute: typeof AppAdminAccountsRoute
   AppAdminCompanyRoute: typeof AppAdminCompanyRoute
@@ -436,6 +496,8 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppSplatRoute: AppSplatRoute,
   AppCasesRoute: AppCasesRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppServiceRecordsRoute: AppServiceRecordsRoute,
   AppIndexRoute: AppIndexRoute,
   AppAdminAccountsRoute: AppAdminAccountsRoute,
   AppAdminCompanyRoute: AppAdminCompanyRoute,
@@ -459,6 +521,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignTokenRoute: SignTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
