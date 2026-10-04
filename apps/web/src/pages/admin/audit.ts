@@ -100,3 +100,6 @@ export function actorText(a: AuditEntry['actor']): { name: string; note: string 
 }
 
 export const subjectText = (table: string | null) => (table ? SUBJECT_LABEL[table] ?? table : null);
+
+/** An employee in the filter: "工號 姓名" (the URL holds only the id). */
+export const employeeText = (e: { empNo: string; name: string }) => `${e.empNo} ${e.name}`;

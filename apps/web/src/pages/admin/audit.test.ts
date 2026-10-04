@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actorText, auditParams, dateRangeProblem, formatAt, pageCount, sameFilters, subjectText, validateAuditSearch } from './audit';
+import { actorText, auditParams, dateRangeProblem, employeeText, formatAt, pageCount, sameFilters, subjectText, validateAuditSearch } from './audit';
 
 const ID = '9c10b8ed-5f74-4e6e-bdcb-ba1d9a2d5b6d';
 
@@ -56,6 +56,10 @@ describe('audit entries in words', () => {
     expect(subjectText('assist_records')).toBe('協助紀錄');
     expect(subjectText('new_table')).toBe('new_table');
     expect(subjectText(null)).toBeNull();
+  });
+
+  it('names an employee by 工號 and name', () => {
+    expect(employeeText({ empNo: 'E0012', name: '王小明' })).toBe('E0012 王小明');
   });
 
   it('formats the time in local time', () => {

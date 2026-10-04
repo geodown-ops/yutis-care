@@ -1,11 +1,12 @@
 /* Pure helpers for the 附表八 (勞工健康服務執行紀錄表) screens: form values, request bodies, filters and error text. */
-import { ApiRequestError, type Schemas, type TenantInfo, type TenantPaths } from '@yutis/api-client';
+import { ApiRequestError, type Schemas, type TenantPaths } from '@yutis/api-client';
 
 export type ServiceRecord = Schemas['ServiceRecordDto'];
 /** GET /api/org: company → site → department names. */
 export type OrgEntity = Schemas['DirectoryLegalEntityDto'];
 export type Signature = Schemas['SignatureDto'];
 export type SignLink = Schemas['SignLinkDto'];
+export type StaffMember = Schemas['StaffMemberDto'];
 export type ServiceStatus = ServiceRecord['status'];
 /** POST/PUT /api/service-records body. */
 export type ServiceRecordBody = TenantPaths['/api/service-records']['post']['requestBody']['content']['application/json'];
@@ -182,10 +183,24 @@ export function roleOptions(roles: readonly string[], used: readonly string[]): 
 }
 
 /**
- * Whether sign-off links really go out by email. Only local development and the demo site sign in with the dev method,
- * and there the API only logs mail (EMAIL_PROVIDER=log); everywhere else it is sent.
+ * Links after submit or resend, by whether the API really emailed them (`emailed` is false where mail is only logged,
+ * e.g. local development and the demo site): the unsent ones have to be handed over by hand.
  */
-export const linksAreEmailed = (tenant: Pick<TenantInfo, 'loginMethods'>) => !tenant.loginMethods.includes('dev');
+export function splitByEmailed(links: readonly SignLink[]): { sent: SignLink[]; unsent: SignLink[] } {
+  return { sent: links.filter(l => l.emailed), unsent: links.filter(l => !l.emailed) };
+}
+
+/** Who the links are for, short: one name, or how many signers. */
+export const signersText = (links: readonly Pick<SignLink, 'name'>[]) => (links.length === 1 ? links[0]!.name : `${links.length} 位簽核人員`);
+
+/**
+ * Back-office staff to suggest for a signer's name: those whose name or email contains what was typed (everyone while
+ * the field is empty), at most `limit`. Picking one fills the name and email.
+ */
+export function signerSuggestions(staff: readonly StaffMember[], typed: string, limit = 8): StaffMember[] {
+  const q = typed.trim().toLowerCase();
+  return staff.filter(s => !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)).slice(0, limit);
+}
 
 export function countByStatus(records: readonly ServiceRecord[]): Record<ServiceStatus, number> {
   const out = { 草稿: 0, 簽核中: 0, 已完成: 0 };

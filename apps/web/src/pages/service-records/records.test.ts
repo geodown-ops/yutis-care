@@ -1,8 +1,8 @@
 import { ApiRequestError } from '@yutis/api-client';
 import { describe, expect, it } from 'vitest';
 import {
-  copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formErrors, formFromRecord, linksAreEmailed, myCompanies, newForm, readContent,
-  roleOptions, serviceProblem, signProgress, timeRange, toBody, unitForSite, usedValues, type OrgEntity, type ServiceRecord, type Signature,
+  copyForm, countByStatus, departmentNames, executorsOf, filterRecords, formErrors, formFromRecord, myCompanies, newForm, readContent,
+  roleOptions, serviceProblem, signerSuggestions, signersText, signProgress, splitByEmailed, timeRange, toBody, unitForSite, usedValues, type OrgEntity, type ServiceRecord, type Signature,
 } from './records';
 
 const ME = { id: 'u-me', name: '王護理師', email: 'nurse@demo.test' };
@@ -152,9 +152,29 @@ describe('organisation, roles and email', () => {
     ]);
   });
 
-  it('knows mail is only logged where the dev sign-in is on', () => {
-    expect(linksAreEmailed({ loginMethods: ['sso', 'email_otp'] })).toBe(true);
-    expect(linksAreEmailed({ loginMethods: ['dev'] })).toBe(false);
+});
+
+describe('sign-off links and signers', () => {
+  const link = (name: string, emailed: boolean) => ({ signatureId: `s-${name}`, role: '職醫', name, url: `https://demo.test/sign/${name}`, emailed });
+
+  it('splits the links the API emailed from the ones to hand over', () => {
+    const { sent, unsent } = splitByEmailed([link('甲', true), link('乙', false), link('丙', false)]);
+    expect(sent.map(l => l.name)).toEqual(['甲']);
+    expect(unsent.map(l => l.name)).toEqual(['乙', '丙']);
+    expect(signersText(unsent)).toBe('2 位簽核人員');
+    expect(signersText(sent)).toBe('甲');
+  });
+
+  it('suggests staff for a signer by name or email', () => {
+    const staff = [
+      { id: 'u1', name: '張醫師', email: 'doctor@demo.test', role: '職醫' as const },
+      { id: 'u2', name: '張醫師', email: 'chang.2@demo.test', role: '職醫' as const },
+      { id: 'u3', name: '吳工安', email: 'safety@demo.test', role: '職安衛人員' as const },
+    ];
+    expect(signerSuggestions(staff, ' 張 ').map(s => s.id)).toEqual(['u1', 'u2']);
+    expect(signerSuggestions(staff, 'SAFETY').map(s => s.id)).toEqual(['u3']);
+    expect(signerSuggestions(staff, '')).toHaveLength(3);
+    expect(signerSuggestions(staff, '', 2)).toHaveLength(2);
   });
 });
 

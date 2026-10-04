@@ -8,6 +8,7 @@ import { useMe } from '../../session';
 import { caseChange, caseForm, type CaseForm, type Reply } from './caseEdit';
 import { actionErrorText, staffQuery, useOpenCase, useUpdateCase } from './queries';
 import { CARE_ROLES, staffOptions } from './staff';
+import { staffSelectProps } from './StaffPicker';
 
 type Case = NonNullable<EmployeeCase['case']>;
 export interface CaseTarget { employeeId: string; name: string; case: Case }
@@ -67,7 +68,7 @@ function CaseEditForm({ target, onDone }: { target: CaseTarget; onDone: () => vo
         <Textarea label="狀態變更說明" description="記入狀態歷程" autosize minRows={2} maxLength={500}
           value={f.note} onChange={e => set('note', e.currentTarget.value)} />
       )}
-      <Select label="主責" data={leads} value={f.leadUserId || null} onChange={v => v && set('leadUserId', v)} allowDeselect={false} searchable
+      <Select label="主責" data={leads} value={f.leadUserId || null} onChange={v => v && set('leadUserId', v)} allowDeselect={false} searchable {...staffSelectProps}
         description="可指派給在職的職護或職醫。" disabled={staff.isPending} error={staff.isError ? '暫時無法載入人員名單' : undefined} />
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
         <TextInput type="date" label="通知日" value={f.noticeOn} onChange={e => set('noticeOn', e.currentTarget.value)} />
