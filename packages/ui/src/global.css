@@ -1,11 +1,20 @@
-/* Cards and paper sit on white (dark: navy) surfaces above the grey page body. */
-:root {
-  --mantine-color-default: var(--yutis-surface);
-}
+/* White cards (dark: charcoal) sit on the lilac-grey page with no shadow, as in the reference. */
 .mantine-Card-root,
 .mantine-Paper-root {
   background-color: var(--yutis-surface);
 }
 body {
   font-variant-numeric: tabular-nums;
+}
+/* Quiet tables: small grey headers and hairline rows. */
+.mantine-Table-th {
+  color: var(--yutis-muted);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+}
+.mantine-Table-table {
+  --table-border-color: var(--yutis-line);
+}
+.mantine-NavLink-root:not([data-active]):hover {
+  background-color: var(--yutis-nav-icon);
 }

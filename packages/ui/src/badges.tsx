@@ -30,7 +30,7 @@ export function CaseStatusBadge({ status }: { status: CaseStatus }) {
   return (
     <Badge
       leftSection={<Box component="span" w={6} h={6} style={{ borderRadius: '50%', background: 'currentColor' }} />}
-      styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none', fontWeight: 600 } }}
+      styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none', fontWeight: 600, height: 24, paddingInline: 10 } }}
     >
       {status}
     </Badge>

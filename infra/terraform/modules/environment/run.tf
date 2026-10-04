@@ -2,6 +2,7 @@
 #
 # Terraform owns the configuration; the deploy workflow only changes the image (hence ignore_changes on it). The first
 # apply starts them on Google's placeholder image until the first deploy.
+# Commands go in `args` (not `command`) so the placeholder keeps its own entrypoint; the server image has only a CMD.
 
 locals {
   placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -19,9 +20,12 @@ locals {
     NODE_ENV           = "production"
     TRUST_PROXY        = "true"
     TENANT_BASE_DOMAIN = var.tenant_base_domain
-  }, local.demo_env, local.kms_env, local.sign_in_env)
+  }, local.demo_env, local.kms_env, local.sign_in_env, local.email_env)
   worker_env   = merge({ NODE_ENV = "production" }, local.demo_env, local.kms_env)
   demo_secrets = var.demo_site ? { TENANT_CRYPTO_LOCAL_KEY = "tenant-crypto-local-key" } : {}
+  # Invitations and sign-off links: sent through Resend once email_from is set, otherwise only logged.
+  send_email = !var.demo_site && var.email_from != ""
+  email_env  = local.send_email ? { EMAIL_PROVIDER = "resend", EMAIL_FROM = var.email_from } : {}
 }
 
 resource "google_cloud_run_v2_service" "api" {
@@ -53,8 +57,8 @@ resource "google_cloud_run_v2_service" "api" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/api/dist/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/api/dist/main.js"]
       resources {
         limits = { cpu = "1", memory = "1Gi" }
       }
@@ -72,6 +76,18 @@ resource "google_cloud_run_v2_service" "api" {
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.s[env.value].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = local.send_email ? [google_secret_manager_secret.resend[0].secret_id] : []
+        content {
+          name = "RESEND_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
               version = "latest"
             }
           }
@@ -118,8 +134,8 @@ resource "google_cloud_run_v2_service" "worker" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/api/dist/worker/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/api/dist/worker/main.js"]
       resources {
         cpu_idle = false
         limits   = { cpu = "1", memory = "1Gi" }
@@ -161,7 +177,7 @@ resource "google_cloud_run_v2_service" "platform_api" {
   name                 = "platform-api"
   location             = var.region
   ingress              = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
-  invoker_iam_disabled = true # Identity-Aware Proxy at the load balancer; the API verifies the IAP JWT itself
+  invoker_iam_disabled = true # IAP (or Google sign-in) is checked by the API itself: the IAP JWT or the ID token
   deletion_protection  = false
   depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s]
 
@@ -184,8 +200,8 @@ resource "google_cloud_run_v2_service" "platform_api" {
       }
     }
     containers {
-      image   = local.placeholder_image
-      command = ["node", "apps/platform-api/dist/main.js"]
+      image = local.placeholder_image
+      args  = ["node", "apps/platform-api/dist/main.js"]
       resources {
         limits = { cpu = "1", memory = "512Mi" }
       }
@@ -209,9 +225,18 @@ resource "google_cloud_run_v2_service" "platform_api" {
         name  = "KMS_KEY_RING"
         value = google_kms_key_ring.tenants.id
       }
-      env {
-        name  = "IAP_AUDIENCE"
-        value = "/projects/${data.google_project.this.number}/global/backendServices/${google_compute_backend_service.platform_api[0].generated_id}"
+      dynamic "env" {
+        for_each = local.platform_iap ? {
+          IAP_AUDIENCE = "/projects/${data.google_project.this.number}/global/backendServices/${google_compute_backend_service.platform_api[0].generated_id}"
+          } : {
+          PLATFORM_SIGN_IN_PROJECT_ID  = var.project_id
+          PLATFORM_SIGN_IN_API_KEY     = nonsensitive(google_apikeys_key.browser[0].key_string) # a public browser key
+          PLATFORM_SIGN_IN_AUTH_DOMAIN = "${var.project_id}.firebaseapp.com"
+        }
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name = "PLATFORM_DATABASE_URL"
@@ -250,7 +275,8 @@ resource "google_cloud_run_v2_service" "web" {
     containers {
       image = local.placeholder_image
       resources {
-        limits = { cpu = "1", memory = "256Mi" }
+        cpu_idle = true
+        limits   = { cpu = "1", memory = "512Mi" }
       }
     }
   }
@@ -260,7 +286,7 @@ resource "google_cloud_run_v2_service" "web" {
   }
 }
 
-# ---------------------------------------------------------------- release job (migrations, login roles, job queues)
+# ---------------------------------------------------------------- release job (deploy/release.sh: migrations, login roles, job queues, templates, demo data)
 
 resource "google_cloud_run_v2_job" "release" {
   project             = var.project_id
@@ -289,8 +315,8 @@ resource "google_cloud_run_v2_job" "release" {
         }
       }
       containers {
-        image   = local.placeholder_image
-        command = ["node", "apps/api/dist/release.js"]
+        image = local.placeholder_image
+        args  = ["sh", "deploy/release.sh"]
         env {
           name  = "NODE_ENV"
           value = "production"
@@ -304,12 +330,12 @@ resource "google_cloud_run_v2_job" "release" {
           value = join(",", var.platform_admin_emails)
         }
         dynamic "env" {
-          for_each = {
+          for_each = merge({
             DATABASE_URL         = "db-url-owner"
             APP_DB_PASSWORD      = "db-password-api"
             WORKER_DB_PASSWORD   = "db-password-worker"
             PLATFORM_DB_PASSWORD = "db-password-platform"
-          }
+          }, local.demo_secrets)
           content {
             name = env.key
             value_source {

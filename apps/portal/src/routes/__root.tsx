@@ -9,7 +9,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 const TabBase = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & { on: boolean }>(({ on, ...props }, ref) => (
   <UnstyledButton component="a" ref={ref} {...props} py={8} mih={56} aria-current={on ? 'page' : undefined}
-    c={on ? 'var(--mantine-primary-color-filled)' : 'dimmed'} style={{ display: 'block' }} />
+    c={on ? 'var(--mantine-color-text)' : 'dimmed'} style={{ display: 'block' }} />
 ));
 const TabLink = createLink(TabBase);
 

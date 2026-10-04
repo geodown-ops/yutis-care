@@ -1,7 +1,8 @@
 /*
- * Local development only: load the prototype's fictional demo data (prototype/data.js) into the "demo" tenant, so every
- * page and report has something to show. Employees, health checks, the four programmes, assistance records, events and
- * cases. Medical text is encrypted with TENANT_CRYPTO_LOCAL_KEY. Runs as the table owner (DATABASE_URL); run db:seed
+ * Load the prototype's fictional demo data (prototype/data.js) into the "demo" tenant, so every page and report has
+ * something to show: locally (`pnpm --filter @yutis/api db:seed-demo`) and on the demo site, where the release job
+ * runs it after every deployment and nightly reset. Employees, health checks, the four programmes, assistance records,
+ * events and cases. Medical text is encrypted with TENANT_CRYPTO_LOCAL_KEY. Runs as the table owner (DATABASE_URL); run db:seed
  * first. Skips if the prototype's employees are already there. Never point it at a real database.
  */
 import { randomUUID } from 'node:crypto';
@@ -15,7 +16,7 @@ import {
 import { EXAM_ITEMS, examRetainUntil } from '@yutis/domain';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import pg from 'pg';
-import { LocalTenantCrypto } from '../src/core/crypto.js';
+import { LocalTenantCrypto } from './core/crypto.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = Record<string, any>;

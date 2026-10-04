@@ -67,7 +67,7 @@ export function NmqPage() {
                 return (
                   <UnstyledButton key={n} role="radio" aria-checked={on} onClick={() => setA(s => ({ ...s, scores: { ...s.scores, [q.key]: n } }))}
                     p={10} mih={64} style={{
-                      borderRadius: 12, border: `1px solid ${on ? 'var(--mantine-primary-color-filled)' : 'var(--yutis-line)'}`,
+                      borderRadius: 'var(--mantine-radius-md)', border: `1px solid ${on ? 'var(--mantine-primary-color-filled)' : 'var(--yutis-line)'}`,
                       background: on ? 'var(--mantine-primary-color-filled)' : 'var(--yutis-surface)', color: on ? 'var(--mantine-primary-color-contrast)' : undefined,
                     }}>
                     <Text fz={20} fw={700} lh={1.1}>{n}</Text>

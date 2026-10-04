@@ -1,4 +1,4 @@
-# 正式站 care.yutis.com.tw：租戶 {slug}.care.yutis.com.tw（/me 員工端），平台管理後台 admin.care.yutis.com.tw。
+# 正式站 care.yutis.net：租戶 {slug}.care.yutis.net（/me 員工端），平台管理後台 admin.care.yutis.net。
 terraform {
   backend "gcs" {
     prefix = "production"
@@ -9,6 +9,9 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = "asia-east1"
+  # With a person's credentials (Cloud Shell), APIs such as API Keys and Identity Toolkit need a quota project.
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 variable "project_id" {
@@ -16,7 +19,15 @@ variable "project_id" {
 }
 
 variable "platform_staff" {
-  type = list(string)
+  description = "Who may pass Identity-Aware Proxy (ignored with platform_sign_in)."
+  type        = list(string)
+  default     = []
+}
+
+variable "platform_sign_in" {
+  description = "Platform staff sign in with Google instead of IAP: set true when the project has no Google Workspace organization."
+  type        = bool
+  default     = false
 }
 
 variable "platform_admin_emails" {
@@ -28,17 +39,30 @@ variable "alert_email" {
   default = null
 }
 
+variable "domain" {
+  description = "Tenants at {slug}.<domain>, the platform back office at admin.<domain>."
+  type        = string
+  default     = "care.yutis.net"
+}
+
+variable "email_from" {
+  type    = string
+  default = ""
+}
+
 module "env" {
   source      = "../modules/environment"
   project_id  = var.project_id
   environment = "production"
 
-  certificate_domain = "care.yutis.com.tw"
-  tenant_hosts       = ["*.care.yutis.com.tw"]
-  platform_host      = "admin.care.yutis.com.tw"
+  certificate_domain = var.domain
+  tenant_hosts       = ["*.${var.domain}"]
+  platform_host      = "admin.${var.domain}"
+  tenant_base_domain = var.domain
   web_api_mode       = "live"
 
   platform_staff        = var.platform_staff
+  platform_sign_in      = var.platform_sign_in
   platform_admin_emails = var.platform_admin_emails
 
   database_tier              = "db-custom-2-7680"
@@ -51,6 +75,7 @@ module "env" {
   github_environment = "production"
   identity_platform  = true
   alert_email        = var.alert_email
+  email_from         = var.email_from
 }
 
 output "load_balancer_ip" {

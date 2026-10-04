@@ -125,8 +125,9 @@ resource "google_compute_backend_service" "platform_api" {
   backend {
     group = google_compute_region_network_endpoint_group.run["platform-api"].id
   }
+  security_policy = local.platform_iap ? null : google_compute_security_policy.edge.id
   iap {
-    enabled = true
+    enabled = local.platform_iap
   }
   log_config {
     enable      = true
@@ -134,7 +135,7 @@ resource "google_compute_backend_service" "platform_api" {
   }
 }
 
-# The same front-end service, but behind IAP for the platform host.
+# The same front-end service, but behind IAP for the platform host (unless staff sign in with Google instead).
 resource "google_compute_backend_service" "platform_web" {
   count                 = local.platform ? 1 : 0
   project               = var.project_id
@@ -144,13 +145,14 @@ resource "google_compute_backend_service" "platform_web" {
   backend {
     group = google_compute_region_network_endpoint_group.run["web"].id
   }
+  security_policy = local.platform_iap ? null : google_compute_security_policy.edge.id
   iap {
-    enabled = true
+    enabled = local.platform_iap
   }
 }
 
 resource "google_iap_web_backend_service_iam_binding" "platform" {
-  for_each            = local.platform ? { api = google_compute_backend_service.platform_api[0].name, web = google_compute_backend_service.platform_web[0].name } : {}
+  for_each            = local.platform_iap ? { api = google_compute_backend_service.platform_api[0].name, web = google_compute_backend_service.platform_web[0].name } : {}
   project             = var.project_id
   web_backend_service = each.value
   role                = "roles/iap.httpsResourceAccessor"

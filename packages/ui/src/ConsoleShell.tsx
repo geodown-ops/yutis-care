@@ -1,15 +1,17 @@
 import { AppShell, Avatar, Box, Burger, Group, ScrollArea, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { ColorSchemeToggle } from './ColorSchemeToggle';
+import { YutisMark } from './YutisMark';
 
 /**
- * Desktop console layout shared by the tenant admin and the platform admin:
- * dark sidebar running full height, light header with search and user, grey work area.
+ * Desktop console layout shared by the tenant admin and the platform admin: a light sidebar that blends
+ * into the page, with the current item as an ink pill; header with search and user; cards on the grey page.
  */
-export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerStart, headerEnd, children }: {
-  product: string;
-  subtitle: string;
+export function ConsoleShell({ title, subtitle, user, nav, navFooter, headerStart, headerEnd, children }: {
+  /** Shown next to the YUTIS mark: the tenant's name in the tenant admin, the product name elsewhere. */
+  title: string;
+  subtitle?: string;
   user: { name: string; role: string };
   /** Sidebar content; receives `close` so a nav click can close the drawer on phones. */
   nav: (close: () => void) => ReactNode;
@@ -22,8 +24,8 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
   return (
     <AppShell
       layout="alt"
-      header={{ height: 60 }}
-      navbar={{ width: 232, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      header={{ height: 68 }}
+      navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="lg"
       styles={{
         navbar: { background: 'var(--yutis-nav)', borderRight: 0 },
@@ -32,13 +34,13 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
       }}
     >
       <AppShell.Header>
-        <Group h="100%" px="lg" gap="md" wrap="nowrap">
+        <Group h="100%" px="lg" gap="sm" wrap="nowrap">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="開啟選單" />
           <Box style={{ flex: 1, minWidth: 0 }}>{headerStart}</Box>
           {headerEnd}
           <ColorSchemeToggle />
-          <Group gap={8} wrap="nowrap">
-            <Avatar color="yutis" radius="xl" size={32}>{user.name[0]}</Avatar>
+          <Group gap={10} wrap="nowrap">
+            <Avatar color="yutis" radius="xl" size={36}>{user.name[0]}</Avatar>
             <Box visibleFrom="md">
               <Text size="sm" fw={600} lh={1.2}>{user.name}</Text>
               <Text size="xs" c="dimmed">{user.role}</Text>
@@ -47,13 +49,13 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="md">
-        <AppShell.Section mb="md">
-          <Group gap="sm" wrap="nowrap" px={6}>
-            <Box w={30} h={30} style={{ borderRadius: 8, background: 'var(--mantine-primary-color-filled)', display: 'grid', placeItems: 'center', color: 'var(--mantine-primary-color-contrast)', fontWeight: 700, flexShrink: 0 }}>Y</Box>
-            <div>
-              <Text fw={700} c="var(--yutis-nav-strong)" size="sm" lh={1.2}>{product}</Text>
-              <Text size="xs" c="var(--yutis-nav-muted)">{subtitle}</Text>
+      <AppShell.Navbar px="md" pt="lg" pb="md">
+        <AppShell.Section mb="lg">
+          <Group gap={10} wrap="nowrap" px={6}>
+            <YutisMark height={30} />
+            <div style={{ minWidth: 0 }}>
+              <Text fw={700} c="var(--mantine-color-text)" lh={1.25} lineClamp={2} title={title}>{title}</Text>
+              {subtitle && <Text size="xs" c="var(--yutis-nav-muted)" truncate>{subtitle}</Text>}
             </div>
           </Group>
         </AppShell.Section>
@@ -71,19 +73,32 @@ export function ConsoleShell({ product, subtitle, user, nav, navFooter, headerSt
 /** A labelled group of sidebar links. */
 export function NavSection({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <Stack gap={2}>
-      <Text size="xs" fw={600} c="var(--yutis-nav-muted)" px="xs" style={{ letterSpacing: '.08em' }}>{label}</Text>
+    <Stack gap={4}>
+      <Text size="xs" fw={500} c="var(--yutis-nav-muted)" px={6}>{label}</Text>
       {children}
     </Stack>
   );
 }
 
-/** Styles for a Mantine NavLink placed on the dark sidebar. */
+/** Menu icon in a small circle, as in the reference sidebar. */
+export function SidebarIcon({ icon: I, active }: { icon: ComponentType<{ size?: number; stroke?: number }>; active: boolean }) {
+  return (
+    <Box aria-hidden w={28} h={28} style={{
+      borderRadius: '50%', display: 'grid', placeItems: 'center',
+      background: active ? 'color-mix(in srgb, var(--yutis-nav-strong) 16%, transparent)' : 'var(--yutis-nav-icon)',
+    }}>
+      <I size={16} stroke={1.75} />
+    </Box>
+  );
+}
+
+/** Styles for a Mantine NavLink on the sidebar: the current item is a filled pill. */
 export const sidebarLinkStyles = (active: boolean) => ({
   root: {
-    borderRadius: 8,
+    borderRadius: 999,
+    padding: '6px 10px 6px 6px',
     color: active ? 'var(--yutis-nav-strong)' : 'var(--yutis-nav-fg)',
     background: active ? 'var(--yutis-nav-active)' : undefined,
-    fontWeight: active ? 600 : 400,
+    fontWeight: active ? 600 : 500,
   },
 });

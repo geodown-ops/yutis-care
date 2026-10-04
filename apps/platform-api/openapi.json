@@ -23,6 +23,29 @@
         ]
       }
     },
+    "/platform-api/sign-in-config": {
+      "get": {
+        "description": "method=google 時，登入頁以 Firebase Auth SDK（不帶 tenantId）用 Google 帳號登入，之後每個請求帶 Authorization: Bearer <ID token>。",
+        "operationId": "SignInConfigController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInConfigDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "平台後台登入頁的設定",
+        "tags": [
+          "sign-in"
+        ]
+      }
+    },
     "/platform-api/me": {
       "get": {
         "operationId": "MeController_me",
@@ -39,7 +62,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -62,6 +85,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "目前登入的平台人員與權限",
@@ -89,7 +115,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -112,6 +138,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "租戶列表",
@@ -225,7 +254,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -258,6 +287,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "開通租戶",
@@ -291,7 +323,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -324,6 +356,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "租戶詳情",
@@ -379,7 +414,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -412,6 +447,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "停用租戶",
@@ -445,7 +483,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -478,6 +516,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "恢復停用的租戶",
@@ -574,7 +615,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -597,6 +638,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "修改目前的訂閱",
@@ -693,7 +737,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -736,6 +780,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "新增訂閱期間（續約、換方案）",
@@ -763,7 +810,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -786,6 +833,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "方案列表",
@@ -843,7 +893,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -866,6 +916,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "新增方案",
@@ -928,7 +981,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -951,6 +1004,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "修改或停用方案",
@@ -990,7 +1046,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1013,6 +1069,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "各租戶用量（只有計數）",
@@ -1040,7 +1099,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1063,6 +1122,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "公告列表（新的在前）",
@@ -1151,7 +1213,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1174,6 +1236,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "新增公告",
@@ -1267,7 +1332,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1290,6 +1355,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "修改公告",
@@ -1314,7 +1382,7 @@
             "description": ""
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1337,6 +1405,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "刪除公告",
@@ -1364,7 +1435,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1387,6 +1458,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "平台人員",
@@ -1446,7 +1520,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1469,6 +1543,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "新增平台人員",
@@ -1531,7 +1608,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1554,6 +1631,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "修改平台人員（角色、停用）",
@@ -1582,7 +1662,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1605,6 +1685,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "目前生效的預設範本版本",
@@ -1633,7 +1716,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1656,6 +1739,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "把預設範本更新為程式內建的版本",
@@ -1747,7 +1833,7 @@
             }
           },
           "401": {
-            "description": "沒有經過 Identity-Aware Proxy 的有效身分",
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
             "content": {
               "application/json": {
                 "schema": {
@@ -1770,6 +1856,9 @@
         "security": [
           {
             "iap": []
+          },
+          {
+            "google-sign-in": []
           }
         ],
         "summary": "平台稽核紀錄",
@@ -1793,7 +1882,13 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-goog-iap-jwt-assertion",
-        "description": "Identity-Aware Proxy 簽發的 JWT，由 IAP 自動帶入"
+        "description": "Identity-Aware Proxy 簽發的 JWT，由 IAP 自動帶入（Google Cloud）"
+      },
+      "google-sign-in": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Google 登入後的 Identity Platform ID token（Railway 等不經 IAP 的部署）"
       }
     },
     "schemas": {
@@ -1809,6 +1904,31 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "SignInConfigDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "iap",
+              "google",
+              "dev"
+            ],
+            "description": "iap：由 Identity-Aware Proxy 把關，不需登入頁；google：以 Firebase Auth SDK 用 Google 帳號登入；dev：本機開發（X-Dev-Platform-User）"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "method=google 時：Identity Platform 專案的瀏覽器 API 金鑰（公開值）"
+          },
+          "authDomain": {
+            "type": "string",
+            "description": "method=google 時：驗證網域，例如 yutis-care-prod.firebaseapp.com"
+          }
+        },
+        "required": [
+          "method"
         ]
       },
       "PlatformMeDto": {

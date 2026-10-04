@@ -8,14 +8,16 @@ export type AccessRule = { kind: 'public' } | { kind: 'platform'; permission?: P
 
 export const ACCESS_RULE = 'yutis:platform-access-rule';
 export const IAP_SECURITY = 'iap';
+export const SIGN_IN_SECURITY = 'google-sign-in';
 
-/** No sign-in: health checks only. */
+/** No sign-in: health checks and the sign-in page's settings only. */
 export const Public = () => SetMetadata(ACCESS_RULE, { kind: 'public' } satisfies AccessRule);
 
 const signedIn = (rule: AccessRule, forbidden: string) => applyDecorators(
   SetMetadata(ACCESS_RULE, rule),
   ApiSecurity(IAP_SECURITY),
-  ApiUnauthorizedResponse({ description: '沒有經過 Identity-Aware Proxy 的有效身分', type: ApiErrorDto }),
+  ApiSecurity(SIGN_IN_SECURITY),
+  ApiUnauthorizedResponse({ description: '沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）', type: ApiErrorDto }),
   ApiForbiddenResponse({ description: forbidden, type: ApiErrorDto }),
 );
 

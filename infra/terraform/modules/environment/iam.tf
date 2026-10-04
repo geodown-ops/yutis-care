@@ -18,8 +18,9 @@ locals {
       web      = []
     },
     var.demo_site ? {
-      api    = ["db-url-api", "tenant-crypto-local-key"]
-      worker = ["db-url-worker", "tenant-crypto-local-key"]
+      api     = ["db-url-api", "tenant-crypto-local-key"]
+      worker  = ["db-url-worker", "tenant-crypto-local-key"]
+      release = ["db-url-owner", "db-password-api", "db-password-worker", "db-password-platform", "tenant-crypto-local-key"]
     } : {},
   )
   secret_bindings = merge([
