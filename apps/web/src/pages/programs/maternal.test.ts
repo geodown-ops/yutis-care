@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   caseAckState, caseDraftProblem, composeArrangement, composeDetail, countByLevel, emptyHazards, hazardFindings, hazardsBody, interviewsNewestFirst,
-  latestInterview, stageOf, suggestedLevel, typeLabel, type MaternalCase, type MaternalInterview,
+  keyDate, latestInterview, stageOf, suggestedLevel, typeLabel, type MaternalCase, type MaternalInterview,
 } from './maternal';
 
 const iv = (id: string, interviewedOn: string, acknowledgement: MaternalInterview['acknowledgement'] = null): MaternalInterview =>
   ({ id, interviewedOn, fitAdvice: null, limits: [], agreedArrangement: null, acknowledgement, notices: [] });
 const kase = (p: Partial<MaternalCase> = {}): MaternalCase =>
-  ({ id: 'c', employeeId: 'e', name: 'x', type: '妊娠', notifiedOn: '2026-09-01', dueDate: null, weeks: null, level: null, detail: null, interviews: [], ...p });
+  ({ id: 'c', employeeId: 'e', empNo: 'E1', name: 'x', departmentId: 'd', type: '妊娠', notifiedOn: '2026-09-01', dueDate: null, birthDate: null, weeks: null, level: null, detail: null, interviews: [], ...p });
 
 describe('maternal environment assessment', () => {
   it('suggests the level the API will store', () => {
@@ -65,6 +65,12 @@ describe('maternal cases', () => {
     expect(stageOf({ type: '妊娠', dueDate: '2026-10-03' }, '2026-10-04')).toBe('已過預產期');
     expect(stageOf({ type: '妊娠', dueDate: null }, '2026-10-04')).toBe('妊娠中');
     expect(stageOf({ type: '產後', dueDate: null }, '2026-10-04')).toBe('產後一年內');
+  });
+
+  it('shows the due date of a pregnancy and the birth date after birth', () => {
+    expect(keyDate(kase({ dueDate: '2027-01-10', birthDate: '2026-08-01' }))).toEqual({ label: '預產期', date: '2027-01-10' });
+    expect(keyDate(kase({ type: '產後', dueDate: '2026-08-05', birthDate: '2026-08-01' }))).toEqual({ label: '分娩日期', date: '2026-08-01' });
+    expect(keyDate(kase({ type: '產後' }))).toEqual({ label: '分娩日期', date: null });
   });
 
   it('composes the detail and the agreed arrangement', () => {

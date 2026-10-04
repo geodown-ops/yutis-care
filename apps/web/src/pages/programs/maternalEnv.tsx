@@ -1,39 +1,44 @@
 /* 母性健康保護 · 環境危害辨識: workplace assessments (職護、職醫、職安衛人員). */
 import { Box, Button, Card, Group, Modal, SegmentedControl, Select, SimpleGrid, Skeleton, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { useMutation, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { data } from '@yutis/api-client';
 import { MAT_LEVELS, type MatLevel } from '@yutis/domain';
 import { useState } from 'react';
 import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { CardNote, problemText } from '../states';
+import { programmeOptionsQuery } from './directory';
+import { OrgFilterSelects } from './listControls';
+import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
 import {
-  emptyHazards, HAZARD_ANSWERS, hazardFindings, hazardsBody, LEVEL_TONE, MAT_HAZARDS, SHIFT_TYPES, suggestedLevel,
+  emptyHazards, HAZARD_ANSWERS, hazardFindings, hazardsBody, LEVEL_TONE, MAT_HAZARDS, suggestedLevel,
   type EnvAssessment, type HazardAnswer, type HazardDraft,
 } from './maternal';
 import { envAssessmentsQuery } from './maternalQueries';
-import { DateField, DepartmentSelect, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
+import { DateField, DepartmentSelect, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames } from './maternalViolenceCommon';
 
 export function LevelBadge({ level }: { level: MatLevel | null | undefined }) {
   if (!level) return <Text span size="sm" c="dimmed">未評估</Text>;
   return <ToneBadge tone={LEVEL_TONE[level]}>{level}</ToneBadge>;
 }
 
+const dash = <Text span size="sm" c="dimmed">—</Text>;
+
 export function MaternalEnvTab({ envs }: { envs: UseQueryResult<EnvAssessment[]> }) {
   const sites = useMySites();
-  const siteName = useSiteName();
-  const [site, setSite] = useState<string | null>(null);
+  const names = useOrgNames();
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [level, setLevel] = useState<MatLevel | 'all'>('all');
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<EnvAssessment | null>(null);
-  const rows = (envs.data ?? []).filter(e => (!site || e.siteId === site) && (level === 'all' || e.level === level));
+  const rows = (envs.data ?? []).filter(e => matchOrg(e, org) && (level === 'all' || e.level === level));
 
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
         <Group gap="sm">
-          {sites.length > 1 && <Select aria-label="廠區" placeholder="全部廠區" clearable w={150} value={site} onChange={setSite} data={sites.map(s => ({ value: s.id, label: s.name }))} />}
+          <OrgFilterSelects rows={envs.data ?? []} names={names} value={org} onChange={setOrg} />
           <SegmentedControl size="xs" value={level} onChange={v => setLevel(v as typeof level)} aria-label="管理分級"
             data={[{ value: 'all', label: '全部' }, ...MAT_LEVELS.map(l => ({ value: l, label: l.replace('管理', '') }))]} />
         </Group>
@@ -41,19 +46,24 @@ export function MaternalEnvTab({ envs }: { envs: UseQueryResult<EnvAssessment[]>
       </Group>
       {envs.isPending ? <Skeleton h={200} /> : envs.isError ? <CardNote>{problemText(envs.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={720}>
+          <Table.ScrollContainer minWidth={880}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr><Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>評估區域</Table.Th><Table.Th>危害判定</Table.Th><Table.Th>管理分級</Table.Th><Table.Th /></Table.Tr>
+                <Table.Tr>
+                  <Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th>評估區域</Table.Th><Table.Th>作業型態</Table.Th>
+                  <Table.Th>危害判定</Table.Th><Table.Th>管理分級</Table.Th><Table.Th />
+                </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.map(e => {
                   const found = hazardFindings(e.hazards);
                   return (
                     <Table.Tr key={e.id}>
-                      <Table.Td>{dt(e.assessedOn)}</Table.Td>
-                      <Table.Td>{siteName(e.siteId)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(e.assessedOn)}</Table.Td>
+                      <Table.Td>{names.site(e.siteId)}</Table.Td>
+                      <Table.Td>{e.departmentId ? names.department(e.departmentId) : dash}</Table.Td>
                       <Table.Td fw={600}>{e.area}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{e.shiftType || dash}</Table.Td>
                       <Table.Td>{found.length ? found.map(f => `${f.name}（${f.v}）`).join('、') : <Text span size="sm" c="dimmed">皆無</Text>}</Table.Td>
                       <Table.Td><LevelBadge level={e.level} /></Table.Td>
                       <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewing(e)}>檢視</Button></Table.Td>
@@ -73,17 +83,19 @@ export function MaternalEnvTab({ envs }: { envs: UseQueryResult<EnvAssessment[]>
 }
 
 function EnvDetailModal({ env, onClose }: { env: EnvAssessment | null; onClose: () => void }) {
-  const siteName = useSiteName();
+  const names = useOrgNames();
   const size = useModalSize('lg');
   const hazards = env?.hazards && typeof env.hazards === 'object' ? Object.entries(env.hazards as Record<string, { v?: string; note?: string }>) : [];
   return (
     <Modal opened={!!env} onClose={onClose} title="作業環境危害評估" {...size}>
       {env && (
         <Stack gap="md">
-          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+          <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
             <Kv label="評估日期" value={dt(env.assessedOn)} />
-            <Kv label="廠區" value={siteName(env.siteId)} />
+            <Kv label="廠區" value={names.site(env.siteId)} />
+            <Kv label="部門" value={env.departmentId ? names.department(env.departmentId) : '不指定'} />
             <Kv label="評估區域" value={env.area} />
+            <Kv label="作業型態" value={env.shiftType || '—'} />
             <Kv label="管理分級" value={<LevelBadge level={env.level} />} />
           </SimpleGrid>
           <Table verticalSpacing={6}>
@@ -121,7 +133,11 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
   const [siteId, setSiteId] = useState<string | null>(sites[0]?.id ?? null);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [area, setArea] = useState('');
-  const [shiftType, setShiftType] = useState<string>(SHIFT_TYPES[0]);
+  const options = useQuery(programmeOptionsQuery);
+  const shiftTypes = options.data?.shiftTypes ?? [];
+  // 常日班 (the first choice) until another is picked, as the prototype starts the form.
+  const [picked, setShiftType] = useState<string | null>(null);
+  const shiftType = picked ?? shiftTypes[0] ?? null;
   const [hazards, setHazards] = useState<Record<string, HazardDraft>>(emptyHazards);
   const [tried, setTried] = useState(false);
   const level = suggestedLevel(hazards);
@@ -144,7 +160,8 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
           error={tried && !area.trim() ? '請填寫評估區域' : undefined} />
         <div>
           <Text size="sm" fw={500} mb={4}>作業型態</Text>
-          <SegmentedControl fullWidth value={shiftType} onChange={setShiftType} data={[...SHIFT_TYPES]} aria-label="作業型態" />
+          {options.isPending ? <Skeleton h={36} /> : options.isError ? <Text size="sm" c="var(--yutis-bad)">{problemText(options.error)}</Text>
+            : <SegmentedControl fullWidth value={shiftType ?? ''} onChange={setShiftType} data={shiftTypes} aria-label="作業型態" />}
         </div>
       </SimpleGrid>
 

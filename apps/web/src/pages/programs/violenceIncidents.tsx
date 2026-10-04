@@ -8,7 +8,9 @@ import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { employeeQuery } from '../../queries';
 import { CardNote, problemText } from '../states';
-import { DateField, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
+import { OrgFilterSelects } from './listControls';
+import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { DateField, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
 import { VIO_FOLLOW, VIO_INC_TYPES, type Incident } from './violence';
 import { incidentsQuery, useIncidentStatus } from './violenceQueries';
 
@@ -33,16 +35,21 @@ function Victim({ id, victims }: { id: string | null; victims: Victims }) {
 }
 
 export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQueryResult<Incident[]>; onNotice: (text: string) => void }) {
-  const siteName = useSiteName();
+  const names = useOrgNames();
   const sites = useMySites();
   const victims = useVictims(incidents.data ?? []);
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const viewing = incidents.data?.find(i => i.id === viewingId) ?? null;
+  const rows = (incidents.data ?? []).filter(i => matchOrg(i, org));
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
-        <Text size="sm" c="dimmed">事件內容加密儲存，只有職護、職醫看得到。</Text>
+        <Group gap="sm">
+          <OrgFilterSelects rows={incidents.data ?? []} names={names} value={org} onChange={setOrg} />
+          <Text size="sm" c="dimmed">事件內容加密儲存，只有職護、職醫看得到。</Text>
+        </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setCreating(true)} disabled={!sites.length}>新增事件通報</Button>
       </Group>
       {incidents.isPending ? <Skeleton h={200} /> : incidents.isError ? <CardNote>{problemText(incidents.error)}</CardNote> : (
@@ -53,10 +60,10 @@ export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQu
                 <Table.Tr><Table.Th>發生日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>類型</Table.Th><Table.Th>受害員工</Table.Th><Table.Th>後續協助</Table.Th><Table.Th>狀態</Table.Th><Table.Th /></Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {incidents.data.map(i => (
+                {rows.map(i => (
                   <Table.Tr key={i.id}>
                     <Table.Td>{dt(i.occurredOn)}</Table.Td>
-                    <Table.Td>{siteName(i.siteId)}</Table.Td>
+                    <Table.Td>{names.site(i.siteId)}</Table.Td>
                     <Table.Td><ToneBadge tone="bad">{i.type}</ToneBadge></Table.Td>
                     <Table.Td><Victim id={i.victimEmployeeId} victims={victims} /></Table.Td>
                     <Table.Td>{i.followUps.join('、') || '—'}</Table.Td>
@@ -67,7 +74,7 @@ export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQu
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-          {incidents.data.length === 0 && <CardNote>目前沒有不法侵害事件通報。</CardNote>}
+          {rows.length === 0 && <CardNote>{incidents.data.length ? '沒有符合條件的事件。' : '目前沒有不法侵害事件通報。'}</CardNote>}
         </>
       )}
       <NewIncidentModal opened={creating} onClose={() => setCreating(false)} />

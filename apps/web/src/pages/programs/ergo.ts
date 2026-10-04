@@ -114,8 +114,6 @@ export function addDays(d: IsoDate, n: number): IsoDate {
 
 /* ---------- 管控追蹤 (PUT /surveys/{id}/tracking): suspected hazards only; the whole record is replaced ---------- */
 
-/** The prototype's improvement measures; others can be typed in. */
-export const ERGO_MEASURES = ['調整工作檯高度', '提供搬運輔具', '工作輪調', '增加休息頻率', '轉介復健科', '肌力伸展衛教'];
 export const TRACKING_STATUSES = ['列管中', '已改善', '解除列管'] as const;
 export const TRACKING_TONE: Record<Tracking['status'], 'warn' | 'ok' | 'info'> = { 列管中: 'warn', 已改善: 'ok', 解除列管: 'info' };
 
@@ -125,7 +123,12 @@ export interface TrackingDraft { measures: string[]; note: string; nextOn: strin
 export const trackingDraft = (t: Tracking | null, today: IsoDate): TrackingDraft =>
   (t ? { measures: [...t.measures], note: t.note, nextOn: t.nextOn ?? '', status: t.status } : { measures: [], note: '', nextOn: addDays(today, 14), status: '列管中' });
 
-export const trackingProblem = (d: TrackingDraft) => (d.measures.every(m => !m.trim()) && !d.note.trim() ? '請勾選改善措施或填寫說明' : null);
+/** Measures split into the listed ones (GET /api/programs/options ergoMeasures, as checkboxes) and any typed in. */
+export function splitMeasures(measures: readonly string[], listed: readonly string[]): { listed: string[]; others: string[] } {
+  return { listed: measures.filter(m => listed.includes(m)), others: measures.filter(m => !listed.includes(m)) };
+}
+
+export const trackingProblem =(d: TrackingDraft) => (d.measures.every(m => !m.trim()) && !d.note.trim() ? '請勾選改善措施或填寫說明' : null);
 
 export const trackingBody = (d: TrackingDraft): TrackingBody =>
   ({ measures: [...new Set(d.measures.map(m => m.trim()).filter(Boolean))], note: d.note.trim(), nextOn: d.nextOn || null, status: d.status });

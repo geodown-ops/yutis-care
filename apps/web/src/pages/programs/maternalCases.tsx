@@ -10,13 +10,15 @@ import { employeeQuery, workAdviceQuery } from '../../queries';
 import { ACK_LABEL, ACK_TONE, maternalNoticeText } from '../advice/advice';
 import { InterviewFollowUp } from '../advice/InterviewFollowUp';
 import { CardNote, problemText } from '../states';
+import { OrgFilterSelects } from './listControls';
+import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
 import {
-  caseAckState, caseDraftProblem, composeArrangement, composeDetail, FIT_ADVICE, FIT_LIMITS, interviewsNewestFirst, isPostpartum, latestInterview, MAT_AGREE,
+  caseAckState, caseDraftProblem, composeArrangement, composeDetail, FIT_ADVICE, FIT_LIMITS, interviewsNewestFirst, isPostpartum, keyDate, latestInterview, MAT_AGREE,
   MAT_SELF, stageOf, typeLabel, type CaseDraft, type EnvAssessment, type MaternalCase, type MaternalInterview,
 } from './maternal';
 import { LevelBadge } from './maternalEnv';
 import { maternalCasesQuery } from './maternalQueries';
-import { DateField, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useSiteName } from './maternalViolenceCommon';
+import { DateField, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useOrgNames } from './maternalViolenceCommon';
 
 type Employee = Schemas['EmployeeDto'];
 /** A new notification can start from an employee and type, e.g. the 產後 notification after a pregnancy. */
@@ -35,28 +37,35 @@ function StageCell({ c, today }: { c: MaternalCase; today: string }) {
 
 export function MaternalCasesTab({ cases, envs }: { cases: UseQueryResult<MaternalCase[]>; envs: EnvAssessment[] }) {
   const today = todayIso();
+  const names = useOrgNames();
   const [type, setType] = useState<'all' | '妊娠' | '產後'>('all');
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState<Preset | 'blank' | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [fresh, setFresh] = useState<MaternalCase | null>(null);
-  const rows = (cases.data ?? []).filter(c => type === 'all' || c.type === type);
+  // Cases carry the employee's department; its site comes from the organisation tree.
+  const place = (c: MaternalCase) => ({ siteId: names.siteOf(c.departmentId), departmentId: c.departmentId });
+  const rows = (cases.data ?? []).filter(c => (type === 'all' || c.type === type) && matchOrg(place(c), org));
   // A just-created case may not be in the refetched list yet.
   const open = cases.data?.find(c => c.id === openId) ?? (fresh?.id === openId ? fresh : null);
 
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
-        <SegmentedControl size="xs" value={type} onChange={v => setType(v as typeof type)} aria-label="通報類型"
-          data={[{ value: 'all', label: '全部' }, { value: '妊娠', label: '妊娠' }, { value: '產後', label: '產後一年內' }]} />
+        <Group gap="sm">
+          <SegmentedControl size="xs" value={type} onChange={v => setType(v as typeof type)} aria-label="通報類型"
+            data={[{ value: 'all', label: '全部' }, { value: '妊娠', label: '妊娠' }, { value: '產後', label: '產後一年內' }]} />
+          <OrgFilterSelects rows={(cases.data ?? []).map(place)} names={names} value={org} onChange={setOrg} />
+        </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setCreating('blank')}>新增通報</Button>
       </Group>
       {cases.isPending ? <Skeleton h={200} /> : cases.isError ? <CardNote>{problemText(cases.error)}</CardNote> : (
         <>
-          <Table.ScrollContainer minWidth={920}>
+          <Table.ScrollContainer minWidth={980}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>通報日期</Table.Th><Table.Th>類型</Table.Th><Table.Th>員工</Table.Th><Table.Th>預產期</Table.Th><Table.Th ta="right">懷孕週數</Table.Th>
+                  <Table.Th>通報日期</Table.Th><Table.Th>類型</Table.Th><Table.Th>員工</Table.Th><Table.Th>預產期／分娩日</Table.Th><Table.Th ta="right">懷孕週數</Table.Th>
                   <Table.Th>作業環境</Table.Th><Table.Th>最近面談</Table.Th><Table.Th>員工確認</Table.Th><Table.Th />
                 </Table.Tr>
               </Table.Thead>
@@ -65,10 +74,13 @@ export function MaternalCasesTab({ cases, envs }: { cases: UseQueryResult<Matern
                   const last = latestInterview(c);
                   return (
                     <Table.Tr key={c.id}>
-                      <Table.Td>{dt(c.notifiedOn)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(c.notifiedOn)}</Table.Td>
                       <Table.Td><ToneBadge tone={isPostpartum(c.type) ? 'info' : 'warn'}>{typeLabel(c.type)}</ToneBadge></Table.Td>
-                      <Table.Td><PersonLink employeeId={c.employeeId} name={c.name} /></Table.Td>
-                      <Table.Td>{dt(c.dueDate)}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <PersonLink employeeId={c.employeeId} name={c.name} empNo={c.empNo} />
+                        <Text size="xs" c="dimmed">{names.department(c.departmentId)}</Text>
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{dt(keyDate(c).date)}</Table.Td>
                       <Table.Td ta="right"><StageCell c={c} today={today} /></Table.Td>
                       <Table.Td><LevelBadge level={c.level} /></Table.Td>
                       <Table.Td>{last ? dt(last.interviewedOn) : <Text span size="sm" c="dimmed">未面談</Text>}</Table.Td>
@@ -103,7 +115,7 @@ function NewCaseModal({ opened, preset, envs, onClose, onCreated }: {
 
 function NewCaseForm({ preset, envs, onCancel, onCreated }: { preset: Preset | null; envs: EnvAssessment[]; onCancel: () => void; onCreated: (c: MaternalCase) => void }) {
   const qc = useQueryClient();
-  const siteName = useSiteName();
+  const names = useOrgNames();
   const today = todayIso();
   const [employee, setEmployee] = useState<Employee | null>(preset?.employee ?? null);
   const [draft, setDraft] = useState<Omit<CaseDraft, 'employeeId'>>({ type: preset?.type ?? '妊娠', notifiedOn: today, dueDate: '', birthDate: '' });
@@ -112,8 +124,10 @@ function NewCaseForm({ preset, envs, onCancel, onCreated }: { preset: Preset | n
   const [note, setNote] = useState('');
   const [tried, setTried] = useState(false);
   const problem = caseDraftProblem({ ...draft, employeeId: employee?.id ?? null }, today);
-  const envOptions = envs.filter(e => !employee || e.siteId === employee.site.id)
-    .map(e => ({ value: e.id, label: `${e.area}（${e.level}）· ${siteName(e.siteId)} ${dt(e.assessedOn)}` }));
+  const envOptions = envs.filter(e => !employee || e.siteId === employee.site.id).map(e => ({
+    value: e.id,
+    label: `${e.area}（${e.level}）· ${names.site(e.siteId)}${e.departmentId ? ` ${names.department(e.departmentId)}` : ''} ${dt(e.assessedOn)}`,
+  }));
   const save = useMutation({
     mutationFn: () => data(api.POST('/api/programs/maternal/cases', {
       body: {
@@ -195,14 +209,17 @@ function CaseDetail({ kase, today, onPostpartum }: { kase: MaternalCase; today: 
   const [adding, setAdding] = useState(false);
   const [saved, setSaved] = useState(false);
   const patch = usePatchInterview(kase.id);
+  const names = useOrgNames();
   const stage = stageOf(kase, today);
+  const key = keyDate(kase);
   return (
     <Stack gap="lg">
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
-        <Kv label="員工" value={<PersonLink employeeId={kase.employeeId} name={kase.name} />} />
+        <Kv label="員工" value={<PersonLink employeeId={kase.employeeId} name={kase.name} empNo={kase.empNo} />} />
+        <Kv label="部門" value={names.department(kase.departmentId)} />
         <Kv label="通報" value={`${typeLabel(kase.type)} · ${dt(kase.notifiedOn)}`} />
         <Kv label="作業環境分級" value={<LevelBadge level={kase.level} />} />
-        {!isPostpartum(kase.type) && <Kv label="預產期" value={dt(kase.dueDate)} />}
+        <Kv label={key.label} value={dt(key.date)} />
         {!isPostpartum(kase.type) && <Kv label="目前懷孕週數" value={stage === '已過預產期' ? '已過預產期' : kase.weeks != null ? `${kase.weeks} 週` : '—'} />}
       </SimpleGrid>
       {stage === '已過預產期' && <PostpartumPrompt kase={kase} onPostpartum={onPostpartum} />}
@@ -216,7 +233,7 @@ function CaseDetail({ kase, today, onPostpartum }: { kase: MaternalCase; today: 
           <Text size="sm" fw={600}>面談與工作安排建議</Text>
           {!adding && <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => { setAdding(true); setSaved(false); }}>新增面談紀錄</Button>}
         </Group>
-        {saved && <Text size="sm" c="var(--yutis-ok)" fw={600} mb="xs">已儲存面談紀錄。員工可在員工端確認，也可以寄確認連結給員工。</Text>}
+        {saved && <Text size="sm" c="var(--yutis-ok)" fw={600} mb="xs">已儲存面談紀錄。員工可在員工端確認，也可以產生確認連結給員工。</Text>}
         {adding && <InterviewForm caseId={kase.id} onCancel={() => setAdding(false)} onSaved={() => { setAdding(false); setSaved(true); }} />}
         {kase.interviews.length === 0 && !adding && <Text size="sm" c="dimmed">還沒有面談紀錄。</Text>}
         <Stack gap="sm" mt={adding ? 'md' : 0}>

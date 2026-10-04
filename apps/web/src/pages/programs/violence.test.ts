@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkedItems, checklistBody, countByRisk, emptyRiskDraft, reviewBody, reviewDraft, reviewProblem, riskBody, riskRows, signProgress, VIO_QUESTIONS, VIO_REVIEW,
-  type Review,
+  checkedItems, checklistBody, countByRisk, emptyRiskDraft, reviewBody, reviewDraft, reviewNames, reviewProblem, riskBody, riskRows, signLinksText, signProgress,
+  staffMatches, VIO_QUESTIONS, VIO_REVIEW, type Review,
 } from './violence';
 
 describe('violence risk assessment', () => {
@@ -90,6 +90,40 @@ describe('措施查核及評估', () => {
     expect(signProgress([])).toEqual({ signed: 0, total: 0, tone: 'warn' });
     expect(signProgress([sig({ sentAt: 'x' }), sig({ sentAt: 'x', signedAt: 'y' })])).toEqual({ signed: 1, total: 2, tone: 'info' });
     expect(signProgress([sig({ sentAt: 'x', signedAt: 'y' })])).toEqual({ signed: 1, total: 1, tone: 'ok' });
+  });
+});
+
+describe('sign-off links', () => {
+  it('says a signing email was sent only when the API says so, and asks to copy the link otherwise', () => {
+    expect(signLinksText([])).toEqual({ text: '沒有需要簽核的人員。', copy: false });
+    expect(signLinksText([{ emailed: true }, { emailed: true }])).toEqual({ text: '已寄簽核信給 2 位簽核人員。', copy: false });
+    expect(signLinksText([{ emailed: false }, { emailed: false }])).toEqual({ text: '沒有寄出簽核信，請複製下方連結交給 2 位簽核人員。', copy: true });
+    expect(signLinksText([{ emailed: true }, { emailed: false }])).toEqual({ text: '已寄簽核信給 1 位簽核人員；1 位沒有寄出，請複製連結交給他們。', copy: true });
+  });
+
+  it('suggests staff by name or email, keyed by account id', () => {
+    const staff = [
+      { id: 'u1', name: '陳安全', email: 'safety@demo.test' },
+      { id: 'u2', name: '陳安全', email: 'safety2@demo.test' },
+      { id: 'u3', name: '林人資', email: 'hr@demo.test' },
+    ];
+    expect(staffMatches(staff, '陳').map(o => o.value)).toEqual(['u1', 'u2']);
+    expect(staffMatches(staff, ' HR@ ')).toEqual([{ value: 'u3', label: '林人資' }]);
+    expect(staffMatches(staff, '')).toHaveLength(3);
+    expect(staffMatches(staff, '', 2)).toHaveLength(2);
+    expect(staffMatches(staff, 'nobody')).toEqual([]);
+  });
+});
+
+describe('review list filters', () => {
+  it('labels sites and departments from the names each review carries', () => {
+    const n = reviewNames([
+      { siteId: 's1', siteName: '桃園廠', departmentId: 'd1', departmentName: '製造一課' },
+      { siteId: 's2', siteName: '新竹廠', departmentId: null, departmentName: null },
+    ]);
+    expect(n.site('s2')).toBe('新竹廠');
+    expect(n.department('d1')).toBe('製造一課');
+    expect(n.department('d2')).toBe('—');
   });
 });
 

@@ -1,5 +1,5 @@
 /* Shared by the maternal and violence programme pages: who may do what, sites, people and form bits. */
-import { Badge, Select, Text, TextInput, type ModalProps, type TextInputProps } from '@mantine/core';
+import { Badge, Select, Stack, Text, TextInput, type ModalProps, type TextInputProps } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { ApiRequestError, data, type Schemas } from '@yutis/api-client';
@@ -10,7 +10,7 @@ import { canAccess, type Access } from '../../nav';
 import { useMe } from '../../session';
 import { problemText } from '../states';
 import { orgQuery } from './directory';
-import { siteDepartments } from './lists';
+import { siteDepartments, treeNames } from './lists';
 
 /* Mirrors the route decorators in apps/api/src/programs (maternal-violence.controller.ts, advice.controller.ts). */
 /** Maternal cases, interviews and violence incidents (@Clinical). */
@@ -36,6 +36,14 @@ export function useSiteName() {
   return (id: string) => sites.find(s => s.id === id)?.name ?? '—';
 }
 
+/** Site and department names by id from the organisation tree (GET /api/org); my sites' names while it loads. */
+export function useOrgNames() {
+  const org = useQuery(orgQuery);
+  const siteName = useSiteName();
+  const tree = treeNames(org.data ?? []);
+  return { ...tree, site: (id: string) => (tree.site(id) === '—' ? siteName(id) : tree.site(id)) };
+}
+
 export function ToneBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
   return <Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none', fontWeight: 600 } }}>{children}</Badge>;
 }
@@ -58,6 +66,22 @@ export function PersonLink({ employeeId, name, empNo }: { employeeId: string; na
   return canAccess(me, { feature: 'employees', data: 'identity' })
     ? <AnchorLink to="/employees/$employeeId" params={{ employeeId }} fw={600}>{label}</AnchorLink>
     : <Text span fw={600}>{label}</Text>;
+}
+
+/**
+ * A staff picker's option with the account's work email under the name (GET /api/staff), so two people with the
+ * same name can be told apart. Pass it as a Select or Autocomplete renderOption.
+ */
+export function staffOptionRenderer(emails: ReadonlyMap<string, string>) {
+  return function StaffOption({ option }: { option: { value: string; label?: string } }) {
+    const email = emails.get(option.value);
+    return (
+      <Stack gap={0} style={{ minWidth: 0 }}>
+        <Text size="sm">{option.label ?? option.value}</Text>
+        {email && <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>{email}</Text>}
+      </Stack>
+    );
+  };
 }
 
 /** Forms fill the screen on phones. */

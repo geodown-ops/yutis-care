@@ -1,25 +1,25 @@
-/* Toolbar pieces shared by the ergonomics and workload lists. */
+/* Toolbar pieces shared by the programme lists. */
 import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core';
 import { IconDownload } from '@tabler/icons-react';
 import type { UseMutationResult } from '@tanstack/react-query';
 import type { Schemas } from '@yutis/api-client';
-import { orgOptions, reminderText, type OrgFilter } from './lists';
+import { orgOptions, reminderText, type OrgFilter, type OrgNames, type OrgPlace } from './lists';
 import { saveProblem } from './maternalViolenceCommon';
 
-/** 廠區 and 部門 filters over the names in the list; a filter with only one choice is left out. */
-export function OrgFilterSelects({ rows, value, onChange }: {
-  rows: readonly { site: string; department: string }[]; value: OrgFilter; onChange: (f: OrgFilter) => void;
+/** 廠區 and 部門 filters over the sites and departments in the list (by id); a filter with only one choice is left out. */
+export function OrgFilterSelects({ rows, names, value, onChange }: {
+  rows: readonly OrgPlace[]; names: OrgNames; value: OrgFilter; onChange: (f: OrgFilter) => void;
 }) {
-  const { sites, departments } = orgOptions(rows, value.site);
+  const { sites, departments } = orgOptions(rows, value.siteId, names);
   return (
     <>
-      {(sites.length > 1 || value.site) && (
-        <Select size="xs" aria-label="廠區" placeholder="全部廠區" clearable w={130} data={sites} value={value.site}
-          onChange={site => onChange({ site, department: null })} />
+      {(sites.length > 1 || value.siteId) && (
+        <Select size="xs" aria-label="廠區" placeholder="全部廠區" clearable w={130} data={sites} value={value.siteId}
+          onChange={siteId => onChange({ siteId, departmentId: null })} />
       )}
-      {(departments.length > 1 || value.department) && (
-        <Select size="xs" aria-label="部門" placeholder="全部部門" clearable searchable w={150} data={departments} value={value.department}
-          onChange={department => onChange({ ...value, department })} nothingFoundMessage="沒有這個部門" />
+      {(departments.length > 1 || value.departmentId) && (
+        <Select size="xs" aria-label="部門" placeholder="全部部門" clearable searchable w={170} data={departments} value={value.departmentId}
+          onChange={departmentId => onChange({ ...value, departmentId })} nothingFoundMessage="沒有這個部門" />
       )}
     </>
   );

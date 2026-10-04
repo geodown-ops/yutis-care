@@ -6,23 +6,56 @@ import type { Schemas } from '@yutis/api-client';
 
 export type OrgEntity = Schemas['DirectoryLegalEntityDto'];
 
-/* ---------- site and department filters (rows carry the names, as the API returns them) ---------- */
+/* ---------- site and department filters (by id; names only label the choices) ---------- */
 
-export interface OrgFilter { site: string | null; department: string | null }
-export const NO_ORG_FILTER: OrgFilter = { site: null, department: null };
+export interface OrgFilter { siteId: string | null; departmentId: string | null }
+export const NO_ORG_FILTER: OrgFilter = { siteId: null, departmentId: null };
 
-const zh = (a: string, b: string) => a.localeCompare(b, 'zh-Hant');
+/** Where a row belongs. Some lists carry only the site (risk assessments) or only the department (maternal cases). */
+export interface OrgPlace { siteId?: string | null; departmentId?: string | null }
+/** Labels for site and department ids. */
+export interface OrgNames { site: (id: string) => string; department: (id: string) => string }
+export interface Option { value: string; label: string }
 
-/** Sites in the rows, and the departments of the chosen site (of every site when none is chosen). */
-export function orgOptions(rows: readonly { site: string; department: string }[], site: string | null) {
+const byLabel = (a: Option, b: Option) => a.label.localeCompare(b.label, 'zh-Hant');
+
+/**
+ * Sites in the rows, and the departments of the chosen site (of every site when none is chosen). A department name
+ * used in two sites is labelled with its site, so the two can be told apart.
+ */
+export function orgOptions(rows: readonly OrgPlace[], siteId: string | null, names: OrgNames): { sites: Option[]; departments: Option[] } {
+  const sites = [...new Set(rows.flatMap(r => (r.siteId ? [r.siteId] : [])))].map(id => ({ value: id, label: names.site(id) }));
+  const deps = new Map<string, string | null>();
+  for (const r of rows) if (r.departmentId && (!siteId || r.siteId === siteId)) deps.set(r.departmentId, r.siteId ?? null);
+  const named = [...deps].map(([id, site]) => ({ id, site, name: names.department(id) }));
+  const twice = new Set(named.map(d => d.name).filter((n, i, all) => all.indexOf(n) !== i));
   return {
-    sites: [...new Set(rows.map(r => r.site))].sort(zh),
-    departments: [...new Set(rows.filter(r => !site || r.site === site).map(r => r.department))].sort(zh),
+    sites: sites.sort(byLabel),
+    departments: named.map(d => ({ value: d.id, label: twice.has(d.name) && d.site ? `${d.name}（${names.site(d.site)}）` : d.name })).sort(byLabel),
   };
 }
 
-export const matchOrg = (r: { site: string; department: string }, f: OrgFilter) =>
-  (!f.site || r.site === f.site) && (!f.department || r.department === f.department);
+export const matchOrg = (r: OrgPlace, f: OrgFilter) =>
+  (!f.siteId || r.siteId === f.siteId) && (!f.departmentId || r.departmentId === f.departmentId);
+
+/** Labels from the rows themselves, for lists that carry the names next to the ids. */
+export function rowNames(rows: readonly { siteId: string; site: string; departmentId: string; department: string }[]): OrgNames {
+  const sites = new Map(rows.map(r => [r.siteId, r.site]));
+  const deps = new Map(rows.map(r => [r.departmentId, r.department]));
+  return { site: id => sites.get(id) ?? '—', department: id => deps.get(id) ?? '—' };
+}
+
+/** Labels, and each department's site, from the organisation tree (GET /api/org). */
+export function treeNames(org: readonly OrgEntity[]): OrgNames & { siteOf: (departmentId: string) => string | null } {
+  const sites = org.flatMap(e => e.sites);
+  const siteNames = new Map(sites.map(s => [s.id, s.name]));
+  const deps = new Map(sites.flatMap(s => s.departments.map(d => [d.id, { name: d.name, siteId: s.id }] as const)));
+  return {
+    site: id => siteNames.get(id) ?? '—',
+    department: id => deps.get(id)?.name ?? '—',
+    siteOf: id => deps.get(id)?.siteId ?? null,
+  };
+}
 
 /** Departments of one site from GET /api/org, for pickers. */
 export function siteDepartments(org: readonly OrgEntity[], siteId: string | null | undefined) {
@@ -43,10 +76,13 @@ export function markReminded<T extends Remindable>(list: readonly T[], asked: Re
   return list.map(r => (asked.has(r.id) && !unreachable.has(r.employeeId) ? { ...r, reminders: r.reminders + 1, lastRemindedAt: at } : r));
 }
 
-/** What to tell the nurse after sending reminders. */
-export function reminderText(emailed: number, unreachable: readonly string[]): string {
-  const sent = emailed ? `已寄出 ${emailed} 封催填通知。` : '沒有寄出催填通知。';
-  return unreachable.length ? `${sent}${unreachable.join('、')} 沒有 Email，請另行通知。` : sent;
+/**
+ * What to tell the nurse after sending reminders. RemindResultDto.emailed counts everyone with an email address; it
+ * does not say whether the mail service really sent anything (it never does on the demo site), so neither does this.
+ */
+export function reminderText(reminded: number, unreachable: readonly string[]): string {
+  const done = reminded ? `已催填 ${reminded} 位員工。` : '沒有可以寄提醒信的員工。';
+  return unreachable.length ? `${done}${unreachable.join('、')} 沒有 Email，請另行通知。` : done;
 }
 
 /* ---------- CSV export ---------- */

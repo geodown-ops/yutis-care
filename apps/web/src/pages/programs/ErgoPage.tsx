@@ -13,15 +13,16 @@ import { ergoDispatchesQuery } from '../../queries';
 import { useMe } from '../../session';
 import { when } from '../advice/InterviewFollowUp';
 import { CardNote, problemText } from '../states';
+import { programmeOptionsQuery } from './directory';
 import {
-  addDays, defaultDispatchName, dispatchTotals, draftMax, ERGO_MEASURES, filterSurveys, hazardLabel, hazardParts, isSuspected, nmqBody, nmqDraftFrom, nmqUnanswered,
-  NMQ_ROWS, NMQ_SCALE, NMQ_YES_NO, SURVEY_FILTERS, surveyColumns, trackingBody, trackingDraft, trackingProblem, TRACKING_STATUSES, TRACKING_TONE,
+  addDays, defaultDispatchName, dispatchTotals, draftMax, filterSurveys, hazardLabel, hazardParts, isSuspected, nmqBody, nmqDraftFrom, nmqUnanswered,
+  NMQ_ROWS, NMQ_SCALE, NMQ_YES_NO, splitMeasures, SURVEY_FILTERS, surveyColumns, trackingBody, trackingDraft, trackingProblem, TRACKING_STATUSES, TRACKING_TONE,
   type Dispatch, type NmqDraft, type Survey, type SurveyFilter, type TrackingDraft,
 } from './ergo';
 import { ergoSurveysQuery, useCreateDispatch, useFillNmq, useRemindSurveys, useSaveTracking } from './ergoQueries';
 import { EmployeePicker } from './ergoWorkloadPicker';
 import { ExportButton, OrgFilterSelects, RemindModal } from './listControls';
-import { downloadCsv, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { downloadCsv, NO_ORG_FILTER, rowNames, type OrgFilter } from './lists';
 import { saveProblem, useModalSize } from './maternalViolenceCommon';
 
 const dt = (iso: string) => iso.slice(0, 10).replaceAll('-', '/');
@@ -131,7 +132,7 @@ function SurveysCard({ dispatch, today, onSaved }: { dispatch: Dispatch; today: 
       <Group gap="sm" mb="sm" justify="space-between">
         <Group gap="sm">
           <SegmentedControl size="xs" value={filter} onChange={v => setFilter(v as SurveyFilter)} data={SURVEY_FILTERS} aria-label="填答狀況" />
-          <OrgFilterSelects rows={surveys.data ?? []} value={org} onChange={setOrg} />
+          <OrgFilterSelects rows={surveys.data ?? []} names={rowNames(surveys.data ?? [])} value={org} onChange={setOrg} />
         </Group>
         <TextInput size="xs" aria-label="以姓名或工號搜尋" placeholder="姓名或工號" leftSection={<IconSearch size={14} />} w={180} value={q} onChange={e => setQ(e.currentTarget.value)} />
       </Group>
@@ -210,18 +211,22 @@ function TrackingForm({ survey, dispatchId, today, onCancel, onSaved }: {
   const [d, setD] = useState<TrackingDraft>(() => trackingDraft(survey.tracking, today));
   const [tried, setTried] = useState(false);
   const save = useSaveTracking(dispatchId);
+  const options = useQuery(programmeOptionsQuery);
   const problem = trackingProblem(d);
   const parts = hazardParts(survey.answers);
-  const others = d.measures.filter(m => !ERGO_MEASURES.includes(m));
+  const measures = options.data?.ergoMeasures ?? [];
+  const { listed, others } = splitMeasures(d.measures, measures);
   const set = (patch: Partial<TrackingDraft>) => setD(x => ({ ...x, ...patch }));
   return (
     <Stack gap="md">
       <Text size="sm" c="dimmed">{survey.department} · {hazardLabel(survey.maxScore)}{parts ? `：${parts}` : ''}</Text>
-      <Checkbox.Group label="改善措施" value={d.measures.filter(m => ERGO_MEASURES.includes(m))} onChange={v => setD(x => ({ ...x, measures: [...v, ...others] }))}>
-        <SimpleGrid cols={{ base: 1, xs: 2 }} spacing={8} mt={8}>{ERGO_MEASURES.map(m => <Checkbox key={m} value={m} label={m} />)}</SimpleGrid>
-      </Checkbox.Group>
-      <TagsInput label="其他改善措施" placeholder="輸入後按 Enter" value={others} maxTags={20 - (d.measures.length - others.length)}
-        onChange={v => setD(x => ({ ...x, measures: [...x.measures.filter(m => ERGO_MEASURES.includes(m)), ...v] }))} />
+      {options.isPending ? <Skeleton h={96} /> : options.isError ? <Text size="sm" c="var(--yutis-bad)">{problemText(options.error)}</Text> : (
+        <Checkbox.Group label="改善措施" value={listed} onChange={v => setD(x => ({ ...x, measures: [...v, ...splitMeasures(x.measures, measures).others] }))}>
+          <SimpleGrid cols={{ base: 1, xs: 2 }} spacing={8} mt={8}>{measures.map(m => <Checkbox key={m} value={m} label={m} />)}</SimpleGrid>
+        </Checkbox.Group>
+      )}
+      <TagsInput label="其他改善措施" placeholder="輸入後按 Enter" value={others} maxTags={20 - listed.length} disabled={options.isPending}
+        onChange={v => setD(x => ({ ...x, measures: [...splitMeasures(x.measures, measures).listed, ...v] }))} />
       <Textarea label="說明" autosize minRows={3} maxLength={2000} value={d.note} onChange={e => set({ note: e.currentTarget.value })} />
       <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
         <TextInput type="date" label="下次追蹤日期" value={d.nextOn} onChange={e => set({ nextOn: e.currentTarget.value })} />

@@ -1,35 +1,62 @@
 import { describe, expect, it } from 'vitest';
-import { csvCell, csvText, markReminded, matchOrg, orgOptions, reminderText, siteDepartments, type OrgEntity } from './lists';
+import { csvCell, csvText, markReminded, matchOrg, orgOptions, reminderText, rowNames, siteDepartments, treeNames, type OrgEntity } from './lists';
 
 const rows = [
-  { site: '桃園廠', department: '製造二課' },
-  { site: '桃園廠', department: '製造一課' },
-  { site: '新竹廠', department: '研發部' },
-  { site: '桃園廠', department: '製造一課' },
+  { siteId: 'ty', site: '桃園廠', departmentId: 'ty-m2', department: '製造二課' },
+  { siteId: 'ty', site: '桃園廠', departmentId: 'ty-m1', department: '製造一課' },
+  { siteId: 'hc', site: '新竹廠', departmentId: 'hc-rd', department: '研發部' },
+  { siteId: 'ty', site: '桃園廠', departmentId: 'ty-m1', department: '製造一課' },
 ];
+const names = rowNames(rows);
 
 describe('site and department filters', () => {
-  it('offers the sites in the list and the departments of the chosen site', () => {
-    const all = orgOptions(rows, null);
-    expect(all.sites).toHaveLength(2);
+  it('offers the sites in the list and the departments of the chosen site, by id', () => {
+    const all = orgOptions(rows, null, names);
+    expect(all.sites.map(s => s.value).sort()).toEqual(['hc', 'ty']);
+    expect(all.sites.find(s => s.value === 'hc')?.label).toBe('新竹廠');
     expect(all.departments).toHaveLength(3);
-    expect(orgOptions(rows, '桃園廠').departments.sort()).toEqual(['製造一課', '製造二課'].sort());
+    expect(orgOptions(rows, 'ty', names).departments.map(d => d.value).sort()).toEqual(['ty-m1', 'ty-m2']);
   });
 
-  it('matches on whichever parts are chosen', () => {
-    expect(rows.filter(r => matchOrg(r, { site: '桃園廠', department: null }))).toHaveLength(3);
-    expect(rows.filter(r => matchOrg(r, { site: null, department: '製造一課' }))).toHaveLength(2);
-    expect(rows.filter(r => matchOrg(r, { site: null, department: null }))).toHaveLength(4);
+  it('labels a department name used in two sites with its site', () => {
+    const twice = [...rows, { siteId: 'hc', site: '新竹廠', departmentId: 'hc-m1', department: '製造一課' }];
+    const labels = orgOptions(twice, null, rowNames(twice)).departments.map(d => d.label);
+    expect(labels).toEqual(expect.arrayContaining(['製造一課（桃園廠）', '製造一課（新竹廠）', '製造二課', '研發部']));
+    // Within one site the name is unique again.
+    expect(orgOptions(twice, 'hc', rowNames(twice)).departments.map(d => d.label).sort()).toEqual(['研發部', '製造一課'].sort());
   });
+
+  it('leaves out rows without a site or department', () => {
+    const o = orgOptions([{ siteId: 'ty' }, { departmentId: 'x' }, { siteId: null, departmentId: null }], null, names);
+    expect(o.sites.map(s => s.value)).toEqual(['ty']);
+    expect(o.departments.map(d => d.value)).toEqual(['x']);
+  });
+
+  it('matches on whichever ids are chosen', () => {
+    expect(rows.filter(r => matchOrg(r, { siteId: 'ty', departmentId: null }))).toHaveLength(3);
+    expect(rows.filter(r => matchOrg(r, { siteId: null, departmentId: 'ty-m1' }))).toHaveLength(2);
+    expect(rows.filter(r => matchOrg(r, { siteId: 'hc', departmentId: 'ty-m1' }))).toHaveLength(0);
+    expect(rows.filter(r => matchOrg(r, { siteId: null, departmentId: null }))).toHaveLength(4);
+  });
+
+  const org: OrgEntity[] = [{ id: 'l', code: 'L', name: '法人', sites: [
+    { id: 's1', code: 'TY', name: '桃園廠', mine: true, departments: [{ id: 'd1', code: null, name: '製造一課' }] },
+    { id: 's2', code: 'HC', name: '新竹廠', mine: false, departments: [] },
+  ] }];
 
   it('finds the departments of a site in the organisation tree', () => {
-    const org: OrgEntity[] = [{ id: 'l', code: 'L', name: '法人', sites: [
-      { id: 's1', code: 'TY', name: '桃園廠', mine: true, departments: [{ id: 'd1', code: null, name: '製造一課' }] },
-      { id: 's2', code: 'HC', name: '新竹廠', mine: false, departments: [] },
-    ] }];
     expect(siteDepartments(org, 's1').map(d => d.id)).toEqual(['d1']);
     expect(siteDepartments(org, 'nope')).toEqual([]);
     expect(siteDepartments(org, null)).toEqual([]);
+  });
+
+  it('names sites and departments, and finds the site of a department, from the organisation tree', () => {
+    const t = treeNames(org);
+    expect(t.site('s2')).toBe('新竹廠');
+    expect(t.department('d1')).toBe('製造一課');
+    expect(t.siteOf('d1')).toBe('s1');
+    expect(t.siteOf('nope')).toBeNull();
+    expect(t.department('nope')).toBe('—');
   });
 });
 
@@ -48,8 +75,8 @@ describe('reminders', () => {
   });
 
   it('says who could not be reached', () => {
-    expect(reminderText(3, [])).toBe('已寄出 3 封催填通知。');
-    expect(reminderText(0, ['王小明', '林小美'])).toBe('沒有寄出催填通知。王小明、林小美 沒有 Email，請另行通知。');
+    expect(reminderText(3, [])).toBe('已催填 3 位員工。');
+    expect(reminderText(0, ['王小明', '林小美'])).toBe('沒有可以寄提醒信的員工。王小明、林小美 沒有 Email，請另行通知。');
   });
 });
 
