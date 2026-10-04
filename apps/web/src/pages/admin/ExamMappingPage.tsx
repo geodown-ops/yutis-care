@@ -6,8 +6,8 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../../api';
 import { CardNote } from '../states';
 import { COLUMN_FIELDS, emptyMappingForm, MAPPABLE_ITEMS, mappingBody, mappingProblems, mappingSummary, mappingToForm, type ExamMapping, type MappingForm } from './mappings';
-import { examMappingsQuery } from './queries';
-import { AdminTitle, ConfirmModal, ErrorNote, FormActions } from './ui';
+import { downloadMappingTemplate, examMappingsQuery } from './queries';
+import { AdminTitle, ConfirmModal, DownloadButton, ErrorNote, FormActions } from './ui';
 
 /** 健檢匯入對照: per clinic, which Excel column holds which field and exam item. Nurses pick the clinic when importing. */
 export function ExamMappingPage() {
@@ -17,13 +17,13 @@ export function ExamMappingPage() {
 
   return (
     <Stack gap="lg">
-      <AdminTitle title="健檢匯入對照" description="每家健檢醫院的 Excel 欄位名稱不同。設定一次對照後，職護匯入健檢時選擇醫院，系統就知道每一欄是什麼。"
+      <AdminTitle title="健檢匯入對照" description="每家健檢醫院的 Excel 欄位名稱不同。設定一次對照後，職護匯入健檢時選擇醫院，系統就知道每一欄是什麼。也可以下載依對照產生的空白範本，交給健檢醫院照著填。"
         actions={<Button leftSection={<IconPlus size={16} />} onClick={() => setEditing('new')}>新增對照</Button>} />
       <Card>
-        <Table.ScrollContainer minWidth={680}>
+        <Table.ScrollContainer minWidth={760}>
           <Table verticalSpacing="sm" highlightOnHover>
             <Table.Thead>
-              <Table.Tr><Table.Th>健檢醫院</Table.Th><Table.Th>員工對照</Table.Th><Table.Th>檢查日期欄</Table.Th><Table.Th ta="right">檢查項目</Table.Th><Table.Th ta="right">其他欄位</Table.Th><Table.Th w={150} /></Table.Tr>
+              <Table.Tr><Table.Th>健檢醫院</Table.Th><Table.Th>員工對照</Table.Th><Table.Th>檢查日期欄</Table.Th><Table.Th ta="right">檢查項目</Table.Th><Table.Th ta="right">其他欄位</Table.Th><Table.Th w={230} /></Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {mappings.map(m => {
@@ -37,7 +37,8 @@ export function ExamMappingPage() {
                     <Table.Td ta="right">{s.items} 項</Table.Td>
                     <Table.Td ta="right">{s.fields} 欄</Table.Td>
                     <Table.Td>
-                      <Group gap={6} justify="flex-end" wrap="nowrap">
+                      <Group gap={6} justify="flex-end" align="flex-start" wrap="nowrap">
+                        <DownloadButton size="compact-sm" variant="subtle" download={() => downloadMappingTemplate(m)} aria-label={`下載 ${m.clinic} 的空白範本`}>範本</DownloadButton>
                         <Button size="compact-sm" variant="default" onClick={() => setEditing(m)} aria-label={`編輯 ${m.clinic}`}>編輯</Button>
                         <Button size="compact-sm" variant="subtle" color="gray" onClick={() => setDeleting(m)} aria-label={`刪除 ${m.clinic}`}>刪除</Button>
                       </Group>

@@ -19,12 +19,12 @@ export function AdminTitle({ title, description, actions }: { title: string; des
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'muted';
 
-/** A status pill in the token colours (as EmployeeStatus does). */
+/** A status pill in the token colours (as EmployeeStatus does). Never cut short when a table squeezes its column. */
 export function ToneBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
   const style = tone === 'muted'
     ? { background: 'var(--yutis-surface2)', color: 'var(--yutis-muted)' }
     : { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})` };
-  return <Badge styles={{ root: { ...style, textTransform: 'none', fontWeight: 600 } }}>{children}</Badge>;
+  return <Badge styles={{ root: { ...style, textTransform: 'none', fontWeight: 600 }, label: { overflow: 'visible' } }}>{children}</Badge>;
 }
 
 /** A refused save or delete, in plain words. */

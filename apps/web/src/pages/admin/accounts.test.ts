@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountFormProblems, accountToForm, countByRole, filterAccounts, inactiveCount, inviteBody, signInText, updateBody, type StaffAccount } from './accounts';
+import { accountFormProblems, accountToForm, countByRole, filterAccounts, inactiveCount, inviteBody, inviteNotice, signInText, updateBody, type StaffAccount } from './accounts';
 
 const account = (over: Partial<StaffAccount>): StaffAccount => ({
   id: 'u1', email: 'nurse@demo.test', name: '王護理師', role: '職護', phone: null, qualification: null, active: true,
@@ -56,5 +56,18 @@ describe('staff account helpers', () => {
     expect(signInText({ lastSignInAt: null, signedInBefore: false })).toBe('尚未登入');
     expect(signInText({ lastSignInAt: null, signedInBefore: true })).toBe('已登入過');
     expect(signInText({ lastSignInAt: new Date(2026, 9, 4, 8, 5).toISOString(), signedInBefore: true })).toBe('2026/10/04 08:05');
+  });
+});
+
+describe('invitation result', () => {
+  it('says the invitation went out when the API emailed it', () => {
+    expect(inviteNotice({ name: '王護理師', email: 'nurse@demo.test', emailed: true })).toMatchObject({ sent: true, title: '已寄邀請信給 王護理師' });
+  });
+
+  it('says no email was sent otherwise, and how the person gets in', () => {
+    const n = inviteNotice({ name: '王護理師', email: 'nurse@demo.test', emailed: false });
+    expect(n.sent).toBe(false);
+    expect(n.title).toBe('尚未寄信給 王護理師');
+    expect(n.text).toContain('nurse@demo.test');
   });
 });

@@ -34,9 +34,25 @@ export const auditQuery = (search: AuditSearch) => queryOptions({
   refetchOnReconnect: false,
 });
 
+/**
+ * Employees by name or 工號 (leavers too) for the audit filter: id, 工號 and name only. Every employee returned is itself
+ * audited, so this runs only for typed text, and the same text is not searched again on focus or reconnect.
+ */
+export const adminEmployeesQuery = (q: string) => queryOptions({
+  queryKey: ['admin', 'employees', q],
+  queryFn: () => data(api.GET('/api/admin/employees', { params: { query: { q, limit: 20 } } })),
+  enabled: q.length > 0,
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
 /** Blank import files with the header row the import reads (bold = required). */
 export const downloadOrgTemplate = () => downloadFile(api.GET('/api/admin/org/import-template', { parseAs: 'blob' }), '組織架構匯入範本.xlsx');
 export const downloadEmployeeTemplate = () => downloadFile(api.GET('/api/admin/employees/import-template', { parseAs: 'blob' }), '員工主檔匯入範本.xlsx');
+/** A clinic's blank file with the column names of its mapping (bold = required), to hand to the clinic. */
+export const downloadMappingTemplate = (m: { id: string; clinic: string }) =>
+  downloadFile(api.GET('/api/admin/exam-mappings/{id}/template', { params: { path: { id: m.id } }, parseAs: 'blob' }), `${m.clinic}健檢匯入範本.xlsx`);
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 

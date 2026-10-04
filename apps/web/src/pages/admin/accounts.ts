@@ -2,6 +2,8 @@
 import { STAFF_ROLES, type Schemas, type StaffRole } from '@yutis/api-client';
 
 export type StaffAccount = Schemas['StaffAccountDto'];
+/** POST /api/admin/users: the new account, and whether the invitation was really emailed. */
+export type InvitedStaff = Schemas['InvitedStaffDto'];
 
 /** Roles that work through site scope: without a site they see no employees at all. */
 export const SITE_ROLES: readonly StaffRole[] = ['職護', '職醫'];
@@ -72,4 +74,14 @@ export function updateBody(original: StaffAccount, f: AccountForm) {
   if (orNull(f.qualification) !== original.qualification) body.qualification = orNull(f.qualification);
   if (f.active !== original.active) body.active = f.active;
   return body;
+}
+
+/**
+ * What the admin is told after an invitation. `emailed` is false where mail is only logged (local development, the demo
+ * site): then nobody was told, and the admin passes on the sign-in address themselves.
+ */
+export function inviteNotice(i: Pick<InvitedStaff, 'name' | 'email' | 'emailed'>): { sent: boolean; title: string; text: string } {
+  return i.emailed
+    ? { sent: true, title: `已寄邀請信給 ${i.name}`, text: `邀請信已寄到 ${i.email}，內含登入網址。對方第一次用這個 Email 登入時完成綁定。` }
+    : { sent: false, title: `尚未寄信給 ${i.name}`, text: `系統沒有寄出邀請信。請複製下面的登入網址交給對方，對方用 ${i.email} 登入時完成綁定。` };
 }

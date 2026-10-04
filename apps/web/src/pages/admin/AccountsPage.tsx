@@ -1,5 +1,5 @@
-import { Badge, Button, Card, Group, Modal, MultiSelect, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput } from '@mantine/core';
-import { IconSearch, IconUserPlus } from '@tabler/icons-react';
+import { ActionIcon, Alert, Badge, Button, Card, CopyButton, Group, Modal, MultiSelect, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Tooltip } from '@mantine/core';
+import { IconCheck, IconCopy, IconMailCheck, IconMailOff, IconSearch, IconUserPlus } from '@tabler/icons-react';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { data, STAFF_ROLES, type StaffRole } from '@yutis/api-client';
 import { StatCard, type TileTone } from '@yutis/ui';
@@ -8,8 +8,8 @@ import { api } from '../../api';
 import { useMe } from '../../session';
 import { CardNote } from '../states';
 import {
-  accountFormProblems, accountToForm, countByRole, emptyAccountForm, filterAccounts, inactiveCount, inviteBody, signInText, SITE_ROLES, updateBody,
-  type AccountForm, type StaffAccount,
+  accountFormProblems, accountToForm, countByRole, emptyAccountForm, filterAccounts, inactiveCount, inviteBody, inviteNotice, signInText, SITE_ROLES, updateBody,
+  type AccountForm, type InvitedStaff, type StaffAccount,
 } from './accounts';
 import { siteNames, siteOptions, type LegalEntity } from './org';
 import { orgQuery, staffAccountsQuery } from './queries';
@@ -106,11 +106,18 @@ function AccountFormView({ account, tree, isSelf, onDone }: { account: StaffAcco
   const [tried, setTried] = useState(false);
   const problems = accountFormProblems(f, { isNew: !account, isSelf, original: account ?? undefined });
   const changes = account ? updateBody(account, f) : null;
+  // After an invitation the modal says whether it was emailed, instead of closing.
+  const [invited, setInvited] = useState<InvitedStaff | null>(null);
   const save = useMutation({
-    mutationFn: () => account
-      ? data(api.PATCH('/api/admin/users/{id}', { params: { path: { id: account.id } }, body: updateBody(account, f) }))
-      : data(api.POST('/api/admin/users', { body: inviteBody(f) })),
-    onSuccess: async () => { await qc.invalidateQueries({ queryKey: ['admin', 'users'] }); onDone(); },
+    mutationFn: async (): Promise<InvitedStaff | null> => {
+      if (!account) return data(api.POST('/api/admin/users', { body: inviteBody(f) }));
+      await data(api.PATCH('/api/admin/users/{id}', { params: { path: { id: account.id } }, body: updateBody(account, f) }));
+      return null;
+    },
+    onSuccess: async result => {
+      await qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      if (result) setInvited(result); else onDone();
+    },
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -119,13 +126,14 @@ function AccountFormView({ account, tree, isSelf, onDone }: { account: StaffAcco
   };
   const show = (k: keyof AccountForm) => (tried ? problems[k] : undefined);
   const text = (k: 'name' | 'email' | 'phone' | 'qualification') => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.currentTarget.value });
+  if (invited) return <InviteResult invited={invited} onDone={onDone} />;
 
   return (
     <form onSubmit={submit} noValidate>
       <Stack gap="sm">
         {!account && (
           <Text size="sm" c="dimmed">
-            系統會寄邀請信到這個 Email，內含登入網址 {window.location.origin}；對方第一次以這個 Email 登入時完成綁定。對方沒收到信時（測試與示範環境不會實際寄出），請直接把登入網址告訴對方。
+            系統會寄邀請信到這個 Email，內含登入網址 {window.location.origin}；對方第一次以這個 Email 登入時完成綁定。
           </Text>
         )}
         <Group grow align="flex-start">
@@ -154,5 +162,34 @@ function AccountFormView({ account, tree, isSelf, onDone }: { account: StaffAcco
         <FormActions busy={save.isPending} onCancel={onDone} submitLabel={account ? '儲存' : '邀請'} disabled={!!changes && Object.keys(changes).length === 0} />
       </Stack>
     </form>
+  );
+}
+
+/** After inviting: the invitation was emailed, or it was not and the admin copies the sign-in address to pass on. */
+function InviteResult({ invited, onDone }: { invited: InvitedStaff; onDone: () => void }) {
+  const notice = inviteNotice(invited);
+  const url = `${window.location.origin}/`;
+  return (
+    <Stack gap="md">
+      <Alert color={notice.sent ? 'green' : 'yellow'} variant="light" title={notice.title}
+        icon={notice.sent ? <IconMailCheck size={18} /> : <IconMailOff size={18} />}>
+        {notice.text}
+      </Alert>
+      {!notice.sent && (
+        <TextInput label="登入網址" readOnly value={url} onFocus={e => e.currentTarget.select()} styles={{ input: { fontFamily: 'monospace' } }}
+          rightSection={(
+            <CopyButton value={url}>
+              {({ copied, copy }) => (
+                <Tooltip label={copied ? '已複製' : '複製登入網址'} withArrow>
+                  <ActionIcon variant="subtle" color={copied ? 'green' : 'gray'} onClick={copy} aria-label="複製登入網址">
+                    {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                  </ActionIcon>
+                </Tooltip>
+              )}
+            </CopyButton>
+          )} />
+      )}
+      <Group justify="flex-end"><Button onClick={onDone} data-autofocus>完成</Button></Group>
+    </Stack>
   );
 }
