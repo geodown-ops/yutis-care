@@ -17,6 +17,7 @@ import {
   type Advice, type CareRecord, type ConsultType, type RecordForm, type RecordResult,
 } from './records';
 import { CARE_ROLES, staffOptions, type StaffMember } from './staff';
+import { staffSelectProps } from './StaffPicker';
 
 export interface RecordFormTarget {
   employeeId: string;
@@ -130,7 +131,7 @@ function RecordFormBody({ target, initial, kase, staff, wide, onDone }: {
         <Stack gap={8}>
           {f.helpers.map((h, i) => (
             <Group key={i} gap="sm" wrap="nowrap" align="flex-end">
-              <Select aria-label={`協助人員 ${i + 1}`} data={people} value={h.userId || null} allowDeselect={false} style={{ flex: 1 }}
+              <Select aria-label={`協助人員 ${i + 1}`} data={people} value={h.userId || null} allowDeselect={false} style={{ flex: 1 }} {...staffSelectProps}
                 onChange={v => v && set('helpers', f.helpers.map((x, j) => (j === i ? { ...x, userId: v } : x)))} />
               <NumberInput aria-label={`協助人員 ${i + 1} 費時（分鐘）`} w={110} min={0} max={1440} allowDecimal={false} suffix=" 分" value={h.minutes}
                 onChange={v => set('helpers', f.helpers.map((x, j) => (j === i ? { ...x, minutes: typeof v === 'number' ? v : Number(v) || 0 } : x)))} />
@@ -153,7 +154,7 @@ function RecordFormBody({ target, initial, kase, staff, wide, onDone }: {
         {f.result === '追蹤' && (
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" mt="sm">
             <TextInput type="date" label="下次追蹤日期" required value={f.followUpOn} onChange={e => set('followUpOn', e.currentTarget.value)} />
-            <Select label="負責追蹤人員" data={people} value={f.followUpUserId || null} allowDeselect={false} onChange={v => v && set('followUpUserId', v)} />
+            <Select label="負責追蹤人員" data={people} value={f.followUpUserId || null} allowDeselect={false} onChange={v => v && set('followUpUserId', v)} {...staffSelectProps} />
           </SimpleGrid>
         )}
         <Text size="xs" c="dimmed" mt={6}>選「追蹤」會出現在負責人員首頁的近期追蹤；按「暫存」先存成草稿，之後再編輯。</Text>
