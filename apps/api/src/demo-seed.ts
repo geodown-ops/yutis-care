@@ -4,9 +4,10 @@
  * holds real data. Idempotent: does nothing if the tenant exists.
  */
 import { departments, employees, legalEntities, sites, tenants, users, userSiteScopes, type Db } from '@yutis/db';
+import { DEMO_SITE_SUBDOMAIN } from '@yutis/domain';
 import { eq } from 'drizzle-orm';
 
-export const DEMO_TENANT_SLUG = 'demo';
+export const DEMO_TENANT_SLUG = DEMO_SITE_SUBDOMAIN;
 
 /** Runs as the table owner. Returns false if the tenant already existed. */
 export async function seedDemoTenant(db: Db): Promise<boolean> {

@@ -58,6 +58,7 @@ pnpm --filter @yutis/api dev                    # 建置並啟動，http://demo.
 pnpm --filter @yutis/api worker                 # 另一個終端機：背景工作（匯出、每晚保存期限掃描）
 ```
 
+- worker 與 API 共用 `apps/api/.env`；本機 worker 不佔用 API 的 `PORT`，需要健康檢查時另設 `WORKER_PORT`。
 - API 文件：http://localhost:3000/api/docs（非正式環境才有）。
 - 登入：`POST /api/auth/sign-in`，body `{"token": "nurse@demo.test", "as": "staff"}`；員工用 `{"token": "0900000001", "as": "employee"}`。
 - API 必須以 `yutis_app` 的成員角色連線；若用資料表擁有者或 superuser，RLS 不會生效，API 會拒絕啟動。
@@ -65,13 +66,15 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 - 每個路由要有三種測試：其他租戶拿不到、不對的角色拿不到、有寫稽核（見 `apps/api/test/api.test.ts`）。
 - 員工資料（`/api/employees`、`/api/employees/:id`）給職護、職醫與人資：只列負責廠區（或有效的破窗授權）的員工，可依姓名或工號、廠區、部門、狀態搜尋並分頁；單一員工另含遮罩後的身分證字號。每位回傳的員工都記入稽核。
 - 健檢、協助紀錄、個案（`/api/exams`、`/api/employees/:id/exams`、`/api/records`、`/api/cases`）只給職護、職醫，而且只限負責廠區（或有效的破窗授權）的員工；每次讀取都記入稽核，人資與租戶管理員一律拿不到。健檢以租戶管理員設定的「健檢匯入對照」匯入，依目前發布的分級標準分級並保留版本。
-- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。
-- 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
+- 四大計畫（`/api/programs/*`）：人因（NMQ）、異常工作負荷（CBI、工時、十年心血管風險 × 負荷矩陣、醫師面談）、母性健康保護、不法侵害。職護、職醫看負責廠區的全部；職安衛人員只看作業環境評估與檢點表；人資只看工作安排建議（`/api/programs/work-advice`）；部門主管只看通知給自己的（`/api/programs/notices`）。各計畫與年齡關注都會產生異常事件，進入個案管理。過勞與母性面談會帶出面談 id、員工確認狀態與已通知主管的讀取狀態，職護、職醫可隨時用 `/api/programs/managers` 選主管、以 `POST /api/programs/notices` 通知；主管看到的通知不標示計畫（一律「工作調整」），以免透露員工可能懷孕。過勞面談改為已安排並有日期時，寄信通知員工（信中不提計畫）；回應的 `emailed` 與催填結果的 `delivered` 標示信是否真的寄出（`EMAIL_PROVIDER=log` 時只記錄不寄）。表單的固定選項由 `/api/programs/options` 提供。
+- 員工端（`/api/portal/*`）只回傳登入員工本人的資料：待填問卷與待確認紀錄、填寫與確認、我的健康資料與匯出、告知與同意紀錄。任務標題與確認紀錄依員工設定的語言（中文、English、日本語、Tiếng Việt、ภาษาไทย，`PUT /api/portal/profile`）。問卷可存草稿（`PUT /api/portal/tasks/{kind}/{id}/draft`），閒置登出後可接著填；送出後草稿刪除，草稿只有本人看得到。Email 連結（`/api/sign/:token`）一次性、會過期，只能開啟一份紀錄；資料庫只存 token 的雜湊。
 - 病史、症狀、協助紀錄內容等 `_enc` 欄位以 `TenantCrypto` 加密（每個租戶各自的金鑰）；身分證字號不存完整號碼，只存每個租戶各自的 HMAC 與遮罩值。本機用 `TENANT_CRYPTO_LOCAL_KEY`，正式環境之後改接 Cloud KMS，未設定時相關功能回 503。
-- 附表八（`/api/service-records`）由職護、職醫、職安衛人員填寫，送出後依租戶設定的簽核角色寄出一次性簽核連結（`/api/sign/:token`），全部簽核後完成；整個簽核過程記入稽核。
+- 附表八（`/api/service-records`）由職護、職醫、職安衛人員填寫，送出後依租戶設定的簽核角色（`/api/admin/sign-off-roles`）寄出一次性簽核連結（`/api/sign/:token`），全部簽核後完成；整個簽核過程記入稽核。不法侵害預防措施查核（`/api/programs/violence/reviews`）用同一套簽核。
+- 寄信透過可替換的 `Mailer`：`EMAIL_PROVIDER=log`（預設，本機與示範站）只記 log、不寄出；`EMAIL_PROVIDER=resend` 以 Resend HTTPS API 寄出，需設定 `RESEND_API_KEY` 與 `EMAIL_FROM`（寄件網域要先在 Resend 驗證）。每封信在 `notifications` 留一列，記錄是否寄出或失敗原因；信件內容不含健康資料。
+- 人員與組織名稱（`/api/staff?roles=職護,職醫`、`/api/org`）給所有後台人員選人與篩選用，不含聯絡方式。
 - 統計報表（`/api/reports`，16 種，與雛形相同）：職護、職醫看負責廠區的完整數字；職安衛人員與人資只看去識別統計，少於 5 人的格子（以及可由總數推算出的格子）不顯示。匯出（`/api/exports`）由背景工作產生 Excel／PDF，附匯出人與時間浮水印，以 5 分鐘、一次性的連結下載，申請與下載都記入稽核。
 - 保存期限：健檢匯入時依一般 7 年、特殊 10 年設定 `retain_until`（待法務確認）；背景工作每晚列出已過期的資料（`/api/retention`）供人工確認刪除，系統不會自動刪除。
-- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
+- 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入、片語庫、稽核查詢（`/api/admin/audit`，依員工、操作者、動作、資料等級與日期查，每次查詢也記入稽核；選員工用 `/api/admin/employees?q=`，重開查詢連結時用 `?ids=` 帶回員工，只回 id、工號、姓名與在職狀態）。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
 
 ### 平台 API
@@ -85,7 +88,8 @@ pnpm --filter @yutis/platform-api dev                      # http://localhost:30
 ```
 
 - 正式環境由 Identity-Aware Proxy 擋在前面，API 驗證 IAP 簽發的 JWT（`x-goog-iap-jwt-assertion`）再對應 `platform_users` 的角色（營運、客服、工程）。本機用 `X-Dev-Platform-User: ops@yutis.test` 代替，正式環境會拒絕啟動。
-- 每個寫入都必須在同一個交易寫 `platform_audit_log`，沒寫的請求會整筆回滾。
+- 每個寫入都必須在同一個交易寫 `platform_audit_log`，沒寫的請求會整筆回滾；`GET /platform-api/audit` 可依租戶、人員、動作與日期查詢。`GET /platform-api/me` 回傳登入者與角色的權限，畫面依此隱藏按鈕。
+- 訂閱：續約或換方案用 `POST /platform-api/tenants/{id}/subscriptions` 新增一期，舊的留在歷史；開始日到了才成為目前的訂閱，所以可以提早續約。`PUT …/subscription` 只用來更正目前這一期。
 - 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
 - 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
 - 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。

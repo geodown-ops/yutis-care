@@ -32,6 +32,14 @@ const Env = z.object({
    * production deployment.
    */
   DEMO_SITE: flag.default(false),
+  /**
+   * How email goes out (staff invitations, 附表八 sign-off links, employee confirmation links): `log` only logs that a
+   * message would have been sent (local development, the demo site); `resend` sends through Resend's HTTPS API.
+   */
+  EMAIL_PROVIDER: z.enum(['log', 'resend']).default('log'),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  /** Sender, e.g. `Yutis Care <noreply@care.yutis.com.tw>`; its domain must be verified with the provider. */
+  EMAIL_FROM: z.string().min(1).optional(),
 });
 
 export interface ApiConfig {
@@ -52,6 +60,14 @@ export interface ApiConfig {
   cryptoKms: boolean;
   /** Identity Platform whose ID tokens sign people in; undefined = sign-in unavailable (unless dev sign-in). */
   identityPlatform?: { projectId: string; apiKey: string; authDomain: string };
+  email: EmailConfig;
+}
+
+export type EmailConfig = { provider: 'log' } | { provider: 'resend'; apiKey: string; from: string };
+
+/** The tenant's own origin, e.g. https://acme.care.yutis.com.tw, for links in email and API answers. */
+export function tenantOrigin(config: Pick<ApiConfig, 'cookieSecure' | 'tenantBaseDomain'>, slug: string): string {
+  return `${config.cookieSecure ? 'https' : 'http'}://${slug}.${config.tenantBaseDomain}`;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): ApiConfig {
@@ -72,6 +88,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   }
   if (identityPlatform && e.AUTH_DEV_SIGN_IN) throw new Error('Use either AUTH_DEV_SIGN_IN or Identity Platform, not both');
   if (cryptoLocalKey && e.TENANT_CRYPTO_KMS) throw new Error('Use either TENANT_CRYPTO_LOCAL_KEY or TENANT_CRYPTO_KMS, not both');
+  if (e.EMAIL_PROVIDER === 'resend' && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) throw new Error('EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM');
   return {
     production,
     demoSite: e.DEMO_SITE,
@@ -86,5 +103,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     cryptoLocalKey,
     cryptoKms: e.TENANT_CRYPTO_KMS,
     identityPlatform,
+    email: e.EMAIL_PROVIDER === 'resend' ? { provider: 'resend', apiKey: e.RESEND_API_KEY!, from: e.EMAIL_FROM! } : { provider: 'log' },
   };
 }

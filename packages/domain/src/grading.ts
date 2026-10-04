@@ -7,7 +7,9 @@ export type Grade = 1 | 2 | 3 | 4;
 export interface NumericLevel { lv: Grade; min?: number; max?: number }
 export interface TextLevel { lv: Grade; values: string[] }
 
-interface RuleBase { code: string; name: string; sex: RuleSex; unit: string; src: 'manual' | 'demo' }
+/** Where the thresholds come from: the regulation's manual, the prototype's illustrative values, or a physician's own. */
+export type RuleSource = 'manual' | 'demo' | 'physician';
+interface RuleBase { code: string; name: string; sex: RuleSex; unit: string; src: RuleSource }
 export type GradingRule =
   | (RuleBase & { type?: 'number'; levels: NumericLevel[] })
   | (RuleBase & { type: 'text'; levels: TextLevel[] });

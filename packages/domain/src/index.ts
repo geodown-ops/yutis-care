@@ -6,5 +6,7 @@ export * from './maternal.js';
 export * from './violence.js';
 export * from './events.js';
 export * from './tenancy.js';
+export * from './languages.js';
 export * from './records.js';
 export * from './retention.js';
+export * from './options.js';

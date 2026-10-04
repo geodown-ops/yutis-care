@@ -1,10 +1,15 @@
 import { randomBytes } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { createApp, openApiDocument } from '../src/app.js';
 import { allows } from '../src/auth/access.guard.js';
 import { ROLE_ACCESS } from '../src/auth/permissions.js';
 import { loadConfig } from '../src/config.js';
 import type { StaffPrincipal } from '../src/core/context.js';
 import { LocalTenantCrypto } from '../src/core/crypto.js';
+import { createMailer, maskEmail } from '../src/core/mail.js';
 import { tenantSlugFromHost } from '../src/core/host.js';
 
 describe('tenantSlugFromHost', () => {
@@ -14,6 +19,8 @@ describe('tenantSlugFromHost', () => {
     expect(tenantSlugFromHost('acme.care.yutis.com.tw', base)).toBe('acme');
     expect(tenantSlugFromHost('ACME.Care.Yutis.com.tw:443', base)).toBe('acme');
     expect(tenantSlugFromHost('acme-2.care.yutis.com.tw.', base)).toBe('acme-2');
+    // The demo deployment serves its own tenant called demo; only the platform refuses to give that name away.
+    expect(tenantSlugFromHost('demo.care.yutis.com.tw', base)).toBe('demo');
   });
 
   it.each([
@@ -77,6 +84,24 @@ describe('loadConfig', () => {
   it('requires a database URL', () => {
     expect(() => loadConfig({})).toThrow(/APP_DATABASE_URL/);
   });
+
+  it('only logs email unless Resend is configured with a key and a sender', () => {
+    expect(loadConfig(env).email).toEqual({ provider: 'log' });
+    const resend = { ...env, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Yutis Care <noreply@care.yutis.com.tw>' };
+    expect(loadConfig(resend).email).toEqual({ provider: 'resend', apiKey: 're_test', from: 'Yutis Care <noreply@care.yutis.com.tw>' });
+    expect(createMailer(loadConfig(resend).email).delivers).toBe(true);
+    expect(createMailer(loadConfig(env).email).delivers).toBe(false);
+    expect(() => loadConfig({ ...resend, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY and EMAIL_FROM/);
+    expect(() => loadConfig({ ...resend, EMAIL_FROM: undefined })).toThrow(/RESEND_API_KEY and EMAIL_FROM/);
+    expect(() => loadConfig({ ...env, EMAIL_PROVIDER: 'smtp' })).toThrow(/EMAIL_PROVIDER/);
+  });
+});
+
+describe('maskEmail', () => {
+  it('keeps the first letter and the domain only', () => {
+    expect(maskEmail('wang.xiaoming@acme.test')).toBe('w***@acme.test');
+    expect(maskEmail('not-an-address')).toBe('***');
+  });
 });
 
 describe('LocalTenantCrypto', () => {
@@ -106,5 +131,25 @@ describe('LocalTenantCrypto', () => {
   it('is refused in production', () => {
     expect(() => loadConfig({ APP_DATABASE_URL: 'postgres://x/y', NODE_ENV: 'production', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') })).toThrow(/TENANT_CRYPTO_LOCAL_KEY/);
     expect(() => loadConfig({ APP_DATABASE_URL: 'postgres://x/y', TENANT_CRYPTO_LOCAL_KEY: randomBytes(16).toString('base64') })).toThrow(/32 bytes/);
+  });
+});
+
+describe('OpenAPI contract', () => {
+  it('names every class once, since Swagger keys schemas by class name and silently keeps one of two', () => {
+    const src = fileURLToPath(new URL('../src/', import.meta.url));
+    const names = readdirSync(src, { recursive: true }).map(String).filter(f => f.endsWith('.ts'))
+      .flatMap(f => [...readFileSync(join(src, f), 'utf8').matchAll(/^(?:export )?class (\w+)/gm)].map(m => m[1]!));
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+  });
+
+  it('declares a type for every parameter', async () => {
+    const app = await createApp(loadConfig({ NODE_ENV: 'production', APP_DATABASE_URL: 'postgres://unused/unused' }), { logger: false });
+    const doc = openApiDocument(app);
+    await app.close();
+    const untyped = Object.entries(doc.paths).flatMap(([path, ops]) => Object.entries(ops).flatMap(([method, op]) =>
+      ((op as { parameters?: { name: string; schema?: object }[] }).parameters ?? [])
+        .filter(p => !p.schema || !['type', '$ref', 'enum', 'oneOf'].some(k => k in p.schema!))
+        .map(p => `${method.toUpperCase()} ${path} ${p.name}`)));
+    expect(untyped).toEqual([]);
   });
 });

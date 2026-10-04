@@ -3,14 +3,15 @@
  * Each area checks: other tenants cannot reach it, other roles are refused, writes are audited, imports validate first.
  */
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { auditLog, departments, employees, legalEntities, plans, sessions, sites, tenants, tenantSubscriptions, usageCounters, users, type Db } from '@yutis/db';
+import { auditLog, departments, employees, legalEntities, notifications, plans, sessions, sites, tenants, tenantSubscriptions, usageCounters, users, type Db } from '@yutis/db';
 import { randomBytes } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { and, eq, isNull } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { XLSX_MIME } from '../src/admin/excel.js';
 import { loadConfig } from '../src/config.js';
+import { RESEND_ENDPOINT } from '../src/core/mail.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 let db: TestDatabase;
@@ -42,6 +43,10 @@ async function xlsx(sheets: Record<string, (string | number | Date | null)[][]>)
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+/** Requests to Resend (EMAIL_PROVIDER=resend here, with fetch stubbed); `resendAnswer` is what it answers. */
+const resendCalls: { url: string; init: RequestInit }[] = [];
+let resendAnswer = () => new Response(JSON.stringify({ id: 'email-1' }), { status: 200 });
+
 const audits = (subjectTable: string) => owner.select().from(auditLog).where(and(eq(auditLog.tenantId, ids.acme), eq(auditLog.subjectTable, subjectTable)));
 
 beforeAll(async () => {
@@ -62,13 +67,18 @@ beforeAll(async () => {
   const [plan] = await owner.insert(plans).values({ code: 'standard', name: '標準方案' }).returning();
   await owner.insert(tenantSubscriptions).values({ tenantId: ids.acme, planId: plan!.id, status: 'active', seatLimit: 2, startsOn: '2026-01-01' });
 
-  const config = loadConfig({ NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64') });
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => { resendCalls.push({ url, init }); return resendAnswer(); });
+  const config = loadConfig({
+    NODE_ENV: 'test', APP_DATABASE_URL: db.appUrl, TENANT_BASE_DOMAIN: 'care.test', COOKIE_SECURE: 'false', AUTH_DEV_SIGN_IN: 'true', TENANT_CRYPTO_LOCAL_KEY: randomBytes(32).toString('base64'),
+    EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test', EMAIL_FROM: 'Yutis Care <noreply@care.test>',
+  });
   app = await createApp(config, { logger: false });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 });
 
 afterAll(async () => {
+  vi.unstubAllGlobals();
   await app?.close();
   await db?.drop();
 });
@@ -156,12 +166,38 @@ describe('staff accounts', () => {
     expect((await call('acme', 'POST', '/api/auth/sign-in', { body: { token: 'doctor@acme.test', as: 'staff' } })).statusCode).toBe(401);
     const res = await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'Doctor@Acme.test', name: '張醫師', role: '職醫', siteIds: [ids.s1] } });
     expect(res.statusCode, res.body).toBe(201);
-    expect(res.json()).toMatchObject({ email: 'doctor@acme.test', role: '職醫', active: true, signedInBefore: false, siteIds: [ids.s1] });
+    expect(res.json()).toMatchObject({ email: 'doctor@acme.test', role: '職醫', active: true, signedInBefore: false, siteIds: [ids.s1], emailed: true });
     expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'doctor@acme.test', name: 'x', role: '職醫' } })).json()).toMatchObject({ code: 'account_exists' });
     expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'x@acme.test', name: 'x', role: '職護', siteIds: ['00000000-0000-4000-8000-000000000000'] } })).json()).toMatchObject({ code: 'unknown_site' });
     const doctor = await signIn('acme', 'doctor@acme.test');
     expect((await call('acme', 'GET', '/api/me', { cookie: doctor })).json()).toMatchObject({ role: '職醫', sites: [{ id: ids.s1 }] });
     expect((await audits('users')).map(a => a.action)).toContain('create');
+  });
+
+  it('emails the invitation through Resend once the account is saved, and records whether it went out', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [mail] = resendCalls.splice(0);
+    const [row] = await owner.select().from(notifications).where(eq(notifications.recipientEmail, 'doctor@acme.test'));
+    expect(row).toMatchObject({ template: 'staff_invitation', status: 'sent', sentAt: expect.any(Date), error: null });
+    expect(mail!.url).toBe(RESEND_ENDPOINT);
+    expect(mail!.init.headers).toMatchObject({ authorization: 'Bearer re_test', 'idempotency-key': row!.id });
+    const body = JSON.parse(String(mail!.init.body));
+    expect(body).toMatchObject({ from: 'Yutis Care <noreply@care.test>', to: ['doctor@acme.test'], subject: 'Acme 邀請您使用 Yutis Care 員工健康管理系統' });
+    expect(body.text).toContain('張醫師 您好');
+    expect(body.text).toContain('http://acme.care.test/');
+
+    // A refused email does not undo the account; the notification keeps the provider's answer.
+    resendAnswer = () => new Response('{"message":"The from address is not verified"}', { status: 403 });
+    const res = await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'hr@acme.test', name: '李人資', role: '人資' } });
+    resendAnswer = () => new Response(JSON.stringify({ id: 'email-2' }), { status: 200 });
+    expect(res.statusCode).toBe(201);
+    const [failed] = await owner.select().from(notifications).where(eq(notifications.recipientEmail, 'hr@acme.test'));
+    expect(failed).toMatchObject({ status: 'failed', error: expect.stringContaining('Resend answered 403: {"message":"The from address is not verified"}') });
+
+    // Nothing goes out for a request that fails.
+    resendCalls.splice(0);
+    expect((await call('acme', 'POST', '/api/admin/users', { cookie, body: { email: 'y@acme.test', name: 'y', role: '職護', siteIds: ['00000000-0000-4000-8000-000000000000'] } })).statusCode).toBe(400);
+    expect(resendCalls).toEqual([]);
   });
 
   it('changes role and sites, and deactivating signs the person out', async () => {
@@ -264,5 +300,121 @@ describe('employee import', () => {
     expect((await owner.select().from(employees).where(eq(employees.id, e!.id)))[0]!.nationalIdMasked).toBe('B2•••••789');
     const taken = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E104', 'B223456789']]) })).json();
     expect(taken.issues).toEqual([{ row: 2, column: '身分證字號', message: '已屬於工號 E101' }]);
+  });
+
+  it("keeps the employee's own portal language when 語言 is left blank", async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const e101 = and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101'));
+    await owner.update(employees).set({ lang: 'vi' }).where(e101);
+    const blank = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await xlsx({ 員工: [header, row('E101', { 語言: '' })] }) })).json();
+    expect(blank).toMatchObject({ committed: true, update: 0, unchanged: 1 });
+    expect((await owner.select().from(employees).where(e101))[0]!.lang).toBe('vi');
+    const set = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await xlsx({ 員工: [header, row('E101', { 語言: 'en' })] }) })).json();
+    expect(set).toMatchObject({ committed: true, update: 1 });
+    expect((await owner.select().from(employees).where(e101))[0]!.lang).toBe('en');
+  });
+});
+
+describe('phrases and audit search', () => {
+  it('lets tenant admins list the phrases they maintain', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const created = (await call('acme', 'POST', '/api/admin/phrases', { cookie, body: { category: '處理狀況', text: '已轉介職醫。' } })).json();
+    expect((await call('acme', 'GET', '/api/admin/phrases', { cookie })).json()).toEqual([{ id: created.id, category: '處理狀況', text: '已轉介職醫。', kind: null }]);
+    expect((await call('acme', 'GET', '/api/admin/phrases?category=其他', { cookie })).json()).toEqual([]);
+    expect((await call('acme', 'GET', '/api/admin/phrases', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+  });
+
+  it('finds who did what to whose data, newest first, and records each search', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101')));
+    const res = await call('acme', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie });
+    expect(res.statusCode, res.body).toBe(200);
+    const page = res.json();
+    expect(page.total).toBe(page.items.length);
+    expect(page.items.map((i: { action: string }) => i.action)).toEqual(['update', 'update', 'create']);
+    expect(page.items[2]).toMatchObject({
+      actor: { kind: 'staff', id: ids.admin, name: '陳管理員', role: '租戶管理員' }, action: 'create', subjectTable: 'employees', subjectId: e!.id,
+      employee: { id: e!.id, empNo: 'E101', name: '員工E101', status: '在職' }, dataCategory: 'identity', reason: 'employee import',
+    });
+    expect(Date.parse(page.items[0].at)).toBeGreaterThanOrEqual(Date.parse(page.items[2].at));
+
+    const searches = (await audits('audit_log')).filter(a => a.employeeId === e!.id);
+    expect(searches).toMatchObject([{ action: 'read', actorUserId: ids.admin, reason: `audit search employeeId=${e!.id}` }]);
+
+    const paged = (await call('acme', 'GET', '/api/admin/audit?action=create&limit=2&offset=1', { cookie })).json();
+    expect(paged.items).toHaveLength(2);
+    expect(paged.items.every((i: { action: string }) => i.action === 'create')).toBe(true);
+    expect((await call('acme', 'GET', '/api/admin/audit?from=2000-01-01&to=2000-01-31', { cookie })).json()).toEqual({ total: 0, items: [] });
+    expect((await call('acme', 'GET', '/api/admin/audit?from=2026-02-01&to=2026-01-01', { cookie })).statusCode).toBe(400);
+  });
+
+  it("keeps the audit log to this tenant's admins", async () => {
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101')));
+    expect((await call('acme', 'GET', '/api/admin/audit', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    const globex = (await call('globex', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie: await signIn('globex', 'admin@globex.test') })).json();
+    expect(globex).toEqual({ total: 0, items: [] });
+  });
+  it('lets tenant admins find an employee by name, number or id, with nothing but the id, number, name and status', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    expect((await call('acme', 'GET', '/api/admin/employees?q=員工E101', { cookie })).json()).toEqual([{ id: expect.any(String), empNo: 'E101', name: '員工E101', status: '在職' }]);
+    const byNumber = (await call('acme', 'GET', '/api/admin/employees?q=e10', { cookie })).json();
+    expect(byNumber.length).toBeGreaterThan(0);
+    expect(byNumber.every((e: { empNo: string }) => e.empNo.startsWith('E10'))).toBe(true);
+    expect(Object.keys(byNumber[0]).sort()).toEqual(['empNo', 'id', 'name', 'status']);
+    // An audit search reopened from a link names its employees by id, including those who have left.
+    const [first, second] = (await call('acme', 'GET', '/api/admin/employees?limit=2', { cookie })).json() as { id: string }[];
+    await owner.update(employees).set({ status: '離職' }).where(eq(employees.id, second!.id));
+    const byIds = (await call('acme', 'GET', `/api/admin/employees?ids=${second!.id},${first!.id}&limit=1`, { cookie })).json();
+    await owner.update(employees).set({ status: '在職' }).where(eq(employees.id, second!.id));
+    expect(byIds.map((e: { id: string; status: string }) => [e.id, e.status])).toEqual([[first!.id, '在職'], [second!.id, '離職']]);
+    expect((await call('acme', 'GET', `/api/admin/employees?ids=${first!.id}&ids=${second!.id}`, { cookie })).json()).toHaveLength(2);
+    expect((await call('acme', 'GET', '/api/admin/employees?ids=E101', { cookie })).statusCode).toBe(400);
+    expect((await call('acme', 'GET', `/api/admin/employees?q=${encodeURIComponent('%')}`, { cookie })).json()).toEqual([]);
+    expect((await call('acme', 'GET', '/api/admin/employees?limit=1', { cookie })).json()).toHaveLength(1);
+    expect((await audits('employees')).filter(a => a.reason === 'admin employee search').length).toBeGreaterThan(0);
+    expect((await call('acme', 'GET', '/api/admin/employees', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    expect((await call('globex', 'GET', '/api/admin/employees?q=E101', { cookie: await signIn('globex', 'admin@globex.test') })).json()).toEqual([]);
+  });
+});
+
+describe('import templates', () => {
+  const headers = async (file: Buffer) => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file as unknown as ArrayBuffer);
+    return Object.fromEntries(workbook.worksheets.map(w => [w.name, (w.getRow(1).values as unknown[]).slice(1)]));
+  };
+
+  it('gives tenant admins empty organisation and employee files with the columns the imports read', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const org = await call('acme', 'GET', '/api/admin/org/import-template', { cookie });
+    expect(org.headers['content-type']).toBe(XLSX_MIME);
+    expect(org.headers['content-disposition']).toContain(encodeURIComponent('組織架構匯入範本.xlsx'));
+    expect(await headers(org.rawPayload)).toEqual({
+      法人: ['代碼', '名稱'], 廠區: ['代碼', '名稱', '法人代碼', '地址'], 部門: ['廠區代碼', '名稱', '代碼', '主管姓名', '主管Email', '主管電話'],
+    });
+    const people = await call('acme', 'GET', '/api/admin/employees/import-template', { cookie });
+    expect((await headers(people.rawPayload)).員工).toEqual([
+      '工號', '姓名', '性別', '出生日期', '法人代碼', '廠區代碼', '部門', '身分證字號', '職稱', '班別', '健檢類別', '特殊作業', '語言', '到職日', 'Email', '手機', '狀態',
+    ]);
+    // The empty template is a valid (empty) import.
+    expect((await call('acme', 'POST', '/api/admin/org/import', { cookie, xlsx: org.rawPayload })).json()).toMatchObject({ issues: [] });
+    expect((await call('acme', 'GET', '/api/admin/org/import-template', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+  });
+});
+
+describe('staff and organisation directory', () => {
+  it('lets any staff list active staff by role, with their work email, and the organisation names', async () => {
+    const nurse = await signIn('acme', 'nurse@acme.test');
+    const staff = (await call('acme', 'GET', '/api/staff?roles=職護,職醫', { cookie: nurse })).json();
+    expect(staff).toEqual(expect.arrayContaining([{ id: expect.any(String), name: '王護理師', email: 'nurse@acme.test', role: '職護' }]));
+    expect(staff.every((u: { role: string }) => ['職護', '職醫'].includes(u.role))).toBe(true);
+    expect((await call('acme', 'GET', '/api/staff', { cookie: nurse })).json().map((u: { name: string }) => u.name)).toContain('陳管理員');
+    expect((await call('acme', 'GET', '/api/staff?roles=老闆', { cookie: nurse })).statusCode).toBe(400);
+    const org = (await call('acme', 'GET', '/api/org', { cookie: nurse })).json();
+    const site = org.find((e: { code: string }) => e.code === 'L1').sites.find((x: { code: string }) => x.code === 'S1');
+    expect(site).toMatchObject({ id: ids.s1, name: '桃園廠', mine: false, departments: expect.arrayContaining([{ id: expect.any(String), code: null, name: '製造一課' }]) });
+    expect(JSON.stringify(org)).not.toContain('manager');
+    expect((await call('acme', 'GET', '/api/staff', {})).statusCode).toBe(401);
+    expect((await call('globex', 'GET', '/api/org', { cookie: await signIn('globex', 'admin@globex.test') })).json()).toEqual([]);
   });
 });

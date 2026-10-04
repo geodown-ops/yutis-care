@@ -4,11 +4,12 @@
  * Only occupational health staff (職護、職醫) reach these routes, only for employees in their sites; every read of
  * results is audited, and medical text (history, symptoms, work notes) is stored encrypted.
  */
-import { Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
-import { caseEvents, employees, examBatches, examImportMappings, healthExamResults, healthExams } from '@yutis/db';
+import { Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
+import { caseEvents, employees, examBatches, examImportMappings, healthExamResults, healthExams, users } from '@yutis/db';
 import { EXAM_EVENT_GRADE, EXAM_ITEMS, examRetainUntil, gradeReport, SPECIAL_EVENT_LEVEL, type ExamValues } from '@yutis/domain';
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { asc, count, desc, eq, inArray } from 'drizzle-orm';
+import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { canSee } from '../auth/permissions.js';
@@ -18,7 +19,7 @@ import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
-import { ExamMappingDto, type ExamMappingInput } from '../admin/exam-settings.controller.js';
+import { ExamMappingDto, sendExamTemplate, type ExamMappingInput } from '../admin/exam-settings.controller.js';
 import { ImportIssueDto, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from '../admin/excel.js';
 import { currentRuleSet, ruleSetVersions } from './rules.js';
 
@@ -53,6 +54,19 @@ class ExamDetailDto extends ExamSummaryDto {
   @ApiProperty({ type: String, nullable: true, description: '作業經歷與工作描述' }) workNote!: string | null;
 }
 
+class ExamImportRowDto {
+  @ApiProperty({ description: 'Excel 列號' }) row!: number;
+  @ApiProperty({ format: 'uuid' }) employeeId!: string;
+  @ApiProperty() empNo!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: String, format: 'date' }) examDate!: string;
+  @ApiProperty() kind!: string;
+  @ApiProperty({ description: '最高分級' }) gradeMax!: number;
+  @ApiProperty({ description: '各項分級加總' }) gradeTotal!: number;
+  @ApiProperty({ type: Number, nullable: true, description: '特殊健檢管理分級' }) specialLevel!: number | null;
+  @ApiProperty({ description: '這筆會產生的異常事件數（只有員工最新一次健檢會產生）' }) events!: number;
+}
+
 class ExamImportReportDto {
   @ApiProperty() committed!: boolean;
   @ApiProperty() rows!: number;
@@ -61,6 +75,17 @@ class ExamImportReportDto {
   @ApiProperty({ description: '分級依據的版本' }) ruleSetVersion!: number;
   @ApiProperty({ description: '最高分級 3 級以上的人數' }) grade3Plus!: number;
   @ApiProperty({ description: '寫入後新產生的異常事件數（預覽時為預估）' }) newEvents!: number;
+  @ApiProperty({ type: [ExamImportRowDto], description: '可匯入的每一筆（沒有錯誤的列），依 Excel 列號排序' }) preview!: ExamImportRowDto[];
+}
+
+class ExamBatchDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() clinic!: string;
+  @ApiProperty({ type: String, nullable: true }) fileName!: string | null;
+  @ApiProperty({ type: Number, nullable: true, description: '檔案資料列數' }) rowCount!: number | null;
+  @ApiProperty({ description: '這批匯入的健檢筆數（全租戶）' }) exams!: number;
+  @ApiProperty({ type: String, format: 'date-time' }) importedAt!: Date;
+  @ApiProperty({ type: String, nullable: true, description: '匯入人員' }) importedBy!: string | null;
 }
 
 const ImportQuery = z.object({
@@ -72,6 +97,8 @@ const ImportQuery = z.object({
 interface ParsedExam {
   row: number;
   employeeId: string;
+  empNo: string;
+  name: string;
   examDate: string;
   kind: string;
   values: Record<string, string | null>;
@@ -101,6 +128,30 @@ export class ExamsController {
     return rows.map(r => ({ id: r.id, clinic: r.clinic, mapping: r.mapping as ExamMappingDto['mapping'] }));
   }
 
+  @Get('exams/mappings/:id/template')
+  @ExamAccess()
+  @ApiOperation({ summary: '依健檢匯入對照產生的空白檔（.xlsx）', description: '欄位名稱與這家醫院的對照相同；粗體為必填。' })
+  @ApiProduces(XLSX_MIME)
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  template(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendExamTemplate(ctx, id, reply);
+  }
+
+  @Get('exams/batches')
+  @ExamAccess()
+  @ApiOperation({ summary: '健檢匯入紀錄（新的在前）', description: '每次匯入的醫院、檔名、筆數與匯入人員；不含健檢內容。' })
+  @ApiOkResponse({ type: [ExamBatchDto] })
+  async batches(@Ctx() ctx: RequestContext): Promise<ExamBatchDto[]> {
+    const rows = await ctx.tx.select({ b: examBatches, importedBy: users.name }).from(examBatches).leftJoin(users, eq(users.id, examBatches.createdBy))
+      .where(eq(examBatches.status, 'imported')).orderBy(desc(examBatches.createdAt)).limit(200);
+    const counts = rows.length
+      ? await ctx.tx.select({ batchId: healthExams.batchId, n: count() }).from(healthExams).where(inArray(healthExams.batchId, rows.map(r => r.b.id))).groupBy(healthExams.batchId)
+      : [];
+    return rows.map(({ b, importedBy }) => ({
+      id: b.id, clinic: b.clinic, fileName: b.fileName, rowCount: b.rowCount, exams: counts.find(c => c.batchId === b.id)?.n ?? 0, importedAt: b.createdAt, importedBy,
+    }));
+  }
+
   @Post('exams/import')
   @HttpCode(200)
   @ExamAccess()
@@ -111,9 +162,9 @@ export class ExamsController {
   })
   @ApiConsumes(XLSX_MIME)
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
-  @ApiQuery({ name: 'mapping', description: '健檢匯入對照 id' })
+  @ApiQuery({ name: 'mapping', type: String, format: 'uuid', description: '健檢匯入對照 id' })
   @ApiQuery({ name: 'commit', required: false, enum: ['true', 'false'] })
-  @ApiQuery({ name: 'fileName', required: false })
+  @ApiQuery({ name: 'fileName', required: false, type: String })
   @ApiOkResponse({ type: ExamImportReportDto })
   @ApiUnprocessableEntityResponse({ description: '檔案有錯誤（import_invalid），未寫入', type: ApiErrorDto })
   async import(@Ctx() ctx: RequestContext, @Body() body: unknown, @Query() query: unknown): Promise<ExamImportReportDto> {
@@ -133,7 +184,7 @@ export class ExamsController {
     issues.push(...headerIssues);
     const add = (row: number, column: string, message: string) => issues.push({ row, column, message });
 
-    const all = await ctx.tx.select({ id: employees.id, empNo: employees.empNo, nationalIdHash: employees.nationalIdHash, sex: employees.sex, siteId: employees.siteId }).from(employees);
+    const all = await ctx.tx.select({ id: employees.id, empNo: employees.empNo, name: employees.name, nationalIdHash: employees.nationalIdHash, sex: employees.sex, siteId: employees.siteId }).from(employees);
     const access = await siteAccess(ctx.tx, me.userId);
     const mySites = new Set([...access.assigned, ...access.breakGlass].map(s => s.id));
     const textCodes = new Set(ruleSet.rules.filter(r => r.type === 'text').map(r => r.code));
@@ -192,7 +243,7 @@ export class ExamsController {
       if (issues.length > before || !employee) continue;
       const graded = gradeReport(domainValues, employee.sex, ruleSet.rules);
       parsed.push({
-        row, employeeId: employee.id, examDate, kind, values,
+        row, employeeId: employee.id, empNo: employee.empNo, name: employee.name, examDate, kind, values,
         grades: Object.fromEntries(graded.items.filter(i => i.code in mapping.items).map(i => [i.code, i.lv])),
         total: graded.total, max: graded.max, smoker: smoker ?? null,
         specialHazard: (c.specialHazard && v[c.specialHazard]) || null, specialLevel,
@@ -211,6 +262,10 @@ export class ExamsController {
       committed: false, rows: rows.length, exams: parsed.length, issues, ruleSetVersion: ruleSet.version,
       grade3Plus: new Set(parsed.filter(p => p.max >= 3).map(p => p.employeeId)).size,
       newEvents: parsed.reduce((n, p) => n + eventsFor(p), 0),
+      preview: parsed.map(p => ({
+        row: p.row, employeeId: p.employeeId, empNo: p.empNo, name: p.name, examDate: p.examDate, kind: p.kind, gradeMax: p.max, gradeTotal: p.total,
+        specialLevel: p.specialLevel, events: eventsFor(p),
+      })),
     };
     refuseIfInvalid(report, !q.commit);
     if (!q.commit) return report;

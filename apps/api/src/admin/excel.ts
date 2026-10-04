@@ -6,6 +6,7 @@
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
 import ExcelJS from 'exceljs';
+import type { FastifyReply } from 'fastify';
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
@@ -80,3 +81,28 @@ export function refuseIfInvalid<T extends { issues: ImportIssue[] }>(report: T, 
 
 export const isIsoDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+export interface TemplateSheet { name: string; required: readonly string[]; optional?: readonly string[] }
+
+/** An empty import file: one sheet per entry, the header row only, required headers bold with a 必填 note. */
+export async function templateWorkbook(sheets: TemplateSheet[]): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  for (const s of sheets) {
+    const sheet = workbook.addWorksheet(s.name, { views: [{ state: 'frozen', ySplit: 1 }] });
+    const headers = [...s.required, ...s.optional ?? []];
+    sheet.columns = headers.map(h => ({ header: h, width: Math.max(12, h.length * 2 + 4) }));
+    headers.forEach((h, i) => {
+      if (!s.required.includes(h)) return;
+      const cell = sheet.getRow(1).getCell(i + 1);
+      cell.font = { bold: true };
+      cell.note = '必填';
+    });
+  }
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/** Sends an .xlsx file as a download. */
+export function sendXlsx(reply: FastifyReply, fileName: string, file: Buffer): Buffer {
+  reply.header('Content-Type', XLSX_MIME).header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+  return file;
+}

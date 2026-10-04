@@ -1,6 +1,10 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FastifyRequest } from 'fastify';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
+import { createApp, openApiDocument } from '../src/app.js';
 import { GoogleSignInIdentityVerifier, IAP_HEADER, IapIdentityVerifier } from '../src/auth/identity.js';
 import { can, ROLE_PERMISSIONS } from '../src/auth/permissions.js';
 import { loadConfig } from '../src/config.js';
@@ -80,5 +84,25 @@ describe('loadConfig', () => {
   it('refuses dev sign-in or fake integrations in production', () => {
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', PLATFORM_DEV_AUTH: 'true' })).toThrow(/PLATFORM_DEV_AUTH/);
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', IAP_AUDIENCE: 'a', PLATFORM_FAKE_INTEGRATIONS: 'true' })).toThrow(/PLATFORM_FAKE_INTEGRATIONS/);
+  });
+});
+
+describe('OpenAPI contract', () => {
+  it('names every class once, since Swagger keys schemas by class name and silently keeps one of two', () => {
+    const src = fileURLToPath(new URL('../src/', import.meta.url));
+    const names = readdirSync(src, { recursive: true }).map(String).filter(f => f.endsWith('.ts'))
+      .flatMap(f => [...readFileSync(join(src, f), 'utf8').matchAll(/^(?:export )?class (\w+)/gm)].map(m => m[1]!));
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+  });
+
+  it('declares a type for every parameter', async () => {
+    const app = await createApp(loadConfig({ NODE_ENV: 'production', PLATFORM_DATABASE_URL: 'postgres://unused/unused', IAP_AUDIENCE: '/projects/0/global/backendServices/0' }), { logger: false });
+    const doc = openApiDocument(app);
+    await app.close();
+    const untyped = Object.entries(doc.paths).flatMap(([path, ops]) => Object.entries(ops).flatMap(([method, op]) =>
+      ((op as { parameters?: { name: string; schema?: object }[] }).parameters ?? [])
+        .filter(p => !p.schema || !['type', '$ref', 'enum', 'oneOf'].some(k => k in p.schema!))
+        .map(p => `${method.toUpperCase()} ${path} ${p.name}`)));
+    expect(untyped).toEqual([]);
   });
 });

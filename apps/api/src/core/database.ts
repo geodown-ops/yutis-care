@@ -8,6 +8,7 @@ import type { ApiConfig } from '../config.js';
 import { KmsTenantCrypto, LocalTenantCrypto, TENANT_CRYPTO, UnconfiguredTenantCrypto, type TenantCrypto } from './crypto.js';
 import { googleTokenSource, KmsClient } from './gcp.js';
 import { ApiExceptionFilter } from './errors.js';
+import { createMailer, MAILER, Notifier, type Mailer } from './mail.js';
 
 export const API_CONFIG = Symbol('API_CONFIG');
 export const PG_POOL = Symbol('PG_POOL');
@@ -67,9 +68,11 @@ export class CoreModule {
         { provide: APP_INTERCEPTOR, useClass: TenantTransactionInterceptor },
         { provide: APP_FILTER, useClass: ApiExceptionFilter },
         { provide: TENANT_CRYPTO, useFactory: () => tenantCrypto(config) },
+        { provide: MAILER, useFactory: () => mailer(config) },
+        { provide: Notifier, useFactory: (m: Mailer, db: Db) => new Notifier(m, db), inject: [MAILER, DB] },
         PoolLifecycle,
       ],
-      exports: [API_CONFIG, PG_POOL, DB, TENANT_CRYPTO],
+      exports: [API_CONFIG, PG_POOL, DB, TENANT_CRYPTO, MAILER, Notifier],
     };
   }
 }
@@ -82,6 +85,13 @@ export function tenantCrypto(config: Pick<ApiConfig, 'databaseUrl' | 'cryptoKms'
     return new KmsTenantCrypto(createDb(keyPool), new KmsClient(googleTokenSource()));
   }
   return config.cryptoLocalKey ? new LocalTenantCrypto(config.cryptoLocalKey) : new UnconfiguredTenantCrypto();
+}
+
+function mailer(config: Pick<ApiConfig, 'email' | 'production' | 'demoSite'>): Mailer {
+  if (config.production && !config.demoSite && config.email.provider === 'log') {
+    new Logger('Mailer').warn('EMAIL_PROVIDER=log in production: invitations and sign-off links are not emailed');
+  }
+  return createMailer(config.email);
 }
 
 /**

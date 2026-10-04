@@ -223,8 +223,12 @@ export function isReport(kind: string, type: string): kind is ReportKind {
   return kind in REPORT_TYPES && REPORT_TYPES[kind as ReportKind].some(([t]) => t === type);
 }
 
+export function reportTitle(kind: ReportKind, type: string): string {
+  return REPORT_TYPES[kind].find(([t]) => t === type)?.[1] ?? '';
+}
+
 export function computeReport(kind: ReportKind, type: string, data: Data, deidentified: boolean): Report {
-  const title = REPORT_TYPES[kind].find(([t]) => t === type)![1];
+  const title = reportTitle(kind, type);
   const computed = (COMPUTE[kind] as Record<string, (d: Data) => Computed>)[type]!(data);
   const report: Report = { kind, type, title, ...computed, suppressed: false };
   return deidentified ? suppressSmallCells(report) : report;

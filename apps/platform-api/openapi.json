@@ -46,6 +46,56 @@
         ]
       }
     },
+    "/platform-api/me": {
+      "get": {
+        "operationId": "MeController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformMeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "目前登入的平台人員與權限",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/platform-api/tenants": {
       "get": {
         "operationId": "TenantsController_list",
@@ -479,7 +529,7 @@
     },
     "/platform-api/tenants/{id}/subscription": {
       "put": {
-        "description": "更新目前的訂閱（方案、狀態、人數上限、起訖日）；沒有訂閱時新增一筆。目前不依此收費。",
+        "description": "直接改目前這一期（方案、狀態、人數上限、起訖日），用來更正；沒有訂閱時新增一筆。續約或換方案請用 POST /tenants/{id}/subscriptions，訂閱歷史才會保留。目前不依此收費。",
         "operationId": "TenantsController_setSubscription",
         "parameters": [
           {
@@ -593,7 +643,149 @@
             "google-sign-in": []
           }
         ],
-        "summary": "設定目前的訂閱",
+        "summary": "修改目前的訂閱",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/platform-api/tenants/{id}/subscriptions": {
+      "post": {
+        "description": "新增一期，舊的留在訂閱歷史；開始日一到就成為目前的訂閱，所以可以在這期結束前先續約。新的一期要晚於最近一期的開始日；最近一期沒有結束日、或結束日不早於新期間開始日時，結束日改為新期間開始的前一天。目前不依此收費。",
+        "operationId": "TenantsController_addPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "planCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "default": "active",
+                    "type": "string",
+                    "enum": [
+                      "trial",
+                      "active",
+                      "past_due",
+                      "cancelled"
+                    ]
+                  },
+                  "seatLimit": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "endsOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "planCode",
+                  "seatLimit",
+                  "startsOn"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "新期間沒有晚於最近一期的開始日（period_overlap）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "新增訂閱期間（續約、換方案）",
         "tags": [
           "tenants"
         ]
@@ -735,6 +927,94 @@
         ]
       }
     },
+    "/platform-api/plans/{id}": {
+      "patch": {
+        "description": "代碼不能改。停用的方案不能再用於開通或新的訂閱期間，已在使用的訂閱不受影響。",
+        "operationId": "PlansUsageController_updatePlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "pricing": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "修改或停用方案",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/platform-api/usage": {
       "get": {
         "description": "員工與帳號數為目前值；健檢與簡訊為指定月份。平台拿不到任何一筆明細。",
@@ -744,9 +1024,10 @@
             "name": "month",
             "required": false,
             "in": "query",
-            "description": "預設本月",
+            "description": "年月 YYYY-MM，預設本月",
             "schema": {
-              "example": "2026-10"
+              "example": "2026-10",
+              "type": "string"
             }
           }
         ],
@@ -1468,11 +1749,128 @@
           "templates"
         ]
       }
+    },
+    "/platform-api/audit": {
+      "get": {
+        "description": "平台後台的所有變更，新的在前。日期為台灣時間，含起訖兩天。",
+        "operationId": "PlatformAuditController_list",
+        "parameters": [
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "略過的筆數，預設 0",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每頁筆數，預設 50，最多 200",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "tenant.suspend",
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "required": false,
+            "in": "query",
+            "description": "只看這位平台人員的操作",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "description": "只看對這個租戶的操作",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAuditPageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "平台稽核紀錄",
+        "tags": [
+          "audit"
+        ]
+      }
     }
   },
   "info": {
     "title": "Yutis Care 平台 API",
-    "description": "平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
+    "description": "平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
     "version": "0.1.0",
     "contact": {}
   },
@@ -1531,6 +1929,75 @@
         },
         "required": [
           "method"
+        ]
+      },
+      "PlatformMeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "營運",
+              "客服",
+              "工程"
+            ]
+          },
+          "permissions": {
+            "type": "array",
+            "description": "這個角色能做的事；畫面依此隱藏按鈕（API 仍會逐一檢查）",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tenants:read",
+                "tenants:write",
+                "subscriptions:write",
+                "announcements:write",
+                "templates:write",
+                "platform-users:manage",
+                "audit:read"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role",
+          "permissions"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "number",
+            "example": 403
+          },
+          "code": {
+            "type": "string",
+            "description": "機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable",
+            "example": "forbidden"
+          },
+          "message": {
+            "type": "string",
+            "description": "給開發者看的說明，不直接顯示給使用者"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message"
         ]
       },
       "SubscriptionDto": {
@@ -1608,7 +2075,7 @@
           },
           "subscription": {
             "nullable": true,
-            "description": "目前的訂閱",
+            "description": "目前的訂閱：已開始的最新一期（都還沒開始時為最早的一期）",
             "type": "object",
             "allOf": [
               {
@@ -1640,29 +2107,6 @@
           "activeEmployees",
           "staffAccounts",
           "overSeatLimit"
-        ]
-      },
-      "ApiErrorDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "number",
-            "example": 403
-          },
-          "code": {
-            "type": "string",
-            "description": "機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable",
-            "example": "forbidden"
-          },
-          "message": {
-            "type": "string",
-            "description": "給開發者看的說明，不直接顯示給使用者"
-          }
-        },
-        "required": [
-          "status",
-          "code",
-          "message"
         ]
       },
       "TenantAdminDto": {
@@ -1722,7 +2166,7 @@
           },
           "subscription": {
             "nullable": true,
-            "description": "目前的訂閱",
+            "description": "目前的訂閱：已開始的最新一期（都還沒開始時為最早的一期）",
             "type": "object",
             "allOf": [
               {
@@ -1968,6 +2412,127 @@
           "kind",
           "version",
           "changed"
+        ]
+      },
+      "PlatformAuditActorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "平台人員已刪除時為 null"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name"
+        ]
+      },
+      "PlatformAuditTenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subdomain",
+          "name"
+        ]
+      },
+      "PlatformAuditEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/PlatformAuditActorDto"
+          },
+          "action": {
+            "type": "string",
+            "example": "tenant.suspend",
+            "description": "例如 tenant.onboard、tenant.suspend、subscription.renew、plan.update、announcement.create"
+          },
+          "tenant": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlatformAuditTenantDto"
+              }
+            ]
+          },
+          "subjectTable": {
+            "type": "string",
+            "nullable": true
+          },
+          "subjectId": {
+            "type": "string",
+            "nullable": true
+          },
+          "detail": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "改了什麼；不含任何租戶員工資料"
+          },
+          "ip": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "action",
+          "tenant",
+          "subjectTable",
+          "subjectId",
+          "detail",
+          "ip"
+        ]
+      },
+      "PlatformAuditPageDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "符合條件的總筆數"
+          },
+          "items": {
+            "description": "新的在前",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAuditEntryDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "items"
         ]
       }
     }
