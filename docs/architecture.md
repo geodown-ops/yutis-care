@@ -23,10 +23,11 @@
 | `apps/api` | 租戶 API（NestJS + Fastify） | 租戶識別、session、權限管線、稽核、OpenAPI、`/api/tenant`、`/api/me`；租戶管理（組織、帳號、員工匯入、健檢匯入對照、分級標準版本）；健檢匯入與分級、協助紀錄、個案；四大計畫、員工端、Email 確認連結；附表八與簽核、16 種統計報表、匯出、保存期限 |
 | `apps/platform-api` | 平台 API（NestJS + Fastify） | 租戶開通／停用、方案與訂閱、用量計數、公告、平台人員、預設範本；計費只有介面 |
 | `packages/ui` | 設計 token、Mantine 主題、側欄外框與狀態元件，三個前端共用 | 已建立 |
-| `packages/api-client` | 租戶 API 呼叫函式；目前是 `/api/tenant`、`/api/me` 的暫定型別，之後由 OpenAPI 產生 | 已建立 |
-| `apps/web` | 租戶後台（React + Vite + Mantine + TanStack Router／Query），選單依角色顯示 | 骨架完成，示範資料 |
-| `apps/portal` | 員工端，`/me`，i18next 五種語言 | 已接租戶 API：共用登入頁、待辦、NMQ、過勞量表、工時與工作型態、紀錄確認、我的健康與下載、告知與同意紀錄；日文、越南文、泰文待母語者校對 |
-| `apps/platform-web` | 平台管理後台 | 骨架完成，示範資料 |
+| `packages/api-client` | 兩個 API 的呼叫函式（openapi-fetch），型別由兩份 `openapi.json` 產生，CI 檢查是否同步 | 已完成 |
+| `packages/sign-in` | 共用登入頁：Identity Platform 的 SSO、Email 登入連結、密碼，換成 session cookie；示範站有一鍵示範帳號 | 已完成；簡訊登入與多重驗證未做 |
+| `apps/web` | 租戶後台（React + Vite + Mantine + TanStack Router／Query），選單依角色顯示 | 已接租戶 API：職護首頁、員工資料與員工檔案、個案管理、健檢匯入、協助紀錄與追蹤、四大計畫、附表八與簽核連結頁、統計報表與匯出、租戶管理（組織、帳號、員工匯入、健檢對照、分級標準與片語、公司與登入設定唯讀）；客服授權與稽核查詢待 API |
+| `apps/portal` | 員工端，`/me`，i18next 五種語言 | 已接租戶 API：共用登入頁、待辦、NMQ、過勞量表、工時與工作型態、紀錄確認（含免登入的 Email 確認連結）、我的健康與下載、告知與同意紀錄；日文、越南文、泰文待母語者校對 |
+| `apps/platform-web` | 平台管理後台 | 已接平台 API：租戶列表與詳情、開通、訂閱、停用／恢復、用量、公告、平台人員、預設範本；客服存取與稽核待 API |
 | `prototype` | 原本的純前端雛形，作為可操作的需求規格 | 保留 |
 
 ## 規則的來源與校正
