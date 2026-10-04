@@ -7,15 +7,16 @@ import { IconPlus, IconX } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { ASSIST_CATEGORIES, CONSULT_TYPES, LIFESTYLE_ADVICE } from '@yutis/domain';
 import { useId, useState, type ReactNode } from 'react';
-import { knownStaff, type EmployeeCase } from '../../cases';
-import { casesQuery, employeeCaseQuery } from '../../queries';
+import type { EmployeeCase } from '../../cases';
+import { employeeCaseQuery } from '../../queries';
 import { useMe } from '../../session';
 import { nurseAccess } from './access';
-import { actionErrorText, phrasesQuery, useSaveRecord } from './queries';
+import { actionErrorText, phrasesQuery, staffQuery, useSaveRecord } from './queries';
 import {
   caseContext, caseFollowOn, followOnLabel, newRecordForm, recordBody, recordProblems, recordToForm, withPhrase,
   type Advice, type CareRecord, type ConsultType, type RecordForm, type RecordResult,
 } from './records';
+import { CARE_ROLES, staffOptions, type StaffMember } from './staff';
 
 export interface RecordFormTarget {
   employeeId: string;
@@ -42,10 +43,11 @@ function RecordFormLoader({ target, wide, onDone }: { target: RecordFormTarget; 
   const me = useMe();
   const access = nurseAccess(me);
   const kase = useQuery({ ...employeeCaseQuery(target.employeeId), enabled: access.cases });
-  const cases = useQuery({ ...casesQuery, enabled: access.cases });
-  if (access.cases && (kase.isPending || cases.isPending)) return <Skeleton h={420} />;
+  const staff = useQuery(staffQuery(CARE_ROLES));
+  if ((access.cases && kase.isPending) || staff.isPending) return <Skeleton h={420} />;
   const initial = target.record ? recordToForm(target.record, me.id) : newRecordForm({ now: new Date(), meId: me.id, events: kase.data?.events });
-  return <RecordFormBody target={target} initial={initial} kase={kase.data} staff={knownStaff(cases.data ?? [], me)} wide={wide} onDone={onDone} />;
+  // Without the list (it failed to load) the form still offers the people already on the record.
+  return <RecordFormBody target={target} initial={initial} kase={kase.data} staff={staff.data} wide={wide} onDone={onDone} />;
 }
 
 type TextKey = 'explain' | 'handling' | 'note';
@@ -53,8 +55,9 @@ const TEXT_LABEL: Record<TextKey, string> = { explain: '報告解說／健康諮
 
 function RecordFormBody({ target, initial, kase, staff, wide, onDone }: {
   target: RecordFormTarget; initial: RecordForm; kase: Pick<EmployeeCase, 'case' | 'events' | 'status'> | undefined;
-  staff: { value: string; label: string }[]; wide: boolean; onDone: () => void;
+  staff: StaffMember[] | undefined; wide: boolean; onDone: () => void;
 }) {
+  const me = useMe();
   const [f, setF] = useState(initial);
   const set = <K extends keyof RecordForm>(k: K, v: RecordForm[K]) => setF(x => ({ ...x, [k]: v }));
   const [field, setField] = useState<TextKey>('explain');
@@ -65,9 +68,8 @@ function RecordFormBody({ target, initial, kase, staff, wide, onDone }: {
   const [applyCase, setApplyCase] = useState(!target.record || target.record.draft);
   const save = useSaveRecord();
 
-  // Options include anyone already on the record, even if the page cannot name them.
-  const people = [...staff];
-  for (const id of [...f.helpers.map(h => h.userId), f.followUpUserId]) if (id && !people.some(p => p.value === id)) people.push({ value: id, label: '其他人員' });
+  // Clinical staff, plus anyone already on the record who has since been deactivated.
+  const people = staffOptions(staff, me.id, [...f.helpers.map(h => ({ id: h.userId, name: h.userId === me.id ? me.name : null })), { id: f.followUpUserId }]);
   const categories = ASSIST_CATEGORIES.includes(f.category as never) ? [...ASSIST_CATEGORIES] : [f.category, ...ASSIST_CATEGORIES];
   const followOn = kase ? caseFollowOn(kase, f.result) : null;
 

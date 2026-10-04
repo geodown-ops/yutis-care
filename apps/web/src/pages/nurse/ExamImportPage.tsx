@@ -1,14 +1,18 @@
 import { Alert, Badge, Button, Card, Collapse, FileInput, Group, Select, SimpleGrid, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
-import { IconArrowUpRight, IconFileSpreadsheet } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
-import { StatCard } from '@yutis/ui';
+import { IconArrowUpRight, IconDownload, IconFileSpreadsheet } from '@tabler/icons-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ApiRequestError } from '@yutis/api-client';
+import { GradeBadge, StatCard } from '@yutis/ui';
 import { useState } from 'react';
-import { ButtonLink } from '../../links';
+import { AnchorLink, ButtonLink } from '../../links';
 import { useMe } from '../../session';
 import { CardNote, problemText } from '../states';
 import { nurseAccess } from './access';
-import { canCommit, fileProblem, mappingColumns, sortIssues, type ExamMapping, type ImportReport } from './exams';
-import { actionErrorText, examMappingsQuery, useExamImport } from './queries';
+import { asGrade, canCommit, fileProblem, mappingColumns, sortIssues, type ExamMapping, type ImportReport, type ImportRow } from './exams';
+import { actionErrorText, downloadExamTemplate, examBatchesQuery, examMappingsQuery, useExamImport } from './queries';
+
+const slash = (d: string) => d.replaceAll('-', '/');
+const dateTime = (iso: string) => new Date(iso).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
  * 健檢匯入: pick the clinic (its column mapping) and the .xlsx, preview how the rows match and grade, then import.
@@ -53,6 +57,7 @@ function ExamImport() {
             </Group>
           </Stack>
         </Card>
+        <ImportHistory />
       </Stack>
     );
   }
@@ -111,7 +116,10 @@ function ExamImport() {
               </Table.ScrollContainer>
             </>
           ) : preview.exams === 0 ? <CardNote>檔案裡沒有可匯入的資料列。</CardNote> : (
-            <Text size="sm" c="dimmed">每一列都能對應到負責廠區的員工。匯入後會寫入健檢歷史，並依每人最新一次健檢產生異常事件。</Text>
+            <>
+              <Text size="sm" c="dimmed" mb="sm">每一列都能對應到負責廠區的員工。匯入後會寫入健檢歷史，並依每人最新一次健檢產生異常事件。</Text>
+              <PreviewRows rows={preview.preview} />
+            </>
           )}
           <Group justify="flex-end" mt="md">
             <Button disabled={!canCommit(preview)} loading={run.isPending && run.variables?.commit}
@@ -121,17 +129,97 @@ function ExamImport() {
           </Group>
         </Card>
       )}
+
+      <ImportHistory />
     </Stack>
   );
 }
 
-/** The headers this clinic's file is read with (first sheet, header row 1). */
+/** Each row that would be imported: who, which exam, how it grades and whether it raises abnormal events. */
+function PreviewRows({ rows }: { rows: ImportRow[] }) {
+  return (
+    <Table.ScrollContainer minWidth={720} maxHeight={440}>
+      <Table verticalSpacing={6} stickyHeader highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th w={56}>列</Table.Th><Table.Th>員工</Table.Th><Table.Th>檢查日期</Table.Th><Table.Th>類別</Table.Th>
+            <Table.Th>最高分級</Table.Th><Table.Th ta="right">總分</Table.Th><Table.Th>特殊健檢</Table.Th><Table.Th>異常事件</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {rows.map(r => (
+            <Table.Tr key={r.row}>
+              <Table.Td c="dimmed">{r.row}</Table.Td>
+              <Table.Td>
+                <AnchorLink to="/employees/$employeeId" params={{ employeeId: r.employeeId }} size="sm" fw={600}>{r.name}</AnchorLink>
+                <Text span size="xs" c="dimmed" ff="monospace" ml={6}>{r.empNo}</Text>
+              </Table.Td>
+              <Table.Td>{slash(r.examDate)}</Table.Td>
+              <Table.Td>{r.kind}</Table.Td>
+              <Table.Td><GradeBadge grade={asGrade(r.gradeMax)} /></Table.Td>
+              <Table.Td ta="right" style={{ fontVariantNumeric: 'tabular-nums' }}>{r.gradeTotal}</Table.Td>
+              <Table.Td>{r.specialLevel ? `第 ${r.specialLevel} 級管理` : '—'}</Table.Td>
+              <Table.Td>{r.events ? <Text size="sm" fw={600} c="var(--yutis-bad)">{r.events} 件</Text> : <Text size="sm" c="dimmed">—</Text>}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  );
+}
+
+/** Earlier imports (GET /api/exams/batches): clinic, file and counts only, no exam content. */
+function ImportHistory() {
+  const batches = useQuery(examBatchesQuery);
+  return (
+    <Card>
+      <Text fw={600} size="lg" mb="sm">匯入紀錄</Text>
+      {batches.isPending ? <Skeleton h={100} /> : batches.isError ? <CardNote>{problemText(batches.error)}</CardNote> : batches.data.length === 0 ? (
+        <CardNote>還沒有匯入過健檢結果。</CardNote>
+      ) : (
+        <Table.ScrollContainer minWidth={640}>
+          <Table verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr><Table.Th>匯入時間</Table.Th><Table.Th>健檢醫院</Table.Th><Table.Th>檔案</Table.Th><Table.Th ta="right">資料列</Table.Th><Table.Th ta="right">健檢筆數</Table.Th><Table.Th>匯入人員</Table.Th></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {batches.data.map(b => (
+                <Table.Tr key={b.id}>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{dateTime(b.importedAt)}</Table.Td>
+                  <Table.Td>{b.clinic}</Table.Td>
+                  <Table.Td><Text size="sm" style={{ overflowWrap: 'anywhere' }}>{b.fileName ?? '—'}</Text></Table.Td>
+                  <Table.Td ta="right">{b.rowCount ?? '—'}</Table.Td>
+                  <Table.Td ta="right">{b.exams}</Table.Td>
+                  <Table.Td>{b.importedBy ?? '—'}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      )}
+    </Card>
+  );
+}
+
+/** The headers this clinic's file is read with (first sheet, header row 1), and a blank file with exactly those. */
 function MappingHint({ mapping }: { mapping: ExamMapping }) {
   const { columns, items } = mappingColumns(mapping.mapping);
   const [showItems, setShowItems] = useState(false);
+  const template = useMutation({ mutationFn: downloadExamTemplate });
   return (
     <div>
-      <Text size="sm" c="dimmed" mb={6}>檔案第一個工作表的第一列需要這些欄名：</Text>
+      <Group justify="space-between" gap="xs" mb={6}>
+        <Text size="sm" c="dimmed">檔案第一個工作表的第一列需要這些欄名：</Text>
+        <Group gap="xs">
+          {template.isError && (
+            <Text size="xs" c="var(--yutis-bad)" role="alert">
+              {template.error instanceof ApiRequestError && template.error.code === 'mapping_not_found' ? actionErrorText(template.error) : '暫時無法下載範本，請稍後再試。'}
+            </Text>
+          )}
+          <Button size="compact-sm" variant="default" leftSection={<IconDownload size={14} />} loading={template.isPending}
+            onClick={() => template.mutate(mapping)}>下載空白範本</Button>
+        </Group>
+      </Group>
       <Group gap={6}>
         {columns.map(c => (
           <Badge key={c.label} size="lg" variant="light" color={c.required ? 'yutis' : 'gray'} styles={{ root: { textTransform: 'none', fontWeight: 500 } }}>

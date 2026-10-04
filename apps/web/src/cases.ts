@@ -86,17 +86,3 @@ export const hasNewEvents = (c: Pick<EmployeeCase, 'events'>) => c.events.some(e
 
 /** What the 開單 button does for this employee, or null when there is nothing to open. */
 export const openAction = (c: CaseRef): '開單' | '併入個案' | null => (!hasNewEvents(c) ? null : runningCase(c) ? '併入個案' : '開單');
-
-export interface StaffOption { value: string; label: string }
-
-/**
- * Staff to pick as case lead or follow-up owner: me, then everyone already leading a case in my sites. The API has no
- * staff directory for care staff, so these are the only colleagues the page can name.
- */
-export function knownStaff(cases: readonly Pick<EmployeeCase, 'case'>[], me: { id: string; name: string }): StaffOption[] {
-  const out: StaffOption[] = [{ value: me.id, label: `${me.name}（我）` }];
-  for (const { case: c } of cases) {
-    if (c?.leadUserId && c.leadName && !out.some(o => o.value === c.leadUserId)) out.push({ value: c.leadUserId, label: c.leadName });
-  }
-  return out;
-}

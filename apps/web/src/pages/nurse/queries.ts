@@ -1,9 +1,10 @@
 /* Nurse workflow reads and writes: phrases, exam import, assistance records, case changes and follow-ups. */
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { ApiRequestError, data, type Schemas, type TenantPaths } from '@yutis/api-client';
+import { ApiRequestError, data, type Schemas, type StaffRole, type TenantPaths } from '@yutis/api-client';
 import { api } from '../../api';
 import { employeeCaseQuery, employeeRecordsQuery } from '../../queries';
-import { XLSX_MIME, type ImportReport } from './exams';
+import { XLSX_MIME, type ExamMapping, type ImportReport } from './exams';
+import { attachmentName, saveFile } from './files';
 import type { CaseFollowOn, RecordBody } from './records';
 
 export type CaseDetail = Schemas['EmployeeCaseDetailDto'];
@@ -12,6 +13,22 @@ export type CasePatch = TenantPaths['/api/cases/{id}']['patch']['requestBody']['
 export const phrasesQuery = queryOptions({ queryKey: ['phrases'], queryFn: () => data(api.GET('/api/phrases')), staleTime: 10 * 60_000 });
 
 export const examMappingsQuery = queryOptions({ queryKey: ['exams', 'mappings'], queryFn: () => data(api.GET('/api/exams/mappings')) });
+
+/** Past imports, newest first (who, which clinic and file, how many exams). */
+export const examBatchesQuery = queryOptions({ queryKey: ['exams', 'batches'], queryFn: () => data(api.GET('/api/exams/batches')) });
+
+/** Active staff in these roles, for pickers (GET /api/staff?roles=…). */
+export const staffQuery = (roles: readonly StaffRole[]) => queryOptions({
+  queryKey: ['staff', roles.join(',')],
+  queryFn: () => data(api.GET('/api/staff', { params: { query: { roles: roles.join(',') } } })),
+  staleTime: 5 * 60_000,
+});
+
+/** The blank .xlsx for a clinic's mapping, saved under the name the API gives it. */
+export async function downloadExamTemplate(mapping: Pick<ExamMapping, 'id' | 'clinic'>): Promise<void> {
+  const { data: blob, response } = await api.GET('/api/exams/mappings/{id}/template', { params: { path: { id: mapping.id } }, parseAs: 'blob' });
+  saveFile(blob as Blob, attachmentName(response.headers.get('Content-Disposition')) ?? `${mapping.clinic}健檢匯入範本.xlsx`);
+}
 
 /** Text for a failed action; the API's `message` is for developers, so this goes by status and code. */
 export function actionErrorText(err: unknown): string {
@@ -60,7 +77,11 @@ export function useUpdateCase() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { employeeId: string; id: string; body: CasePatch }) => patchCase(id, body),
-    onSuccess: (k, v) => caseChanged(qc, v.employeeId, k),
+    onSuccess: (k, v) => Promise.all([
+      caseChanged(qc, v.employeeId, k),
+      // Closing a case also completes the employee's open follow-ups.
+      ...(v.body.status === '結案' ? [qc.invalidateQueries({ queryKey: ['records'] }), qc.invalidateQueries({ queryKey: employeeRecordsQuery(v.employeeId).queryKey })] : []),
+    ]),
   });
 }
 
@@ -150,8 +171,11 @@ export function useExamImport() {
     },
     onSuccess: r => {
       if (!r.committed) return;
-      // New exams, grades and abnormal events: cases, profiles and the grade report.
-      return Promise.all([refreshCases(qc), qc.invalidateQueries({ queryKey: ['employees'] }), qc.invalidateQueries({ queryKey: ['reports'] })]);
+      // New exams, grades and abnormal events: cases, profiles, the grade report and the import history.
+      return Promise.all([
+        refreshCases(qc), qc.invalidateQueries({ queryKey: ['employees'] }), qc.invalidateQueries({ queryKey: ['reports'] }),
+        qc.invalidateQueries({ queryKey: examBatchesQuery.queryKey }),
+      ]);
     },
   });
 }

@@ -135,7 +135,7 @@ export function caseContext(k: Pick<EmployeeCase, 'case' | 'events'>): string {
 export function followOnLabel(s: CaseFollowOn): string {
   const parts = [
     s.open ? (s.merge ? '把新的異常事件併入個案' : '開單（主責為我）') : null,
-    s.to === '結案' ? '將個案結案' : s.to === '處理中' ? '個案改為處理中' : null,
+    s.to === '結案' ? '將個案結案（這位員工未完成的追蹤也會一併完成）' : s.to === '處理中' ? '個案改為處理中' : null,
   ].filter(Boolean);
   return `同時${parts.join('，')}`;
 }

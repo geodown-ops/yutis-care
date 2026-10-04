@@ -14,8 +14,9 @@ import { useMe } from '../session';
 import { EmployeeStatus } from './EmployeesPage';
 import { nurseAccess } from './nurse/access';
 import { CaseEditModal, CaseOpenButton, type CaseTarget } from './nurse/CaseActions';
-import { actionErrorText, useFollowUp } from './nurse/queries';
+import { actionErrorText, staffQuery, useFollowUp } from './nurse/queries';
 import { RecordFormModal, type RecordFormTarget } from './nurse/RecordForm';
+import { CARE_ROLES, staffName, type StaffMember } from './nurse/staff';
 import { CardNote, problemText } from './states';
 
 type Exam = Schemas['ExamSummaryDto'];
@@ -256,6 +257,8 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 
 function RecordsTab({ employeeId, onWrite }: { employeeId: string; onWrite?: (r?: CareRecord) => void }) {
   const records = useQuery(employeeRecordsQuery(employeeId));
+  // Names for helpers and follow-up owners; the records show without them.
+  const staff = useQuery(staffQuery(CARE_ROLES));
   if (records.isPending) return <Card><Skeleton h={200} /></Card>;
   if (records.isError) return <Card><CardNote>{problemText(records.error)}</CardNote></Card>;
   if (records.data.length === 0) {
@@ -268,10 +271,10 @@ function RecordsTab({ employeeId, onWrite }: { employeeId: string; onWrite?: (r?
   }
   // Drafts first: they are unfinished work.
   const sorted = [...records.data].sort((a, b) => Number(b.draft) - Number(a.draft));
-  return <Stack gap="md">{sorted.map(r => <RecordCard key={r.id} r={r} onEdit={onWrite && (() => onWrite(r))} />)}</Stack>;
+  return <Stack gap="md">{sorted.map(r => <RecordCard key={r.id} r={r} staff={staff.data} onEdit={onWrite && (() => onWrite(r))} />)}</Stack>;
 }
 
-function RecordCard({ r, onEdit }: { r: CareRecord; onEdit?: () => void }) {
+function RecordCard({ r, staff, onEdit }: { r: CareRecord; staff: StaffMember[] | undefined; onEdit?: () => void }) {
   const c = r.content ?? { explain: '', handling: '', note: '' };
   const follow = useFollowUp();
   const pending = r.result === '追蹤' && !r.draft && !r.followUpDone && !!r.followUpOn;
@@ -293,9 +296,14 @@ function RecordCard({ r, onEdit }: { r: CareRecord; onEdit?: () => void }) {
         {c.handling && <Field label="處置" value={c.handling} />}
         {r.lifestyleAdvice.length > 0 && <Field label="生活型態建議" value={r.lifestyleAdvice.join('、')} />}
         {c.note && <Field label="備註" value={c.note} />}
+        {r.helpers.length > 0 && <Field label="協助人員與費時" value={r.helpers.map(h => `${staffName(staff, h.userId)} ${h.minutes} 分`).join('、')} />}
       </Stack>
       <Group justify="space-between" mt="sm" gap="xs">
-        <Text size="sm">{r.result === '追蹤' ? `追蹤${r.followUpOn ? ` · ${dt(r.followUpOn)}` : ''}${r.followUpDone ? '（已完成）' : ''}` : '結案'}</Text>
+        <Text size="sm">
+          {r.result === '追蹤'
+            ? `追蹤${r.followUpOn ? ` · ${dt(r.followUpOn)}` : ''}${r.followUpUserId ? ` · ${staffName(staff, r.followUpUserId)}` : ''}${r.followUpDone ? '（已完成）' : ''}`
+            : '結案'}
+        </Text>
         {onEdit && pending && (
           <Group gap="xs">
             {follow.isError && <Text size="xs" c="var(--yutis-bad)">{actionErrorText(follow.error)}</Text>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, byUrgency, caseMoves, countByStatus, dueFollowUps, eventTypes, filterByEvents, hasNewEvents, knownStaff, monthlyEvents, openAction, runningCase, type EmployeeCase, type FollowUp } from './cases';
+import { addDays, byUrgency, caseMoves, countByStatus, dueFollowUps, eventTypes, filterByEvents, hasNewEvents, monthlyEvents, openAction, runningCase, type EmployeeCase, type FollowUp } from './cases';
 
 const ev = (type: EmployeeCase['events'][number]['type'], occurredOn: string, status: EmployeeCase['status'] = '未開單') =>
   ({ id: `${type}-${occurredOn}`, type, occurredOn, description: '', status });
@@ -63,12 +63,6 @@ describe('case helpers', () => {
     expect(openAction({ case: lead('處理中'), events: [ev('hc', '2026-09-02', '處理中')] })).toBeNull();
     expect(runningCase({ case: lead('結案') })).toBeNull();
     expect(hasNewEvents(CASES[1]!)).toBe(true);
-  });
-
-  it('names me first, then case leads once each', () => {
-    const lead = (leadUserId: string | null, leadName: string | null) => ({ case: { id: 'c', status: '處理中' as const, leadUserId, leadName, openedOn: '', noticeOn: null, plannedOn: null, repliedOn: null, agreed: null, closedOn: null } });
-    expect(knownStaff([lead('u2', '陳醫師'), { case: null }, lead('me', '王護理師'), lead('u2', '陳醫師'), lead(null, null)], { id: 'me', name: '王護理師' }))
-      .toEqual([{ value: 'me', label: '王護理師（我）' }, { value: 'u2', label: '陳醫師' }]);
   });
 
   it('keeps follow-ups due within a week, overdue first', () => {
