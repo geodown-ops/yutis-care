@@ -38,6 +38,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 啟用中的後台人員
+         * @description 選執行人員、面談醫師等用；可用 roles 篩選（逗號分隔），例如 roles=職護,職醫。
+         */
+        get: operations["DirectoryController_staff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/org": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 組織架構（名稱）
+         * @description 法人 → 廠區 → 部門的代碼與名稱，供篩選與顯示；mine 標出你負責的廠區。
+         */
+        get: operations["DirectoryController_org"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -214,6 +254,26 @@ export interface paths {
         patch: operations["OrgController_updateDepartment"];
         trace?: never;
     };
+    "/api/admin/org/import-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 組織架構匯入範本（.xlsx）
+         * @description 法人、廠區、部門三個工作表，只有欄位名稱；粗體為必填。
+         */
+        get: operations["OrgController_template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/org/import": {
         parameters: {
             query?: never;
@@ -246,7 +306,7 @@ export interface paths {
         put?: never;
         /**
          * 邀請後台人員
-         * @description 指定角色與負責廠區；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。
+         * @description 指定角色與負責廠區，並寄邀請信（含登入網址）給對方；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。
          */
         post: operations["UsersController_invite"];
         delete?: never;
@@ -275,6 +335,26 @@ export interface paths {
         patch: operations["UsersController_update"];
         trace?: never;
     };
+    "/api/admin/employees/import-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 員工主檔匯入範本（.xlsx）
+         * @description 只有欄位名稱；粗體為必填。
+         */
+        get: operations["EmployeesController_template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/employees/import": {
         parameters: {
             query?: never;
@@ -286,7 +366,7 @@ export interface paths {
         put?: never;
         /**
          * 以 Excel 匯入員工主檔
-         * @description 第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：身分證字號、職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。
+         * @description 第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：身分證字號、職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。語言留空時保留員工在員工端自己設定的語言（新員工為 zh）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。
          */
         post: operations["EmployeesController_import"];
         delete?: never;
@@ -361,9 +441,17 @@ export interface paths {
         };
         /** 某一版分級標準的規則 */
         get: operations["ExamSettingsController_ruleSet"];
-        put?: never;
+        /**
+         * 修改分級標準草稿
+         * @description 送出整套規則取代原本的；只有草稿能改。
+         */
+        put: operations["ExamSettingsController_updateRuleSet"];
         post?: never;
-        delete?: never;
+        /**
+         * 刪除分級標準草稿
+         * @description 只有草稿能刪；已發布或停用的版本永久保留。
+         */
+        delete: operations["ExamSettingsController_deleteRuleSet"];
         options?: never;
         head?: never;
         patch?: never;
@@ -389,6 +477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 稽核查詢
+         * @description 依員工、操作者、動作、資料等級與日期（台灣時間，含起訖兩天）查詢稽核日誌，新的在前。每次查詢也記入稽核。
+         */
+        get: operations["AuditController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/exams/mappings": {
         parameters: {
             query?: never;
@@ -398,6 +506,46 @@ export interface paths {
         };
         /** 可用的健檢匯入對照（匯入時選擇） */
         get: operations["ExamsController_mappings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams/mappings/{id}/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 依健檢匯入對照產生的空白檔（.xlsx）
+         * @description 欄位名稱與這家醫院的對照相同；粗體為必填。
+         */
+        get: operations["ExamsController_template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exams/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 健檢匯入紀錄（新的在前）
+         * @description 每次匯入的醫院、檔名、筆數與匯入人員；不含健檢內容。
+         */
+        get: operations["ExamsController_batches"];
         put?: never;
         post?: never;
         delete?: never;
@@ -567,7 +715,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * 片語庫（租戶管理）
+         * @description 和 GET /api/phrases 相同的清單，給租戶管理員維護片語用。
+         */
+        get: operations["RecordsController_adminPhrases"];
         put?: never;
         /** 新增片語 */
         post: operations["RecordsController_createPhrase"];
@@ -686,7 +838,7 @@ export interface paths {
         head?: never;
         /**
          * 更新個案：狀態（處理中、結案）、主責、各日期
-         * @description 狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。
+         * @description 狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。結案時，這位員工未完成的協助紀錄追蹤也一併標為完成。
          */
         patch: operations["CasesController_update"];
         trace?: never;
@@ -772,6 +924,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/programs/ergo/dispatches/{id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 未填寫通知（催填）
+         * @description 寄提醒信給批次內負責廠區、尚未填寫的員工（可用 surveyIds 指定）；信中只說有問卷待填，不含問卷名稱與健康內容。沒有 Email 的員工列在 noEmail。
+         */
+        post: operations["ErgoController_remind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/ergo/surveys/{id}/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 管控追蹤（列管）
+         * @description 只有疑似有危害（任一部位 ≥ 3）的問卷可以列管；整份取代。
+         */
+        put: operations["ErgoController_track"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs/ergo/surveys/{id}": {
         parameters: {
             query?: never;
@@ -783,6 +975,26 @@ export interface paths {
         /** 職護代填 NMQ（依員工口述） */
         put: operations["ErgoController_fill"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/workload/assessments/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 未填寫通知（催填）
+         * @description 寄提醒信給指定評估中過勞量表或工時調查還沒填完的員工（只限負責廠區）；信中只說有問卷待填，不含健康內容。沒有 Email 的員工列在 noEmail。
+         */
+        post: operations["WorkloadController_remind"];
         delete?: never;
         options?: never;
         head?: never;
@@ -807,6 +1019,26 @@ export interface paths {
          * @description 員工在員工端填寫 CBI 與加班時數；也可由職護代填。
          */
         post: operations["WorkloadController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/workload/assessments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 一筆過勞評估，含面談指導結果與面談紀錄
+         * @description 這兩項是醫療資料，讀取記入稽核。
+         */
+        get: operations["WorkloadController_one"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -857,7 +1089,7 @@ export interface paths {
         get?: never;
         /**
          * 醫師面談與健康指導
-         * @description 面談紀錄加密；工作安排建議可通知人資與主管。
+         * @description 面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。
          */
         put: operations["WorkloadController_interview"];
         post?: never;
@@ -992,6 +1224,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/programs/violence/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 修改不法侵害事件
+         * @description 只送要改的欄位，例如 { status: '結案' }；detail 送 null 會清除。
+         */
+        patch: operations["MaternalViolenceController_updateIncident"];
+        trace?: never;
+    };
+    "/api/programs/violence/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 負責廠區的預防措施查核及評估 */
+        get: operations["MaternalViolenceController_reviews"];
+        put?: never;
+        /**
+         * 新增預防措施查核及評估（草稿）
+         * @description 簽核人員的角色必須是租戶設定的簽核角色之一；送出簽核前可修改。
+         */
+        post: operations["MaternalViolenceController_createReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/violence/reviews/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 修改預防措施查核及評估草稿 */
+        put: operations["MaternalViolenceController_updateReview"];
+        post?: never;
+        /**
+         * 刪除預防措施查核及評估草稿
+         * @description 送出簽核後就不能刪除。
+         */
+        delete: operations["MaternalViolenceController_deleteReview"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/violence/reviews/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 預防措施查核及評估送出簽核
+         * @description 每位簽核人員各一個一次性連結（14 天內有效），寄到簽核人員的 Email；連結也只在這裡回傳這一次。
+         */
+        post: operations["MaternalViolenceController_submitReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/violence/reviews/{id}/signatures/{signatureId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 重寄預防措施查核及評估的簽核連結
+         * @description 寄新的連結給這位簽核人員，舊連結隨即失效。
+         */
+        post: operations["MaternalViolenceController_resendReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs/work-advice": {
         parameters: {
             query?: never;
@@ -1004,6 +1338,26 @@ export interface paths {
          * @description 負責廠區員工的面談後工作安排建議，給人資執行；不含任何健康或醫療內容。
          */
         get: operations["AdviceController_workAdvice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/managers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 可通知的部門主管
+         * @description 租戶內所有啟用中的部門主管帳號；departmentIds 依部門設定的主管 Email 對應，可用來預先選好員工所屬部門的主管。
+         */
+        get: operations["AdviceController_managers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1036,6 +1390,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/programs/notices/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我未讀的工作安排通知數（部門主管）
+         * @description 只回傳數字，不會標記已讀；給選單上的提示用。
+         */
+        get: operations["AdviceController_unreadNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs/acknowledgements/{id}/link": {
         parameters: {
             query?: never;
@@ -1047,7 +1421,7 @@ export interface paths {
         put?: never;
         /**
          * 產生員工確認連結
-         * @description 一次性、14 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；同時排入寄給員工的通知信（信中不含健康內容）。
+         * @description 一次性、14 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；員工有 Email 時同時寄通知信（員工端語言，信中不含健康內容）。
          */
         post: operations["AdviceController_link"];
         delete?: never;
@@ -1065,7 +1439,11 @@ export interface paths {
         };
         /** 我的基本資料 */
         get: operations["PortalController_profile"];
-        put?: never;
+        /**
+         * 設定員工端語言
+         * @description 之後的任務標題與確認紀錄都用這個語言。
+         */
+        put: operations["PortalController_updateProfile"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1085,6 +1463,47 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portal/tasks/{kind}/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 一項任務
+         * @description 從通知連結打開任務時用：是否已完成，以及尚未送出的草稿。不是自己的任務回 404。
+         */
+        get: operations["PortalController_task"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portal/tasks/{kind}/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 儲存問卷草稿
+         * @description 作答到一半先存起來，登入逾時或換裝置後可接著填。送出問卷（本人或職護代填）後草稿就刪除。草稿只有本人看得到，不記入稽核。
+         */
+        put: operations["PortalController_saveDraft"];
+        post?: never;
+        /** 捨棄問卷草稿 */
+        delete: operations["PortalController_discardDraft"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1265,9 +1684,29 @@ export interface paths {
         put?: never;
         /**
          * 以一次性連結確認或簽核
-         * @description 完成後連結立即失效，不能再用。附表八所有簽核人員都簽核後，紀錄狀態變為已完成。
+         * @description 完成後連結立即失效，不能再用。所有簽核人員都簽核後，紀錄狀態變為已完成。
          */
         post: operations["SignController_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/service-records/sign-off-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 可選的簽核角色
+         * @description 租戶設定的簽核角色（租戶管理員在 /api/admin/sign-off-roles 修改）；簽核人員的角色必須是其中之一。
+         */
+        get: operations["ServiceRecordsController_roles"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1306,7 +1745,11 @@ export interface paths {
         /** 修改草稿 */
         put: operations["ServiceRecordsController_update"];
         post?: never;
-        delete?: never;
+        /**
+         * 刪除草稿
+         * @description 送出簽核後就不能刪除。
+         */
+        delete: operations["ServiceRecordsController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1323,7 +1766,7 @@ export interface paths {
         put?: never;
         /**
          * 送出簽核
-         * @description 每位簽核人員各一個一次性連結（14 天內有效），並排入通知信；連結只回傳這一次。
+         * @description 每位簽核人員各一個一次性連結（14 天內有效），寄到簽核人員的 Email；連結也只在這裡回傳這一次。
          */
         post: operations["ServiceRecordsController_submit"];
         delete?: never;
@@ -1343,9 +1786,33 @@ export interface paths {
         put?: never;
         /**
          * 重寄簽核連結
-         * @description 舊連結隨即失效。
+         * @description 寄新的連結給這位簽核人員，舊連結隨即失效。
          */
         post: operations["ServiceRecordsController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/sign-off-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 簽核角色設定
+         * @description 附表八與不法侵害預防措施查核可指定的簽核人員角色。
+         */
+        get: operations["SignOffRolesController_list"];
+        /**
+         * 修改簽核角色
+         * @description 整份取代，依送出的順序顯示。已建立的紀錄保留原本的簽核角色。
+         */
+        put: operations["SignOffRolesController_replace"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1548,6 +2015,35 @@ export interface components {
             /** @enum {string} */
             status: "ok";
         };
+        StaffMemberDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "職護" | "職醫" | "職安衛人員" | "人資" | "部門主管" | "租戶管理員";
+        };
+        DirectoryDepartmentDto: {
+            /** Format: uuid */
+            id: string;
+            code: string | null;
+            name: string;
+        };
+        DirectorySiteDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @description 是你負責的廠區（含破窗中的） */
+            mine: boolean;
+            departments: components["schemas"]["DirectoryDepartmentDto"][];
+        };
+        DirectoryLegalEntityDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            sites: components["schemas"]["DirectorySiteDto"][];
+        };
         SiteDto: {
             /** Format: uuid */
             id: string;
@@ -1599,12 +2095,29 @@ export interface components {
             /** @description 員工端語言：zh、en、ja、vi、th */
             lang: string;
         };
+        OrgDepartmentDto: {
+            /** Format: uuid */
+            id: string;
+            code: string | null;
+            name: string;
+            managerName: string | null;
+            managerEmail: string | null;
+            managerPhone: string | null;
+        };
+        OrgSiteDto: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            address: string | null;
+            departments: components["schemas"]["OrgDepartmentDto"][];
+        };
         LegalEntityDto: {
             /** Format: uuid */
             id: string;
             code: string;
             name: string;
-            sites: components["schemas"]["SiteDto"][];
+            sites: components["schemas"]["OrgSiteDto"][];
         };
         CreatedDto: {
             /** Format: uuid */
@@ -1709,6 +2222,90 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        AuditActorDto: {
+            /**
+             * @description 後台人員、員工本人（員工端或確認連結），或系統排程
+             * @enum {string}
+             */
+            kind: "staff" | "employee" | "system";
+            /** Format: uuid */
+            id: string | null;
+            name: string | null;
+            /**
+             * @description 後台人員的角色
+             * @enum {string|null}
+             */
+            role: "職護" | "職醫" | "職安衛人員" | "人資" | "部門主管" | "租戶管理員" | null;
+        };
+        AuditEmployeeDto: {
+            /** Format: uuid */
+            id: string;
+            empNo: string;
+            name: string;
+        };
+        AuditEntryDto: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            actor: components["schemas"]["AuditActorDto"];
+            /**
+             * @description 讀取、新增、修改、刪除、匯出、登入、破窗
+             * @enum {string}
+             */
+            action: "read" | "create" | "update" | "delete" | "export" | "sign_in" | "break_glass";
+            /** @example assist_records */
+            subjectTable: string | null;
+            /** Format: uuid */
+            subjectId: string | null;
+            /** @description 資料屬於哪位員工 */
+            employee: components["schemas"]["AuditEmployeeDto"] | null;
+            /**
+             * @description 資料敏感等級
+             * @enum {string|null}
+             */
+            dataCategory: "identity" | "work" | "health" | "medical" | null;
+            reason: string | null;
+            ip: string | null;
+        };
+        AuditPageDto: {
+            /** @description 符合條件的總筆數 */
+            total: number;
+            /** @description 新的在前 */
+            items: components["schemas"]["AuditEntryDto"][];
+        };
+        ExamBatchDto: {
+            /** Format: uuid */
+            id: string;
+            clinic: string;
+            fileName: string | null;
+            /** @description 檔案資料列數 */
+            rowCount: number | null;
+            /** @description 這批匯入的健檢筆數（全租戶） */
+            exams: number;
+            /** Format: date-time */
+            importedAt: string;
+            /** @description 匯入人員 */
+            importedBy: string | null;
+        };
+        ExamImportRowDto: {
+            /** @description Excel 列號 */
+            row: number;
+            /** Format: uuid */
+            employeeId: string;
+            empNo: string;
+            name: string;
+            /** Format: date */
+            examDate: string;
+            kind: string;
+            /** @description 最高分級 */
+            gradeMax: number;
+            /** @description 各項分級加總 */
+            gradeTotal: number;
+            /** @description 特殊健檢管理分級 */
+            specialLevel: number | null;
+            /** @description 這筆會產生的異常事件數（只有員工最新一次健檢會產生） */
+            events: number;
+        };
         ExamImportReportDto: {
             committed: boolean;
             rows: number;
@@ -1721,6 +2318,8 @@ export interface components {
             grade3Plus: number;
             /** @description 寫入後新產生的異常事件數（預覽時為預估） */
             newEvents: number;
+            /** @description 可匯入的每一筆（沒有錯誤的列），依 Excel 列號排序 */
+            preview: components["schemas"]["ExamImportRowDto"][];
         };
         ExamItemDto: {
             /** @example B0111 */
@@ -2009,6 +2608,29 @@ export interface components {
             filled: number;
             suspected: number;
         };
+        NmqAnswersDto: {
+            /** @description 各部位分數（0–5），鍵為部位代碼 */
+            scores: {
+                [key: string]: number;
+            };
+            /** @description 是非題 */
+            yesNo: {
+                [key: string]: boolean;
+            };
+        };
+        ErgoTrackingDto: {
+            /** @description 改善措施 */
+            measures: string[];
+            /** @description 說明 */
+            note: string;
+            /**
+             * Format: date
+             * @description 下次追蹤日期
+             */
+            nextOn: string | null;
+            /** @enum {string} */
+            status: "列管中" | "已改善" | "解除列管";
+        };
         SurveyDto: {
             /** Format: uuid */
             id: string;
@@ -2016,6 +2638,10 @@ export interface components {
             employeeId: string;
             empNo: string;
             name: string;
+            /** @example 桃園廠 */
+            site: string;
+            /** @example 製造一課 */
+            department: string;
             /** @enum {string} */
             status: "未填寫" | "已填寫";
             /** @description 各部位最高分（0–5） */
@@ -2026,22 +2652,143 @@ export interface components {
             filledAt: string | null;
             /** @enum {string|null} */
             filledBy: "self" | "nurse" | null;
+            /** @description 填答內容；未填寫時為 null */
+            answers: components["schemas"]["NmqAnswersDto"] | null;
+            /** @description 已寄出的催填通知次數 */
+            reminders: number;
+            /** Format: date-time */
+            lastRemindedAt: string | null;
+            /** @description 管控追蹤（疑似有危害時） */
+            tracking: components["schemas"]["ErgoTrackingDto"] | null;
+        };
+        RemindResultDto: {
+            /** @description 寄出催填通知的人數 */
+            emailed: number;
+            /** @description 沒有 Email、無法通知的員工 */
+            noEmail: string[];
+        };
+        CbiAnswersDto: {
+            /** @description 個人相關過勞各題（0–4） */
+            p: number[];
+            /** @description 工作相關過勞各題（0–4） */
+            w: number[];
+        };
+        InterviewAdviceDto: {
+            /**
+             * @description 工作區分，例如：一般工作、工作限制、需休假
+             * @example 工作限制
+             */
+            fitness: string;
+            /** @description 工作限制 */
+            restrictions: string[];
+            /** @description 建議（備註） */
+            suggestion: string;
+            /**
+             * @description 調整或縮短工作時間；空字串表示沒有
+             * @example 限制加班
+             */
+            adjustHours: string;
+            /**
+             * @description 變更工作；空字串表示沒有
+             * @example 調整為常日班
+             */
+            changeWork: string;
+            /**
+             * @description 措施期間
+             * @example 3 個月
+             */
+            period: string;
+        };
+        InterviewGuidanceDto: {
+            /**
+             * @description 疲勞累積狀況
+             * @enum {string|null}
+             */
+            fatigue: "無" | "輕度" | "中度" | "重度" | null;
+            /**
+             * @description 應顧慮身心狀況
+             * @enum {string|null}
+             */
+            mentalConcern: "有" | "無" | null;
+            /**
+             * @description 診斷區分
+             * @enum {string|null}
+             */
+            diagnosis: "無異常" | "需觀察或進一步追蹤檢查" | "需進行醫療" | null;
+            /**
+             * @description 指導區分
+             * @enum {string|null}
+             */
+            guidance: "不需指導" | "需健康指導" | "需醫療指導" | null;
+            /** @description 是否需採取措施 */
+            needMeasure: boolean | null;
+            /**
+             * @description 建議就醫
+             * @example 心臟內科
+             */
+            seeDoctor: string;
+            /** @description 特殊記載事項 */
+            special: string;
+        };
+        AcknowledgementStatusDto: {
+            /**
+             * Format: uuid
+             * @description 產生員工確認連結用（POST /api/programs/acknowledgements/{id}/link）
+             */
+            id: string;
+            /**
+             * Format: date-time
+             * @description 最近一次寄出確認連結的時間
+             */
+            sentAt: string | null;
+            /**
+             * Format: date-time
+             * @description 員工確認的時間
+             */
+            confirmedAt: string | null;
+            /** @description 員工確認時的回覆 */
+            comment: string | null;
+        };
+        NoticeStatusDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            managerUserId: string;
+            managerName: string;
+            /** Format: date-time */
+            sentAt: string;
+            /**
+             * Format: date-time
+             * @description 主管開啟通知的時間；尚未讀取時為 null
+             */
+            readAt: string | null;
         };
         InterviewDto: {
+            /**
+             * Format: uuid
+             * @description 通知主管時的 subjectId（subjectTable 為 interviews）
+             */
+            id: string;
             /** @enum {string} */
             status: "待安排" | "已安排" | "已面談" | "拒絕面談";
             /** Format: date */
             interviewedOn: string | null;
             /** Format: uuid */
             doctorUserId: string | null;
-            /** @description 工作安排建議（人資、主管可見） */
-            workAdvice: {
-                [key: string]: unknown;
-            } | null;
-            /** @description 面談紀錄（醫療資料，加密儲存） */
+            /** @description 面談醫師姓名 */
+            doctorName: string | null;
+            /** @description 工作區分與採取措施建議（人資、主管可見） */
+            workAdvice: components["schemas"]["InterviewAdviceDto"] | null;
+            /** @description 面談指導結果（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有 */
+            guidance: components["schemas"]["InterviewGuidanceDto"] | null;
+            /** @description 面談紀錄（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有 */
             notes: string | null;
             /** Format: date */
             nextOn: string | null;
+            /** @description 員工確認狀態：面談狀態改為已面談時建立，之後用 POST /api/programs/acknowledgements/{id}/link 寄確認信給員工 */
+            acknowledgement: components["schemas"]["AcknowledgementStatusDto"] | null;
+            /** @description 已寄給部門主管的通知與讀取狀態 */
+            notices: components["schemas"]["NoticeStatusDto"][];
         };
         AssessmentDto: {
             /** Format: uuid */
@@ -2050,12 +2797,37 @@ export interface components {
             employeeId: string;
             empNo: string;
             name: string;
+            /** @example 桃園廠 */
+            site: string;
+            /** @example 製造一課 */
+            department: string;
             /** Format: date */
             sentOn: string;
+            /** @description CBI 各題作答；直接輸入分數時為 null */
+            cbiAnswers: components["schemas"]["CbiAnswersDto"] | null;
             /** @description 個人相關過勞分數 */
             personalBurnout: number | null;
             /** @description 工作相關過勞分數 */
             workBurnout: number | null;
+            /**
+             * Format: date-time
+             * @description 過勞量表填寫時間
+             */
+            fatigueAt: string | null;
+            /**
+             * @description 員工自填或職護代填
+             * @enum {string|null}
+             */
+            fatigueBy: "self" | "nurse" | null;
+            /**
+             * Format: date-time
+             * @description 工時與工作型態填寫時間
+             */
+            overloadAt: string | null;
+            /** @description 已寄出的催填通知次數 */
+            reminders: number;
+            /** Format: date-time */
+            lastRemindedAt: string | null;
             overtime1m: number | null;
             overtime6mAvg: number | null;
             workPatterns: string[];
@@ -2065,6 +2837,8 @@ export interface components {
             } | null;
             /** @description 0 低度、1 中度、2 高度風險；資料不全時為 null */
             riskLevel: number | null;
+            /** @description 還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。 */
+            missing: ("cbi" | "overload" | "exam")[];
             interview: components["schemas"]["InterviewDto"] | null;
         };
         EnvAssessmentDto: {
@@ -2084,13 +2858,35 @@ export interface components {
              */
             level: "第一級管理" | "第二級管理" | "第三級管理";
         };
+        MaternalInterviewDto: {
+            /**
+             * Format: uuid
+             * @description 通知主管時的 subjectId（subjectTable 為 maternal_interviews）
+             */
+            id: string;
+            /** Format: date */
+            interviewedOn: string;
+            /** @description 適性評估（工作安排建議） */
+            fitAdvice: string | null;
+            /** @description 工作限制 */
+            limits: string[];
+            /** @description 雙方同意的工作調整 */
+            agreedArrangement: string | null;
+            /** @description 員工確認狀態 */
+            acknowledgement: components["schemas"]["AcknowledgementStatusDto"] | null;
+            /** @description 已寄給部門主管的通知與讀取狀態 */
+            notices: components["schemas"]["NoticeStatusDto"][];
+        };
         MaternalCaseDto: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             employeeId: string;
             name: string;
-            /** @enum {string} */
+            /**
+             * @description 產後指分娩後未滿一年
+             * @enum {string}
+             */
             type: "妊娠" | "產後";
             /** Format: date */
             notifiedOn: string;
@@ -2102,6 +2898,17 @@ export interface components {
             level: "第一級管理" | "第二級管理" | "第三級管理" | null;
             /** @description 自述症狀、風險因子（醫療資料，加密儲存） */
             detail: string | null;
+            /** @description 面談紀錄（舊的在前，不含面談內文） */
+            interviews: components["schemas"]["MaternalInterviewDto"][];
+        };
+        InterviewCreatedDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description 員工確認紀錄；用來產生確認連結
+             */
+            acknowledgementId: string;
         };
         RiskAssessmentDto: {
             /** Format: uuid */
@@ -2114,6 +2921,97 @@ export interface components {
             items: {
                 [key: string]: unknown;
             }[];
+        };
+        ChecklistItemDto: {
+            item: string;
+            ok: boolean;
+            note: string;
+        };
+        ChecklistDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "作業場所" | "人力";
+            /** Format: uuid */
+            siteId: string;
+            /** Format: date */
+            checkedOn: string;
+            items: components["schemas"]["ChecklistItemDto"][];
+        };
+        IncidentDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            occurredOn: string;
+            /** Format: uuid */
+            siteId: string;
+            /** @example 語言暴力 */
+            type: string;
+            /**
+             * Format: uuid
+             * @description 受害者是本公司員工時
+             */
+            victimEmployeeId: string | null;
+            /** @description 後續協助 */
+            followUps: string[];
+            /** @enum {string} */
+            status: "處理中" | "結案";
+            /** @description 事件經過與處理（加密儲存） */
+            detail: string | null;
+        };
+        ViolenceReviewItemDto: {
+            /** @example 辨識及評估危害 */
+            item: string;
+            /** @description 已檢點的重點 */
+            points: string[];
+            result: string;
+            /** @description 修正相關控制措施／改善情形採行措施 */
+            fix: string;
+        };
+        SignatureDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example 人力資源管理人員 */
+            role: string;
+            name: string;
+            email: string;
+            /**
+             * Format: date-time
+             * @description 第一次寄出簽核連結
+             */
+            firstSentAt: string | null;
+            /**
+             * Format: date-time
+             * @description 最近一次寄出（重寄會更新）
+             */
+            sentAt: string | null;
+            /** Format: date-time */
+            signedAt: string | null;
+            comment: string | null;
+        };
+        ViolenceReviewDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            siteId: string;
+            siteName: string;
+            /** Format: uuid */
+            departmentId: string | null;
+            departmentName: string | null;
+            /** Format: date */
+            reviewedOn: string;
+            /** @enum {string} */
+            status: "草稿" | "簽核中" | "已完成";
+            items: components["schemas"]["ViolenceReviewItemDto"][];
+            signatures: components["schemas"]["SignatureDto"][];
+        };
+        SignLinkDto: {
+            /** Format: uuid */
+            signatureId: string;
+            role: string;
+            name: string;
+            /** @description 一次性簽核連結（只回傳這一次，不儲存）；同時寄給簽核人員 */
+            url: string;
         };
         WorkAdviceDto: {
             /** Format: uuid */
@@ -2129,6 +3027,16 @@ export interface components {
             /** @description 工作限制 */
             restrictions: string[];
         };
+        ManagerDto: {
+            /**
+             * Format: uuid
+             * @description 通知主管時的 managerUserId
+             */
+            id: string;
+            name: string;
+            /** @description 這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門 */
+            departmentIds: string[];
+        };
         NoticeDto: {
             /** Format: uuid */
             id: string;
@@ -2136,24 +3044,39 @@ export interface components {
             employeeId: string;
             empNo: string;
             name: string;
+            /**
+             * @description 建議來自哪個計畫的面談
+             * @enum {string}
+             */
+            programme: "異常工作負荷" | "母性健康保護";
             advice: string;
             /** Format: date-time */
             sentAt: string;
             /** Format: date-time */
             readAt: string | null;
         };
+        UnreadNoticesDto: {
+            /** @description 尚未讀取的通知數 */
+            unread: number;
+        };
         LinkDto: {
             /** @description 寄給員工的一次性連結（只回傳這一次，不儲存） */
             url: string;
             /** Format: date-time */
             expiresAt: string;
+            /** @description 已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工 */
+            emailed: boolean;
         };
         ProfileDto: {
             /** Format: uuid */
             id: string;
             empNo: string;
             name: string;
-            lang: string;
+            /**
+             * @description 員工端語言
+             * @enum {string}
+             */
+            lang: "zh" | "en" | "ja" | "vi" | "th";
             site: string;
             department: string;
         };
@@ -2168,36 +3091,146 @@ export interface components {
              * @description 問卷、評估或確認的 id
              */
             id: string;
+            /** @description 依員工端語言；問卷發放名稱照原文 */
             title: string;
             /** Format: date */
             dueOn: string | null;
         };
+        DraftDto: {
+            /** @description 尚未送出的作答，格式由前端決定 */
+            answers: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            savedAt: string;
+        };
+        TaskDetailDto: {
+            /**
+             * @description NMQ 問卷、過勞量表、工時調查、紀錄確認
+             * @enum {string}
+             */
+            kind: "nmq" | "cbi" | "overload" | "acknowledgement";
+            /**
+             * Format: uuid
+             * @description 問卷、評估或確認的 id
+             */
+            id: string;
+            /** @description 依員工端語言；問卷發放名稱照原文 */
+            title: string;
+            /** Format: date */
+            dueOn: string | null;
+            /** @description 已填寫或已確認 */
+            done: boolean;
+            /** @description 尚未送出的草稿；紀錄確認沒有草稿 */
+            draft: components["schemas"]["DraftDto"] | null;
+        };
+        NmqSubmittedDto: {
+            /** @enum {boolean} */
+            submitted: true;
+            /** @description 各部位最高分（0–5） */
+            maxScore: number;
+            /** @description 疑似有肌肉骨骼危害 */
+            suspectedHazard: boolean;
+        };
+        SubmittedDto: {
+            /** @enum {boolean} */
+            submitted: true;
+        };
+        AcknowledgementContentDto: {
+            /**
+             * Format: date
+             * @description 面談日期
+             */
+            interviewedOn: string;
+            /** @description 適性評估（工作安排建議） */
+            fitAdvice: string | null;
+            /** @description 工作限制 */
+            limits: string[];
+            /** @description 雙方同意的工作調整 */
+            agreedArrangement: string | null;
+        };
         AcknowledgementDto: {
             /** Format: uuid */
             id: string;
-            /** @example 母性健康保護面談紀錄 */
+            /**
+             * @description 依員工的員工端語言
+             * @example 母性健康保護面談紀錄
+             */
             title: string;
-            /** @description 要確認的內容（不含醫護內部紀錄） */
-            content: {
-                [key: string]: unknown;
-            };
+            /** @description 要確認的內容（不含醫護內部紀錄）；找不到原始紀錄時為 null */
+            content: components["schemas"]["AcknowledgementContentDto"] | null;
             /** Format: date-time */
             confirmedAt: string | null;
             comment: string | null;
         };
+        MyExamItemDto: {
+            /** @example B0111 */
+            code: string;
+            /** @example 血壓－收縮壓 */
+            name: string;
+            /** @example mmHg */
+            unit: string;
+            /** @description 檢查值（數值以字串表示） */
+            value: string | null;
+            /** @description 分級 0–4；無分級標準時為 null */
+            grade: number | null;
+        };
+        MyExamDto: {
+            /** Format: date */
+            examDate: string;
+            clinic: string | null;
+            /** @example 一般健檢 */
+            kind: string;
+            /** @description 各項分級總和 */
+            gradeTotal: number;
+            /** @description 最高分級 */
+            gradeMax: number;
+            items: components["schemas"]["MyExamItemDto"][];
+        };
+        MySurveyDto: {
+            /** @description 問卷發放名稱 */
+            dispatch: string;
+            /** Format: date-time */
+            filledAt: string | null;
+            /** @description 各部位最高分（0–5） */
+            maxScore: number | null;
+            /** @description 疑似有肌肉骨骼危害 */
+            suspectedHazard: boolean | null;
+        };
+        MyWorkloadDto: {
+            /** Format: date */
+            sentOn: string;
+            /** @description 個人相關過勞分數 */
+            personalBurnout: number | null;
+            /** @description 工作相關過勞分數 */
+            workBurnout: number | null;
+            /**
+             * @description 0 低度、1 中度、2 高度風險；還不能判定時為 null，原因見 missing
+             * @enum {number|null}
+             */
+            riskLevel: 0 | 1 | 2 | null;
+            /** @description 還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。 */
+            missing: ("cbi" | "overload" | "exam")[];
+            /** @description 建議（例如：建議安排醫師面談） */
+            advice: string | null;
+        };
         MyHealthDto: {
-            /** @description 我的健檢結果與分級 */
-            exams: {
-                [key: string]: unknown;
-            }[];
+            /** @description 我的健檢結果與分級，新的在前 */
+            exams: components["schemas"]["MyExamDto"][];
             /** @description 我的 NMQ 結果 */
-            surveys: {
-                [key: string]: unknown;
-            }[];
-            /** @description 我的過勞評估結果 */
-            workload: {
-                [key: string]: unknown;
-            }[];
+            surveys: components["schemas"]["MySurveyDto"][];
+            /** @description 我的過勞評估結果，新的在前 */
+            workload: components["schemas"]["MyWorkloadDto"][];
+        };
+        MyHealthExportDto: {
+            /** @description 我的健檢結果與分級，新的在前 */
+            exams: components["schemas"]["MyExamDto"][];
+            /** @description 我的 NMQ 結果 */
+            surveys: components["schemas"]["MySurveyDto"][];
+            /** @description 我的過勞評估結果，新的在前 */
+            workload: components["schemas"]["MyWorkloadDto"][];
+            /** Format: date-time */
+            exportedAt: string;
         };
         ConsentDto: {
             /** Format: uuid */
@@ -2214,17 +3247,64 @@ export interface components {
             /** Format: date-time */
             withdrawnAt: string | null;
         };
-        SignatureDto: {
-            /** Format: uuid */
-            id: string;
-            /** @example 人力資源管理人員 */
+        SignerDto: {
+            /** @example 職醫 */
             role: string;
             name: string;
-            email: string;
-            /** Format: date-time */
-            sentAt: string | null;
-            /** Format: date-time */
-            signedAt: string | null;
+        };
+        ServiceSignContentDto: {
+            /** Format: date */
+            serviceOn: string | null;
+            /** @description 廠區名稱 */
+            site: string | null;
+            /** @description 附表八內容，格式同勞工健康服務紀錄的 content */
+            record: {
+                [key: string]: unknown;
+            } | null;
+            /** @description 以什麼身分簽核 */
+            signer: components["schemas"]["SignerDto"];
+        };
+        ReviewSignItemDto: {
+            /** @example 辨識及評估危害 */
+            item: string;
+            /** @description 已檢點的重點 */
+            points: string[];
+            result: string;
+            /** @description 修正相關控制措施／改善情形採行措施 */
+            fix: string;
+        };
+        ReviewSignContentDto: {
+            /** Format: date */
+            reviewedOn: string | null;
+            /** @description 廠區名稱 */
+            site: string | null;
+            /** @description 部門名稱 */
+            department: string | null;
+            items: components["schemas"]["ReviewSignItemDto"][];
+            /** @description 以什麼身分簽核 */
+            signer: components["schemas"]["SignerDto"];
+        };
+        SignDocumentDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description 員工確認紀錄，或簽核（附表八、不法侵害預防措施查核）
+             * @enum {string}
+             */
+            kind: "acknowledgement" | "signature";
+            /**
+             * @description 哪一種文件，決定 content 的格式
+             * @enum {string}
+             */
+            document: "employee_acknowledgements" | "service_records" | "violence_reviews";
+            title: string;
+            /** @description document 為 employee_acknowledgements 時是 AcknowledgementContentDto，service_records 時是 ServiceSignContentDto，violence_reviews 時是 ReviewSignContentDto */
+            content: (components["schemas"]["AcknowledgementContentDto"] | components["schemas"]["ServiceSignContentDto"] | components["schemas"]["ReviewSignContentDto"]) | null;
+            /**
+             * Format: date-time
+             * @description 確認或簽核的時間
+             */
+            confirmedAt: string | null;
             comment: string | null;
         };
         ServiceRecordDto: {
@@ -2240,15 +3320,9 @@ export interface components {
             content: {
                 [key: string]: unknown;
             };
+            /** @description 執行人員（content.executorUserId）的姓名；帳號已刪除時為 null */
+            executorName: string | null;
             signatures: components["schemas"]["SignatureDto"][];
-        };
-        SignLinkDto: {
-            /** Format: uuid */
-            signatureId: string;
-            role: string;
-            name: string;
-            /** @description 一次性簽核連結（只回傳這一次，不儲存） */
-            url: string;
         };
         ReportTypeDto: {
             /** @enum {string} */
@@ -2273,6 +3347,14 @@ export interface components {
         ExportDto: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description 報表類別（同 /api/reports/{kind}/{type} 的 kind）
+             * @enum {string}
+             */
+            kind: "health" | "wl" | "ergo";
+            type: string;
+            /** @description 報表名稱；檔案還沒產生時就有 */
+            title: string;
             /** @enum {string} */
             status: "queued" | "running" | "done" | "failed";
             /** @enum {string} */
@@ -2360,6 +3442,100 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    DirectoryController_staff: {
+        parameters: {
+            query?: {
+                roles?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMemberDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    DirectoryController_org: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryLegalEntityDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3126,6 +4302,52 @@ export interface operations {
             };
         };
     };
+    OrgController_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     OrgController_import: {
         parameters: {
             query?: {
@@ -3360,6 +4582,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    EmployeesController_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
                 };
             };
         };
@@ -3826,6 +5094,133 @@ export interface operations {
             };
         };
     };
+    ExamSettingsController_updateRuleSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    rules: {
+                        /** @enum {string} */
+                        code: "B0111" | "B0112" | "B0104" | "B0107" | "B0201" | "B0202" | "B0203" | "B0204" | "B0205" | "B0301" | "B0302" | "B0401" | "B0501";
+                        name: string;
+                        /** @enum {string} */
+                        sex: "男" | "女" | "不限";
+                        /** @default  */
+                        unit?: string;
+                        /**
+                         * @default number
+                         * @enum {string}
+                         */
+                        type?: "number" | "text";
+                        /**
+                         * @default manual
+                         * @enum {string}
+                         */
+                        src?: "manual" | "demo" | "physician";
+                        levels: ({
+                            lv: number;
+                            min?: number;
+                            max?: number;
+                        } | {
+                            lv: number;
+                            values: string[];
+                        })[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleSetDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ExamSettingsController_deleteRuleSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     ExamSettingsController_publish: {
         parameters: {
             query?: never;
@@ -3843,6 +5238,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuleSetDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    AuditController_search: {
+        parameters: {
+            query?: {
+                /** @description 略過的筆數，預設 0 */
+                offset?: number;
+                /** @description 每頁筆數，預設 50，最多 200 */
+                limit?: number;
+                to?: string;
+                from?: string;
+                dataCategory?: "identity" | "work" | "health" | "medical";
+                action?: "read" | "create" | "update" | "delete" | "export" | "sign_in" | "break_glass";
+                /** @description 這位後台人員做的 */
+                actorUserId?: string;
+                /** @description 資料屬於這位員工 */
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPageDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -3920,13 +5374,107 @@ export interface operations {
             };
         };
     };
+    ExamsController_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ExamsController_batches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamBatchDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     ExamsController_import: {
         parameters: {
             query: {
-                fileName?: unknown;
+                fileName?: string;
                 commit?: "true" | "false";
                 /** @description 健檢匯入對照 id */
-                mapping: unknown;
+                mapping: string;
             };
             header?: never;
             path?: never;
@@ -4383,6 +5931,54 @@ export interface operations {
             };
         };
     };
+    RecordsController_adminPhrases: {
+        parameters: {
+            query?: {
+                category?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhraseDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     RecordsController_createPhrase: {
         parameters: {
             query?: never;
@@ -4742,15 +6338,15 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description 略過的筆數，預設 0 */
-                offset?: unknown;
+                offset?: number;
                 /** @description 每頁筆數，預設 50，最多 200 */
-                limit?: unknown;
+                limit?: number;
                 status?: "在職" | "留停" | "離職";
-                departmentId?: unknown;
+                departmentId?: string;
                 /** @description 只看某個廠區；不是負責廠區時回 403 */
-                siteId?: unknown;
+                siteId?: string;
                 /** @description 姓名或工號的一部分 */
-                q?: unknown;
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -4994,6 +6590,121 @@ export interface operations {
             };
         };
     };
+    ErgoController_remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    surveyIds?: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindResultDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ErgoController_track: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    measures?: string[];
+                    /** @default  */
+                    note?: string;
+                    /** @default null */
+                    nextOn?: string | null;
+                    /** @enum {string} */
+                    status: "列管中" | "已改善" | "解除列管";
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     ErgoController_fill: {
         parameters: {
             query?: never;
@@ -5037,6 +6748,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SurveyDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    WorkloadController_remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assessmentIds: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemindResultDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -5137,6 +6900,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssessmentDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    WorkloadController_one: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -5297,22 +7108,39 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    status: "待安排" | "已安排" | "已面談" | "拒絕面談";
-                    /** @default null */
+                    status?: "待安排" | "已安排" | "已面談" | "拒絕面談";
                     interviewedOn?: string | null;
-                    /** @default null */
                     doctorUserId?: string | null;
-                    /** @default null */
                     workAdvice?: {
                         fitness: string;
                         /** @default [] */
                         restrictions?: string[];
                         /** @default  */
                         suggestion?: string;
+                        /** @default  */
+                        adjustHours?: string;
+                        /** @default  */
+                        changeWork?: string;
+                        /** @default  */
+                        period?: string;
                     } | null;
-                    /** @default null */
+                    guidance?: {
+                        /** @default null */
+                        fatigue?: ("無" | "輕度" | "中度" | "重度") | null;
+                        /** @default null */
+                        mentalConcern?: ("有" | "無") | null;
+                        /** @default null */
+                        diagnosis?: ("無異常" | "需觀察或進一步追蹤檢查" | "需進行醫療") | null;
+                        /** @default null */
+                        guidance?: ("不需指導" | "需健康指導" | "需醫療指導") | null;
+                        /** @default null */
+                        needMeasure?: boolean | null;
+                        /** @default  */
+                        seeDoctor?: string;
+                        /** @default  */
+                        special?: string;
+                    } | null;
                     notes?: string | null;
-                    /** @default null */
                     nextOn?: string | null;
                 };
             };
@@ -5609,7 +7437,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedDto"];
+                    "application/json": components["schemas"]["InterviewCreatedDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -5767,9 +7595,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["ChecklistDto"][];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -5878,9 +7704,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["IncidentDto"][];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -5974,6 +7798,406 @@ export interface operations {
             };
         };
     };
+    MaternalViolenceController_updateIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    occurredOn?: string;
+                    /** Format: uuid */
+                    siteId?: string;
+                    type?: string;
+                    victimEmployeeId?: string | null;
+                    detail?: string | null;
+                    followUps?: string[];
+                    /** @enum {string} */
+                    status?: "處理中" | "結案";
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViolenceReviewDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_createReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
+                    /** Format: date */
+                    reviewedOn: string;
+                    items: {
+                        item: string;
+                        /** @default [] */
+                        points?: string[];
+                        /** @default  */
+                        result?: string;
+                        /** @default  */
+                        fix?: string;
+                    }[];
+                    /** @default [] */
+                    signers?: {
+                        role: string;
+                        name: string;
+                        /** Format: email */
+                        email: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViolenceReviewDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_updateReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    siteId: string;
+                    /** @default null */
+                    departmentId?: string | null;
+                    /** Format: date */
+                    reviewedOn: string;
+                    items: {
+                        item: string;
+                        /** @default [] */
+                        points?: string[];
+                        /** @default  */
+                        result?: string;
+                        /** @default  */
+                        fix?: string;
+                    }[];
+                    /** @default [] */
+                    signers?: {
+                        role: string;
+                        name: string;
+                        /** Format: email */
+                        email: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViolenceReviewDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_deleteReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_submitReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignLinkDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    MaternalViolenceController_resendReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                signatureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignLinkDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     AdviceController_workAdvice: {
         parameters: {
             query?: never;
@@ -5989,6 +8213,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkAdviceDto"][];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    AdviceController_managers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerDto"][];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -6126,6 +8396,52 @@ export interface operations {
             };
         };
     };
+    AdviceController_unreadNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadNoticesDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     AdviceController_link: {
         parameters: {
             query?: never;
@@ -6220,6 +8536,59 @@ export interface operations {
             };
         };
     };
+    PortalController_updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    lang: "zh" | "en" | "ja" | "vi" | "th";
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     PortalController_tasks: {
         parameters: {
             query?: never;
@@ -6236,6 +8605,166 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaskDto"][];
                 };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PortalController_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "nmq" | "cbi" | "overload" | "acknowledgement";
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskDetailDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PortalController_saveDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "nmq" | "cbi" | "overload";
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 問卷已送出（already_submitted） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PortalController_discardDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "nmq" | "cbi" | "overload";
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description 未登入或登入已逾時 */
             401: {
@@ -6308,9 +8837,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        suspectedHazard?: boolean;
-                    };
+                    "application/json": components["schemas"]["NmqSubmittedDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -6365,9 +8892,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        submitted?: boolean;
-                    };
+                    "application/json": components["schemas"]["SubmittedDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -6423,9 +8948,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        submitted?: boolean;
-                    };
+                    "application/json": components["schemas"]["SubmittedDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -6619,7 +9142,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MyHealthDto"];
+                    "application/json": components["schemas"]["MyHealthExportDto"];
                 };
             };
             /** @description 未登入或登入已逾時 */
@@ -6816,7 +9339,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcknowledgementDto"];
+                    "application/json": components["schemas"]["SignDocumentDto"];
                 };
             };
             /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
@@ -6870,7 +9393,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcknowledgementDto"];
+                    "application/json": components["schemas"]["SignDocumentDto"];
                 };
             };
             /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
@@ -6892,6 +9415,52 @@ export interface operations {
                 };
             };
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ServiceRecordsController_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7131,6 +9700,52 @@ export interface operations {
             };
         };
     };
+    ServiceRecordsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     ServiceRecordsController_submit: {
         parameters: {
             query?: never;
@@ -7228,6 +9843,104 @@ export interface operations {
             };
         };
     };
+    SignOffRolesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    SignOffRolesController_replace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    roles: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     ReportsController_types: {
         parameters: {
             query?: never;
@@ -7277,9 +9990,9 @@ export interface operations {
     ReportsController_report: {
         parameters: {
             query?: {
-                departmentId?: unknown;
-                siteId?: unknown;
-                legalEntityId?: unknown;
+                departmentId?: string;
+                siteId?: string;
+                legalEntityId?: string;
             };
             header?: never;
             path: {

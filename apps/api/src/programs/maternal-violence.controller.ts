@@ -4,22 +4,33 @@
  * Maternal cases, interviews and violence incidents are about people: clinical staff only, details encrypted. An
  * accused manager can never see an incident (managers have no access to incidents at all).
  */
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import { ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import {
-  employeeAcknowledgements, employees, maternalCases, maternalEnvAssessments, maternalInterviews, violenceChecklists, violenceIncidents, violenceRiskAssessments,
+  departments, employeeAcknowledgements, employees, maternalCases, maternalEnvAssessments, maternalInterviews, signatures, sites, violenceChecklists, violenceIncidents,
+  violenceReviews, violenceRiskAssessments,
 } from '@yutis/db';
 import { MAT_LEVELS, pregnancyWeeks, suggestMaternalLevel, VIO_LIKELIHOOD, VIO_SEVERITY, violenceRisk } from '@yutis/domain';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { ENVIRONMENT_ROLES } from '../auth/permissions.js';
+import type { ApiConfig } from '../config.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
+import { API_CONFIG } from '../core/database.js';
+import { CreatedDto } from '../core/dto.js';
+import { Notifier } from '../core/mail.js';
 import { openApiSchema, parse } from '../core/validation.js';
+import {
+  assertSignOffRoles, deleteSigners, issueSignLink, replaceSigners, SignatureDto, signaturesOf, Signer, SignLinkDto,
+} from '../service/sign-off.js';
+import { SIGN_LINK_DAYS } from './advice.controller.js';
 import { assertSitesInScope, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
+import { AcknowledgementStatusDto } from './acknowledgements.js';
+import { noticesBySubject, NoticeStatusDto } from './notices.js';
 
 const Environment = () => StaffOnly({ feature: 'programs', roles: ENVIRONMENT_ROLES });
 
@@ -51,6 +62,19 @@ const Incident = z.object({
   occurredOn: z.iso.date(), siteId: z.uuid(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable().default(null),
   detail: z.string().max(10000).nullable().default(null), followUps: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
 }).strict();
+const INCIDENT_STATUSES = violenceIncidents.status.enumValues;
+const ReviewItem = z.object({
+  item: z.string().trim().min(1).max(100), points: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  result: z.string().max(2000).default(''), fix: z.string().max(2000).default(''),
+}).strict();
+const Review = z.object({
+  siteId: z.uuid(), departmentId: z.uuid().nullable().default(null), reviewedOn: z.iso.date(), items: z.array(ReviewItem).min(1).max(30),
+  signers: z.array(Signer).max(10).default([]),
+}).strict();
+const UpdateIncident = z.object({
+  occurredOn: z.iso.date(), siteId: z.uuid(), type: z.string().trim().min(1).max(50), victimEmployeeId: z.uuid().nullable(),
+  detail: z.string().max(10000).nullable(), followUps: z.array(z.string().trim().min(1).max(200)).max(20), status: z.enum(INCIDENT_STATUSES),
+}).partial().strict();
 
 class EnvAssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -60,16 +84,65 @@ class EnvAssessmentDto {
   @ApiProperty({ type: 'object', additionalProperties: true }) hazards!: unknown;
   @ApiProperty({ enum: MAT_LEVELS, description: '依危害評估建議的管理分級' }) level!: string;
 }
+class MaternalInterviewDto {
+  @ApiProperty({ format: 'uuid', description: '通知主管時的 subjectId（subjectTable 為 maternal_interviews）' }) id!: string;
+  @ApiProperty({ type: String, format: 'date' }) interviewedOn!: string;
+  @ApiProperty({ type: String, nullable: true, description: '適性評估（工作安排建議）' }) fitAdvice!: string | null;
+  @ApiProperty({ type: [String], description: '工作限制' }) limits!: string[];
+  @ApiProperty({ type: String, nullable: true, description: '雙方同意的工作調整' }) agreedArrangement!: string | null;
+  @ApiProperty({ type: AcknowledgementStatusDto, nullable: true, description: '員工確認狀態' }) acknowledgement!: AcknowledgementStatusDto | null;
+  @ApiProperty({ type: [NoticeStatusDto], description: '已寄給部門主管的通知與讀取狀態' }) notices!: NoticeStatusDto[];
+}
 class MaternalCaseDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ enum: ['妊娠', '產後'] }) type!: string;
+  @ApiProperty({ enum: ['妊娠', '產後'], description: '產後指分娩後未滿一年' }) type!: string;
   @ApiProperty({ type: String, format: 'date' }) notifiedOn!: string;
   @ApiProperty({ type: String, format: 'date', nullable: true }) dueDate!: string | null;
   @ApiProperty({ type: Number, nullable: true, description: '今日妊娠週數' }) weeks!: number | null;
   @ApiProperty({ type: String, enum: MAT_LEVELS, nullable: true }) level!: string | null;
   @ApiProperty({ type: String, nullable: true, description: '自述症狀、風險因子（醫療資料，加密儲存）' }) detail!: string | null;
+  @ApiProperty({ type: [MaternalInterviewDto], description: '面談紀錄（舊的在前，不含面談內文）' }) interviews!: MaternalInterviewDto[];
+}
+class ChecklistItemDto {
+  @ApiProperty() item!: string;
+  @ApiProperty() ok!: boolean;
+  @ApiProperty() note!: string;
+}
+class ChecklistDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ enum: ['作業場所', '人力'] }) kind!: '作業場所' | '人力';
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ type: String, format: 'date' }) checkedOn!: string;
+  @ApiProperty({ type: [ChecklistItemDto] }) items!: ChecklistItemDto[];
+}
+class IncidentDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ type: String, format: 'date' }) occurredOn!: string;
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ example: '語言暴力' }) type!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true, description: '受害者是本公司員工時' }) victimEmployeeId!: string | null;
+  @ApiProperty({ type: [String], description: '後續協助' }) followUps!: string[];
+  @ApiProperty({ enum: INCIDENT_STATUSES }) status!: (typeof INCIDENT_STATUSES)[number];
+  @ApiProperty({ type: String, nullable: true, description: '事件經過與處理（加密儲存）' }) detail!: string | null;
+}
+class ViolenceReviewItemDto {
+  @ApiProperty({ example: '辨識及評估危害' }) item!: string;
+  @ApiProperty({ type: [String], description: '已檢點的重點' }) points!: string[];
+  @ApiProperty() result!: string;
+  @ApiProperty({ description: '修正相關控制措施／改善情形採行措施' }) fix!: string;
+}
+class ViolenceReviewDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty() siteName!: string;
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) departmentId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) departmentName!: string | null;
+  @ApiProperty({ type: String, format: 'date' }) reviewedOn!: string;
+  @ApiProperty({ enum: violenceReviews.status.enumValues }) status!: (typeof violenceReviews.status.enumValues)[number];
+  @ApiProperty({ type: [ViolenceReviewItemDto] }) items!: ViolenceReviewItemDto[];
+  @ApiProperty({ type: [SignatureDto] }) signatures!: SignatureDto[];
 }
 class RiskAssessmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
@@ -77,14 +150,18 @@ class RiskAssessmentDto {
   @ApiProperty({ type: String, format: 'date' }) assessedOn!: string;
   @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true }, description: '每題的可能性、嚴重度、風險等級與控制措施' }) items!: unknown[];
 }
-class CreatedDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
+class InterviewCreatedDto extends CreatedDto {
+  @ApiProperty({ format: 'uuid', description: '員工確認紀錄；用來產生確認連結' }) acknowledgementId!: string;
 }
 
 @ApiTags('programs')
 @Controller('programs')
 export class MaternalViolenceController {
-  constructor(@Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto) {}
+  constructor(
+    @Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto,
+    @Inject(API_CONFIG) readonly config: ApiConfig,
+    readonly notifier: Notifier,
+  ) {}
 
   @Post('maternal/env-assessments') @Environment()
   @ApiOperation({ summary: '母性健康危害評估（作業環境）', description: '依危害有無自動建議管理分級。職安衛人員與職護、職醫。' })
@@ -122,7 +199,7 @@ export class MaternalViolenceController {
     }).returning();
     await raiseEvent(ctx, { employeeId: employee.id, type: 'mat', sourceTable: 'maternal_cases', sourceId: row!.id, occurredOn: input.notifiedOn, description: `工作場所母性健康保護：${input.type}通報` });
     await recordAudit(ctx, { action: 'create', subjectTable: 'maternal_cases', subjectId: row!.id, employeeId: employee.id, dataCategory: 'medical' });
-    return this.toCase(ctx, row!, employee.name);
+    return (await this.toCases(ctx, [{ c: row!, name: employee.name }]))[0]!;
   }
 
   @Get('maternal/cases') @Clinical() @ApiOperation({ summary: '負責廠區的母性健康保護個案', description: '每位列出的員工都記入稽核。' }) @ApiOkResponse({ type: [MaternalCaseDto] })
@@ -132,13 +209,13 @@ export class MaternalViolenceController {
     const rows = await ctx.tx.select({ c: maternalCases, name: employees.name }).from(maternalCases).innerJoin(employees, eq(employees.id, maternalCases.employeeId))
       .where(inArray(employees.siteId, sites)).orderBy(desc(maternalCases.notifiedOn));
     if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'maternal_cases', subjectId: r.c.id, employeeId: r.c.employeeId, dataCategory: 'medical' })));
-    return Promise.all(rows.map(r => this.toCase(ctx, r.c, r.name)));
+    return this.toCases(ctx, rows);
   }
 
   @Post('maternal/cases/:id/interviews') @Clinical()
   @ApiOperation({ summary: '母性健康保護面談', description: '面談紀錄加密；適性評估與工作調整送交員工在員工端確認。' })
-  @ApiBody({ schema: openApiSchema(MaternalInterview) }) @ApiCreatedResponse({ type: CreatedDto })
-  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<CreatedDto & { acknowledgementId: string }> {
+  @ApiBody({ schema: openApiSchema(MaternalInterview) }) @ApiCreatedResponse({ type: InterviewCreatedDto })
+  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<InterviewCreatedDto> {
     const { notes, ...input } = parse(MaternalInterview, body);
     const [c] = await ctx.tx.select().from(maternalCases).where(eq(maternalCases.id, id));
     if (!c) throw new NotFoundException({ code: 'not_found', message: 'No such maternal case' });
@@ -186,12 +263,13 @@ export class MaternalViolenceController {
   }
 
   @Get('violence/checklists') @Environment() @ApiOperation({ summary: '負責廠區的檢點表' })
-  @ApiOkResponse({ schema: { type: 'array', items: { type: 'object', additionalProperties: true } } })
-  async checklists(@Ctx() ctx: RequestContext) {
+  @ApiOkResponse({ type: [ChecklistDto] })
+  async checklists(@Ctx() ctx: RequestContext): Promise<ChecklistDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
-    return ctx.tx.select({ id: violenceChecklists.id, kind: violenceChecklists.kind, siteId: violenceChecklists.siteId, checkedOn: violenceChecklists.checkedOn, items: violenceChecklists.items })
+    const rows = await ctx.tx.select({ id: violenceChecklists.id, kind: violenceChecklists.kind, siteId: violenceChecklists.siteId, checkedOn: violenceChecklists.checkedOn, items: violenceChecklists.items })
       .from(violenceChecklists).where(inArray(violenceChecklists.siteId, sites)).orderBy(desc(violenceChecklists.checkedOn));
+    return rows.map(r => ({ ...r, items: r.items as ChecklistItemDto[] }));
   }
 
   @Post('violence/incidents') @Clinical()
@@ -209,22 +287,165 @@ export class MaternalViolenceController {
   }
 
   @Get('violence/incidents') @Clinical() @ApiOperation({ summary: '負責廠區的不法侵害事件' })
-  @ApiOkResponse({ schema: { type: 'array', items: { type: 'object', additionalProperties: true } } })
-  async incidents(@Ctx() ctx: RequestContext) {
+  @ApiOkResponse({ type: [IncidentDto] })
+  async incidents(@Ctx() ctx: RequestContext): Promise<IncidentDto[]> {
     const sites = await mySiteIds(ctx);
     if (!sites.length) return [];
     const rows = await ctx.tx.select().from(violenceIncidents).where(inArray(violenceIncidents.siteId, sites)).orderBy(desc(violenceIncidents.occurredOn));
     if (rows.length) await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'violence_incidents', subjectId: r.id, employeeId: r.victimEmployeeId ?? undefined, dataCategory: 'medical' })));
-    return Promise.all(rows.map(async r => ({
-      id: r.id, occurredOn: r.occurredOn, siteId: r.siteId, type: r.type, victimEmployeeId: r.victimEmployeeId, followUps: r.followUps, status: r.status,
-      detail: await decryptOptional(this.crypto, ctx.tenant.id, r.detailEnc),
-    })));
+    return Promise.all(rows.map(r => this.toIncident(ctx, r)));
   }
 
-  private async toCase(ctx: RequestContext, c: typeof maternalCases.$inferSelect, name: string): Promise<MaternalCaseDto> {
+  @Patch('violence/incidents/:id') @Clinical()
+  @ApiOperation({ summary: '修改不法侵害事件', description: '只送要改的欄位，例如 { status: \'結案\' }；detail 送 null 會清除。' })
+  @ApiBody({ schema: openApiSchema(UpdateIncident) }) @ApiOkResponse({ type: IncidentDto })
+  async updateIncident(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<IncidentDto> {
+    const { detail, ...input } = parse(UpdateIncident, body);
+    const [current] = await ctx.tx.select().from(violenceIncidents).where(eq(violenceIncidents.id, id));
+    if (!current) throw new NotFoundException({ code: 'not_found', message: 'No such incident' });
+    await assertSitesInScope(ctx, current.siteId);
+    if (input.siteId) await assertSitesInScope(ctx, input.siteId);
+    if (input.victimEmployeeId) await employeeInScope(ctx, input.victimEmployeeId);
+    const [row] = await ctx.tx.update(violenceIncidents).set({
+      ...input, ...(detail !== undefined ? { detailEnc: await encryptOptional(this.crypto, ctx.tenant.id, detail) } : {}),
+      updatedAt: new Date(), updatedBy: staff(ctx).userId,
+    }).where(eq(violenceIncidents.id, id)).returning();
+    const changed = [...Object.keys(input), ...(detail !== undefined ? ['detail'] : [])];
+    await recordAudit(ctx, {
+      action: 'update', subjectTable: 'violence_incidents', subjectId: id, employeeId: row!.victimEmployeeId ?? undefined, dataCategory: 'medical',
+      reason: changed.length ? `changed ${changed.join(', ')}` : undefined,
+    });
+    return this.toIncident(ctx, row!);
+  }
+
+  @Get('violence/reviews') @Environment() @ApiOperation({ summary: '負責廠區的預防措施查核及評估' }) @ApiOkResponse({ type: [ViolenceReviewDto] })
+  async reviews(@Ctx() ctx: RequestContext): Promise<ViolenceReviewDto[]> {
+    const mine = await mySiteIds(ctx);
+    if (!mine.length) return [];
+    const rows = await ctx.tx.select({ id: violenceReviews.id }).from(violenceReviews).where(inArray(violenceReviews.siteId, mine)).orderBy(desc(violenceReviews.reviewedOn));
+    return this.loadReviews(ctx, rows.map(r => r.id));
+  }
+
+  @Post('violence/reviews') @Environment()
+  @ApiOperation({ summary: '新增預防措施查核及評估（草稿）', description: '簽核人員的角色必須是租戶設定的簽核角色之一；送出簽核前可修改。' })
+  @ApiBody({ schema: openApiSchema(Review) }) @ApiCreatedResponse({ type: ViolenceReviewDto })
+  async createReview(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<ViolenceReviewDto> {
+    const { signers, ...input } = parse(Review, body);
+    await this.validateReview(ctx, input, signers);
+    const [row] = await ctx.tx.insert(violenceReviews).values({ ...input, tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning({ id: violenceReviews.id });
+    await replaceSigners(ctx, 'violence_reviews', row!.id, signers);
+    await recordAudit(ctx, { action: 'create', subjectTable: 'violence_reviews', subjectId: row!.id, dataCategory: 'work' });
+    return (await this.loadReviews(ctx, [row!.id]))[0]!;
+  }
+
+  @Put('violence/reviews/:id') @Environment() @ApiOperation({ summary: '修改預防措施查核及評估草稿' })
+  @ApiBody({ schema: openApiSchema(Review) }) @ApiOkResponse({ type: ViolenceReviewDto })
+  async updateReview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<ViolenceReviewDto> {
+    const { signers, ...input } = parse(Review, body);
+    const current = await this.reviewInScope(ctx, id);
+    if (current.status !== '草稿') throw new ConflictException({ code: 'not_draft', message: 'Only drafts can be edited' });
+    await this.validateReview(ctx, input, signers);
+    await ctx.tx.update(violenceReviews).set({ ...input, updatedAt: new Date(), updatedBy: staff(ctx).userId }).where(eq(violenceReviews.id, id));
+    await replaceSigners(ctx, 'violence_reviews', id, signers);
+    await recordAudit(ctx, { action: 'update', subjectTable: 'violence_reviews', subjectId: id, dataCategory: 'work' });
+    return (await this.loadReviews(ctx, [id]))[0]!;
+  }
+
+  @Delete('violence/reviews/:id') @HttpCode(204) @Environment() @ApiOperation({ summary: '刪除預防措施查核及評估草稿', description: '送出簽核後就不能刪除。' })
+  @ApiNoContentResponse()
+  async deleteReview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    const current = await this.reviewInScope(ctx, id);
+    if (current.status !== '草稿') throw new ConflictException({ code: 'not_draft', message: 'Only drafts can be deleted' });
+    await deleteSigners(ctx, 'violence_reviews', id);
+    await ctx.tx.delete(violenceReviews).where(eq(violenceReviews.id, id));
+    await recordAudit(ctx, { action: 'delete', subjectTable: 'violence_reviews', subjectId: id, dataCategory: 'work', reason: `draft of ${current.reviewedOn}` });
+  }
+
+  @Post('violence/reviews/:id/submit') @HttpCode(200) @Environment()
+  @ApiOperation({
+    summary: '預防措施查核及評估送出簽核',
+    description: `每位簽核人員各一個一次性連結（${SIGN_LINK_DAYS} 天內有效），寄到簽核人員的 Email；連結也只在這裡回傳這一次。`,
+  })
+  @ApiOkResponse({ type: [SignLinkDto] })
+  async submitReview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string): Promise<SignLinkDto[]> {
+    const current = await this.reviewInScope(ctx, id);
+    if (current.status !== '草稿') throw new ConflictException({ code: 'not_draft', message: 'Already submitted' });
+    const pending = await ctx.tx.select().from(signatures)
+      .where(and(eq(signatures.subjectTable, 'violence_reviews'), eq(signatures.subjectId, id), isNull(signatures.signedAt))).orderBy(asc(signatures.createdAt));
+    if (!pending.length) throw new BadRequestException({ code: 'no_signers', message: 'Add at least one signer before submitting' });
+    await ctx.tx.update(violenceReviews).set({ status: '簽核中', updatedAt: new Date(), updatedBy: staff(ctx).userId }).where(eq(violenceReviews.id, id));
+    const links = await Promise.all(pending.map(sig => issueSignLink(ctx, this, sig, { siteId: current.siteId, on: current.reviewedOn })));
+    await recordAudit(ctx, { action: 'update', subjectTable: 'violence_reviews', subjectId: id, dataCategory: 'work', reason: `submitted for sign-off to ${pending.map(p => p.signerRole).join('、')}` });
+    return links;
+  }
+
+  @Post('violence/reviews/:id/signatures/:signatureId/resend') @HttpCode(200) @Environment()
+  @ApiOperation({ summary: '重寄預防措施查核及評估的簽核連結', description: '寄新的連結給這位簽核人員，舊連結隨即失效。' })
+  @ApiOkResponse({ type: SignLinkDto })
+  async resendReview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Param('signatureId', ParseUUIDPipe) signatureId: string): Promise<SignLinkDto> {
+    const current = await this.reviewInScope(ctx, id);
+    if (current.status !== '簽核中') throw new ConflictException({ code: 'not_in_sign_off', message: 'The review is not waiting for sign-off' });
+    const [sig] = await ctx.tx.select().from(signatures).where(and(eq(signatures.id, signatureId), eq(signatures.subjectTable, 'violence_reviews'), eq(signatures.subjectId, id)));
+    if (!sig) throw new NotFoundException({ code: 'not_found', message: 'No such signer' });
+    if (sig.signedAt) throw new ConflictException({ code: 'already_signed', message: 'Already signed' });
+    return issueSignLink(ctx, this, sig, { siteId: current.siteId, on: current.reviewedOn });
+  }
+
+  private async validateReview(ctx: RequestContext, input: { siteId: string; departmentId: string | null }, signers: z.infer<typeof Signer>[]) {
+    await assertSitesInScope(ctx, input.siteId);
+    if (input.departmentId) {
+      const [dept] = await ctx.tx.select({ id: departments.id }).from(departments).where(and(eq(departments.id, input.departmentId), eq(departments.siteId, input.siteId)));
+      if (!dept) throw new BadRequestException({ code: 'unknown_department', message: 'The department is not in that site' });
+    }
+    await assertSignOffRoles(ctx, signers);
+  }
+
+  private async reviewInScope(ctx: RequestContext, id: string) {
+    const [row] = await ctx.tx.select().from(violenceReviews).where(eq(violenceReviews.id, id));
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'No such review' });
+    await assertSitesInScope(ctx, row.siteId);
+    return row;
+  }
+
+  private async loadReviews(ctx: RequestContext, ids: string[]): Promise<ViolenceReviewDto[]> {
+    if (!ids.length) return [];
+    const rows = await ctx.tx.select({ r: violenceReviews, siteName: sites.name, departmentName: departments.name }).from(violenceReviews)
+      .innerJoin(sites, eq(sites.id, violenceReviews.siteId)).leftJoin(departments, eq(departments.id, violenceReviews.departmentId))
+      .where(inArray(violenceReviews.id, ids));
+    const sigs = await signaturesOf(ctx, 'violence_reviews', ids);
+    return ids.map(id => rows.find(x => x.r.id === id)!).map(({ r, siteName, departmentName }) => ({
+      id: r.id, siteId: r.siteId, siteName, departmentId: r.departmentId, departmentName, reviewedOn: r.reviewedOn, status: r.status,
+      items: r.items as ViolenceReviewItemDto[], signatures: sigs.get(r.id) ?? [],
+    }));
+  }
+
+  private async toIncident(ctx: RequestContext, r: typeof violenceIncidents.$inferSelect): Promise<IncidentDto> {
     return {
+      id: r.id, occurredOn: r.occurredOn, siteId: r.siteId, type: r.type, victimEmployeeId: r.victimEmployeeId, followUps: r.followUps, status: r.status,
+      detail: await decryptOptional(this.crypto, ctx.tenant.id, r.detailEnc),
+    };
+  }
+
+  private async toCases(ctx: RequestContext, rows: { c: typeof maternalCases.$inferSelect; name: string }[]): Promise<MaternalCaseDto[]> {
+    const ivs = rows.length
+      ? await ctx.tx.select().from(maternalInterviews).where(inArray(maternalInterviews.caseId, rows.map(r => r.c.id))).orderBy(asc(maternalInterviews.interviewedOn), asc(maternalInterviews.createdAt))
+      : [];
+    const ivIds = ivs.map(i => i.id);
+    const acks = ivIds.length
+      ? await ctx.tx.select().from(employeeAcknowledgements).where(and(eq(employeeAcknowledgements.subjectTable, 'maternal_interviews'), inArray(employeeAcknowledgements.subjectId, ivIds)))
+      : [];
+    const notices = await noticesBySubject(ctx, 'maternal_interviews', ivIds);
+    return Promise.all(rows.map(async ({ c, name }) => ({
       id: c.id, employeeId: c.employeeId, name, type: c.type, notifiedOn: c.notifiedOn, dueDate: c.dueDate,
       weeks: pregnancyWeeks(c.type, c.dueDate, todayTw()), level: c.level, detail: await decryptOptional(this.crypto, ctx.tenant.id, c.detailEnc),
-    };
+      interviews: ivs.filter(i => i.caseId === c.id).map(i => {
+        const ack = acks.find(a => a.subjectId === i.id);
+        return {
+          id: i.id, interviewedOn: i.interviewedOn, fitAdvice: i.fitAdvice, limits: i.limits, agreedArrangement: i.agreedArrangement,
+          acknowledgement: ack ? { id: ack.id, sentAt: ack.sentAt, confirmedAt: ack.confirmedAt, comment: ack.comment } : null,
+          notices: notices.get(i.id) ?? [],
+        };
+      }),
+    })));
   }
 }

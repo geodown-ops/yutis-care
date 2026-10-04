@@ -6,17 +6,20 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { employeeAcknowledgements, employees, interviews, managerNotices, maternalCases, maternalInterviews, notifications, users, workloadAssessments } from '@yutis/db';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { departments, employeeAcknowledgements, employees, interviews, managerNotices, maternalCases, maternalInterviews, users, workloadAssessments } from '@yutis/db';
+import { and, asc, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { ADVICE_ROLES } from '../auth/permissions.js';
-import type { ApiConfig } from '../config.js';
+import { tenantOrigin, type ApiConfig } from '../config.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { API_CONFIG } from '../core/database.js';
+import { acknowledgementEmail } from '../core/emails.js';
+import { Notifier } from '../core/mail.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { employeeInScope, mySiteIds } from './common.js';
+import { workAdviceOf } from './work-advice.js';
 import { Clinical } from './ergo.controller.js';
 
 /** How long an emailed confirmation link stays valid. */
@@ -32,18 +35,36 @@ class WorkAdviceDto {
   @ApiProperty({ description: '工作安排建議（不含醫療內容）' }) advice!: string;
   @ApiProperty({ type: [String], description: '工作限制' }) restrictions!: string[];
 }
+const NOTICE_PROGRAMMES = { interviews: '異常工作負荷', maternal_interviews: '母性健康保護' } as const;
+type NoticeProgramme = (typeof NOTICE_PROGRAMMES)[keyof typeof NOTICE_PROGRAMMES];
+const noticeProgramme = (subjectTable: string): NoticeProgramme => NOTICE_PROGRAMMES[subjectTable as keyof typeof NOTICE_PROGRAMMES];
+
 class NoticeDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ enum: Object.values(NOTICE_PROGRAMMES), description: '建議來自哪個計畫的面談' }) programme!: NoticeProgramme;
   @ApiProperty() advice!: string;
   @ApiProperty({ type: String, format: 'date-time' }) sentAt!: Date;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) readAt!: Date | null;
 }
+class ManagerDto {
+  @ApiProperty({ format: 'uuid', description: '通知主管時的 managerUserId' }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({
+    type: [String], format: 'uuid',
+    description: '這位主管負責的部門（部門設定的主管 Email 與帳號 Email 相同），只列你負責廠區內的部門',
+  })
+  departmentIds!: string[];
+}
+class UnreadNoticesDto {
+  @ApiProperty({ description: '尚未讀取的通知數' }) unread!: number;
+}
 class LinkDto {
   @ApiProperty({ description: '寄給員工的一次性連結（只回傳這一次，不儲存）' }) url!: string;
   @ApiProperty({ type: String, format: 'date-time' }) expiresAt!: Date;
+  @ApiProperty({ description: '已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工' }) emailed!: boolean;
 }
 
 const CreateNotice = z.object({
@@ -54,7 +75,7 @@ const CreateNotice = z.object({
 @ApiTags('programs')
 @Controller('programs')
 export class AdviceController {
-  constructor(@Inject(API_CONFIG) private readonly config: ApiConfig) {}
+  constructor(@Inject(API_CONFIG) private readonly config: ApiConfig, private readonly notifier: Notifier) {}
 
   @Get('work-advice')
   @StaffOnly({ data: 'work', feature: 'programs', roles: ADVICE_ROLES })
@@ -73,8 +94,12 @@ export class AdviceController {
       .where(inArray(employees.siteId, sites)).orderBy(desc(maternalInterviews.interviewedOn));
     const result: WorkAdviceDto[] = [
       ...workload.map(w => {
-        const a = w.advice as { fitness: string; restrictions: string[]; suggestion: string };
-        return { employeeId: w.employeeId, empNo: w.empNo, name: w.name, programme: '異常工作負荷', on: w.on, advice: [a.fitness, a.suggestion].filter(Boolean).join('；'), restrictions: a.restrictions };
+        const a = workAdviceOf(w.advice)!;
+        return {
+          employeeId: w.employeeId, empNo: w.empNo, name: w.name, programme: '異常工作負荷', on: w.on,
+          advice: [a.fitness, a.suggestion, a.period && `措施期間：${a.period}`].filter(Boolean).join('；'),
+          restrictions: [...a.restrictions, a.adjustHours, a.changeWork].filter(Boolean),
+        };
       }),
       ...maternal.map(m => ({
         employeeId: m.employeeId, empNo: m.empNo, name: m.name, programme: '母性健康保護', on: m.on,
@@ -83,6 +108,27 @@ export class AdviceController {
     ];
     if (result.length) await recordAudit(ctx, result.map((r): AuditEntry => ({ action: 'read', subjectTable: 'work_advice', employeeId: r.employeeId, dataCategory: 'work' })));
     return result;
+  }
+
+  @Get('managers')
+  @Clinical()
+  @ApiOperation({
+    summary: '可通知的部門主管',
+    description: '租戶內所有啟用中的部門主管帳號；departmentIds 依部門設定的主管 Email 對應，可用來預先選好員工所屬部門的主管。',
+  })
+  @ApiOkResponse({ type: [ManagerDto] })
+  async managers(@Ctx() ctx: RequestContext): Promise<ManagerDto[]> {
+    const managers = await ctx.tx.select({ id: users.id, name: users.name, email: users.email }).from(users)
+      .where(and(eq(users.role, '部門主管'), eq(users.active, true))).orderBy(asc(users.name));
+    const sites = await mySiteIds(ctx);
+    const depts = sites.length
+      ? await ctx.tx.select({ id: departments.id, managerEmail: departments.managerEmail }).from(departments)
+        .where(and(inArray(departments.siteId, sites), sql`${departments.managerEmail} is not null`))
+      : [];
+    return managers.map(m => ({
+      id: m.id, name: m.name,
+      departmentIds: depts.filter(d => d.managerEmail!.toLowerCase() === m.email.toLowerCase()).map(d => d.id),
+    }));
   }
 
   @Post('notices')
@@ -97,7 +143,10 @@ export class AdviceController {
     if (!manager) throw new BadRequestException({ code: 'not_a_manager', message: 'The recipient must be an active 部門主管' });
     const [row] = await ctx.tx.insert(managerNotices).values({ ...input, tenantId: ctx.tenant.id, createdBy: staff(ctx).userId }).returning();
     await recordAudit(ctx, { action: 'create', subjectTable: 'manager_notices', subjectId: row!.id, employeeId: employee.id, dataCategory: 'work', reason: `notice to ${manager.id}` });
-    return { id: row!.id, employeeId: employee.id, empNo: employee.empNo, name: employee.name, advice: row!.advice, sentAt: row!.createdAt, readAt: null };
+    return {
+      id: row!.id, employeeId: employee.id, empNo: employee.empNo, name: employee.name, programme: noticeProgramme(row!.subjectTable),
+      advice: row!.advice, sentAt: row!.createdAt, readAt: null,
+    };
   }
 
   @Get('notices')
@@ -112,14 +161,27 @@ export class AdviceController {
       await ctx.tx.update(managerNotices).set({ readAt: new Date() }).where(and(eq(managerNotices.managerUserId, me), isNull(managerNotices.readAt)));
       await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'manager_notices', subjectId: r.n.id, employeeId: r.n.employeeId, dataCategory: 'work' })));
     }
-    return rows.map(r => ({ id: r.n.id, employeeId: r.n.employeeId, empNo: r.empNo, name: r.name, advice: r.n.advice, sentAt: r.n.createdAt, readAt: r.n.readAt }));
+    return rows.map(r => ({
+      id: r.n.id, employeeId: r.n.employeeId, empNo: r.empNo, name: r.name, programme: noticeProgramme(r.n.subjectTable),
+      advice: r.n.advice, sentAt: r.n.createdAt, readAt: r.n.readAt,
+    }));
+  }
+
+  @Get('notices/unread')
+  @StaffOnly({ roles: ['部門主管'] })
+  @ApiOperation({ summary: '我未讀的工作安排通知數（部門主管）', description: '只回傳數字，不會標記已讀；給選單上的提示用。' })
+  @ApiOkResponse({ type: UnreadNoticesDto })
+  async unreadNotices(@Ctx() ctx: RequestContext): Promise<UnreadNoticesDto> {
+    const [{ unread }] = await ctx.tx.select({ unread: count() }).from(managerNotices)
+      .where(and(eq(managerNotices.managerUserId, staff(ctx).userId), isNull(managerNotices.readAt))) as [{ unread: number }];
+    return { unread };
   }
 
   @Post('acknowledgements/:id/link')
   @Clinical()
   @ApiOperation({
     summary: '產生員工確認連結',
-    description: `一次性、${SIGN_LINK_DAYS} 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；同時排入寄給員工的通知信（信中不含健康內容）。`,
+    description: `一次性、${SIGN_LINK_DAYS} 天內有效，只能開啟這一份紀錄；重新產生會讓舊連結失效。連結只回傳這一次，資料庫只存雜湊；員工有 Email 時同時寄通知信（員工端語言，信中不含健康內容）。`,
   })
   @ApiCreatedResponse({ type: LinkDto })
   async link(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string): Promise<LinkDto> {
@@ -131,11 +193,13 @@ export class AdviceController {
     const expiresAt = new Date(Date.now() + SIGN_LINK_DAYS * 86_400_000);
     await ctx.tx.update(employeeAcknowledgements).set({ tokenHash: hashToken(token), tokenExpiresAt: expiresAt, sentAt: new Date(), updatedAt: new Date() })
       .where(eq(employeeAcknowledgements.id, id));
-    if (employee.email) {
-      await ctx.tx.insert(notifications).values({ tenantId: ctx.tenant.id, recipientEmail: employee.email, template: 'acknowledgement', params: { acknowledgementId: id }, createdBy: staff(ctx).userId });
-    }
     await recordAudit(ctx, { action: 'update', subjectTable: 'employee_acknowledgements', subjectId: id, employeeId: employee.id, reason: 'confirmation link issued' });
-    const scheme = this.config.cookieSecure ? 'https' : 'http';
-    return { url: `${scheme}://${ctx.tenant.slug}.${this.config.tenantBaseDomain}/me/sign/${token}`, expiresAt };
+    const url = `${tenantOrigin(this.config, ctx.tenant.slug)}/me/sign/${token}`;
+    if (employee.email) {
+      await this.notifier.email(ctx, acknowledgementEmail({
+        to: employee.email, acknowledgementId: id, name: employee.name, lang: employee.lang, tenantName: ctx.tenant.name, url, days: SIGN_LINK_DAYS,
+      }));
+    }
+    return { url, expiresAt, emailed: Boolean(employee.email) };
   }
 }

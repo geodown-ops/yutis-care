@@ -17,10 +17,11 @@ import ExcelJS from 'exceljs';
 import { and, eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 import { PgBoss } from 'pg-boss';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { LocalTenantCrypto } from '../src/core/crypto.js';
+import { MAILER, type Mail, type Mailer } from '../src/core/mail.js';
 import { MIN_CELL_SIZE, REPORT_TYPES } from '../src/reports/reports.js';
 import { EXPORT_QUEUE, installJobs, JOB_SCHEMA, type ExportJob } from '../src/worker/jobs.js';
 import { runExport, runRetentionScan } from '../src/worker/work.js';
@@ -52,6 +53,8 @@ const proto = JSON.parse(JSON.stringify((sandbox as { out: unknown }).out)) as {
 let db: TestDatabase;
 let owner: Db;
 let app: NestFastifyApplication;
+/** Email the API would have sent (EMAIL_PROVIDER=log), newest last. */
+const sent: Mail[] = [];
 let worker: PgBoss;
 let workerPool: pg.Pool;
 let workerDb: Db;
@@ -59,7 +62,7 @@ const masterKey = randomBytes(32);
 const crypto = new LocalTenantCrypto(masterKey);
 const ids: Record<string, string> = {};
 
-type Method = 'GET' | 'POST' | 'PUT';
+type Method = 'GET' | 'POST' | 'PUT' | 'DELETE';
 function call(method: Method, url: string, opts: { cookie?: string; body?: unknown } = {}) {
   return app.inject({ method, url, headers: { host: 'acme.care.test', ...(opts.cookie ? { cookie: opts.cookie } : {}) }, ...(opts.body === undefined ? {} : { payload: opts.body as object }) });
 }
@@ -151,6 +154,7 @@ beforeAll(async () => {
   app = await createApp(config, { logger: false });
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
+  vi.spyOn(app.get<Mailer>(MAILER), 'send').mockImplementation(async mail => { sent.push(mail); });
 
   workerPool = new pg.Pool({ connectionString: db.workerUrl, max: 2 });
   workerDb = createDb(workerPool);
@@ -223,6 +227,7 @@ describe('exports', () => {
     const cookie = await as('nurse@acme.test');
     const requested = await call('POST', '/api/exports', { cookie, body: { report: 'health', type: 'grade', format: 'xlsx' } });
     expect(requested.statusCode, requested.body).toBe(201);
+    expect(requested.json()).toMatchObject({ kind: 'health', type: 'grade', title: '健管級數占比分析', status: 'queued', fileName: null });
     const done = await waitForExport(cookie, requested.json().id);
     expect(done.status).toBe('done');
     const { url } = (await call('POST', `/api/exports/${done.id}/link`, { cookie })).json();
@@ -260,11 +265,30 @@ describe('附表八 sign-off', () => {
     };
     expect((await call('POST', '/api/service-records', { cookie: safety, body: { ...body, signers: [{ role: '老闆', name: 'x', email: 'x@acme.test' }] } })).json()).toMatchObject({ code: 'unknown_sign_off_role' });
     expect((await call('POST', '/api/service-records', { cookie: await as('hr@acme.test'), body })).statusCode).toBe(403);
+    expect((await call('GET', '/api/service-records/sign-off-roles', { cookie: safety })).json()).toEqual(['勞工健康服務醫師', '人力資源管理人員', '部門主管']);
     const created = (await call('POST', '/api/service-records', { cookie: safety, body })).json();
-    expect(created).toMatchObject({ status: '草稿', signatures: [{ role: '人力資源管理人員' }, { role: '部門主管' }] });
+    expect(created).toMatchObject({
+      status: '草稿', executorName: '吳工安', signatures: [{ role: '人力資源管理人員', firstSentAt: null }, { role: '部門主管', firstSentAt: null }],
+    });
+    const spare = (await call('POST', '/api/service-records', { cookie: safety, body })).json();
+    expect((await call('DELETE', `/api/service-records/${spare.id}`, { cookie: safety })).statusCode).toBe(204);
+    expect((await call('DELETE', `/api/service-records/${spare.id}`, { cookie: safety })).statusCode).toBe(404);
 
+    const before = sent.length;
     const links = (await call('POST', `/api/service-records/${created.id}/submit`, { cookie: safety })).json();
     expect(links).toHaveLength(2);
+    // Each signer gets their own link by email; the email names the record, not its content.
+    const mails = sent.slice(before);
+    expect(mails.map(m => [m.to, m.subject])).toEqual([
+      ['hr@acme.test', `請簽核勞工健康服務執行紀錄表（附表八）（${created.siteName} 2026-10-01）`],
+      ['boss@acme.test', `請簽核勞工健康服務執行紀錄表（附表八）（${created.siteName} 2026-10-01）`],
+    ]);
+    expect(mails[0]!.text).toContain(links[0].url);
+    expect(mails[0]!.text).toContain('「人力資源管理人員」');
+    expect(mails.map(m => m.text).join()).not.toContain('健康檢查結果分析');
+    expect((await call('DELETE', `/api/service-records/${created.id}`, { cookie: safety })).json()).toMatchObject({ code: 'not_draft' });
+    const [listed] = (await call('GET', '/api/service-records', { cookie: safety })).json();
+    expect(listed.signatures[0]).toMatchObject({ firstSentAt: expect.any(String), sentAt: expect.any(String) });
     expect((await call('PUT', `/api/service-records/${created.id}`, { cookie: safety, body })).json()).toMatchObject({ code: 'not_draft' });
     const token = (u: string) => u.split('/').pop()!;
     const hrLink = token(links[0].url);
@@ -283,6 +307,16 @@ describe('附表八 sign-off', () => {
     expect(chain).toEqual(expect.arrayContaining([
       'submitted for sign-off to 人力資源管理人員、部門主管', 'sign link sent to 人力資源管理人員 李人資', 'signed by 人力資源管理人員 李人資', 'signed by 部門主管 周課長', 'all signers signed; completed',
     ]));
+  });
+
+  it('lets tenant admins set the sign-off roles', async () => {
+    const admin = await as('admin@acme.test');
+    expect((await call('GET', '/api/admin/sign-off-roles', { cookie: admin })).json()).toEqual(['勞工健康服務醫師', '人力資源管理人員', '部門主管']);
+    expect((await call('PUT', '/api/admin/sign-off-roles', { cookie: admin, body: { roles: ['部門主管', '部門主管'] } })).statusCode).toBe(400);
+    expect((await call('PUT', '/api/admin/sign-off-roles', { cookie: admin, body: { roles: ['部門主管', '勞工代表'] } })).json()).toEqual(['部門主管', '勞工代表']);
+    expect((await call('GET', '/api/service-records/sign-off-roles', { cookie: await as('safety@acme.test') })).json()).toEqual(['部門主管', '勞工代表']);
+    expect((await call('PUT', '/api/admin/sign-off-roles', { cookie: await as('safety@acme.test'), body: { roles: ['x'] } })).statusCode).toBe(403);
+    await call('PUT', '/api/admin/sign-off-roles', { cookie: admin, body: { roles: ['勞工健康服務醫師', '人力資源管理人員', '部門主管'] } });
   });
 });
 

@@ -14,6 +14,7 @@ import { SESSION_SECURITY } from './auth/access.js';
 import { AuthModule } from './auth/auth.module.js';
 import type { ApiConfig } from './config.js';
 import { CoreModule } from './core/database.js';
+import { DirectoryController } from './directory.controller.js';
 import { TenantController } from './tenant.controller.js';
 
 @Module({})
@@ -22,7 +23,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [CoreModule.forRoot(config), AuthModule.register(config), AdminModule, CareModule, EmployeesModule, ProgramsModule, ReportsModule],
-      controllers: [TenantController],
+      controllers: [TenantController, DirectoryController],
     };
   }
 }

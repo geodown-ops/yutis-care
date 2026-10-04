@@ -5,7 +5,7 @@
  */
 import { Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { caseEvents, cases, departments, employees, eventStatusHistory, users } from '@yutis/db';
+import { assistRecords, caseEvents, cases, departments, employees, eventStatusHistory, users } from '@yutis/db';
 import { CASE_STATUSES, canMoveCase, caseStatus, EVENT_TYPES, type CaseStatus } from '@yutis/domain';
 import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
 import { z } from 'zod';
@@ -147,7 +147,10 @@ export class CasesController {
 
   @Patch('cases/:id')
   @CaseAccess()
-  @ApiOperation({ summary: '更新個案：狀態（處理中、結案）、主責、各日期', description: '狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。' })
+  @ApiOperation({
+    summary: '更新個案：狀態（處理中、結案）、主責、各日期',
+    description: '狀態只能依 起單 → 處理中 → 結案 前進；個案內的事件跟著變更並留下歷程。結案時，這位員工未完成的協助紀錄追蹤也一併標為完成。',
+  })
   @ApiBody({ schema: openApiSchema(UpdateCase) })
   @ApiOkResponse({ type: EmployeeCaseDetailDto })
   async update(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<EmployeeCaseDetailDto> {
@@ -167,6 +170,15 @@ export class CasesController {
     if (status && status !== current.status) {
       const linked = await ctx.tx.select().from(caseEvents).where(and(eq(caseEvents.caseId, id), ne(caseEvents.status, '未開單')));
       await this.moveEvents(ctx, linked, status, id, note ?? null);
+    }
+    if (status === '結案' && current.status !== '結案') {
+      // As in the prototype, closing the case also closes the employee's open follow-ups.
+      const closed = await ctx.tx.update(assistRecords).set({ followUpDone: true, updatedAt: new Date(), updatedBy: staff(ctx).userId })
+        .where(and(eq(assistRecords.employeeId, current.employeeId), eq(assistRecords.result, '追蹤'), eq(assistRecords.followUpDone, false)))
+        .returning({ id: assistRecords.id });
+      if (closed.length) {
+        await recordAudit(ctx, closed.map((r): AuditEntry => ({ action: 'update', subjectTable: 'assist_records', subjectId: r.id, employeeId: current.employeeId, dataCategory: 'medical', reason: 'follow-up closed with the case' })));
+      }
     }
     await recordAudit(ctx, { action: 'update', subjectTable: 'cases', subjectId: id, employeeId: current.employeeId, dataCategory: 'health', reason: status ? `→ ${status}` : undefined });
     return this.detail(ctx, current.employeeId);

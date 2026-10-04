@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  RULES_V1, ageAt, caseStatus, cbiScores, cvdScore, evaluateWorkload, findRule, gradeReport, isAgeConcern,
-  levelOf, loadEval, nmqHazardLabel, nmqSuspectedHazard, pregnancyWeeks, suggestMaternalLevel, violenceRisk,
+  RULES_V1, ageAt, caseStatus, cbiScores, cvdScore, evaluateWorkload, findRule, gradeReport, isAgeConcern, isAvailableTenantSubdomain,
+  isEmployeeLang, isValidTenantSlug, levelOf, loadEval, nmqHazardLabel, nmqSuspectedHazard, pregnancyWeeks, suggestMaternalLevel, violenceRisk,
 } from '../src/index.js';
 import { examRetainUntil } from '../src/retention.js';
 
@@ -107,5 +107,18 @@ describe('retention', () => {
   it('keeps general health checks 7 years and special ones 10', () => {
     expect(examRetainUntil('2026-03-15', false)).toBe('2033-03-15');
     expect(examRetainUntil('2026-03-15', true)).toBe('2036-03-15');
+  });
+});
+
+describe('tenant subdomains and portal languages', () => {
+  it('keeps the demo site out of the subdomains the platform hands out, while it stays a valid tenant slug', () => {
+    expect(isValidTenantSlug('demo')).toBe(true);
+    expect(isAvailableTenantSubdomain('demo')).toBe(false);
+    expect(['acme', 'acme-2'].map(isAvailableTenantSubdomain)).toEqual([true, true]);
+    expect(['admin', 'api', 'www', 'a.b', '-x', 'Acme'].map(isAvailableTenantSubdomain)).toEqual([false, false, false, false, false, false]);
+  });
+  it('knows the portal languages', () => {
+    expect(['zh', 'en', 'ja', 'vi', 'th'].every(isEmployeeLang)).toBe(true);
+    expect(isEmployeeLang('fr')).toBe(false);
   });
 });

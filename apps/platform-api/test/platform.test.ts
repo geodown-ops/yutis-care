@@ -125,6 +125,14 @@ describe('sign-in', () => {
     expect((await call('GET', '/tenants', SUPPORT)).statusCode).toBe(200);
   });
 
+  it('tells any platform user who they are and what they may do', async () => {
+    expect((await call('GET', '/me', SUPPORT)).json()).toEqual({
+      id: expect.any(String), email: SUPPORT, name: '客服小李', role: '客服', permissions: ['tenants:read', 'announcements:write', 'audit:read'],
+    });
+    expect((await call('GET', '/me')).statusCode).toBe(401);
+    expect((await call('GET', '/me', 'gone@yutis.test')).statusCode).toBe(403);
+  });
+
   it('applies role permissions', async () => {
     expect((await call('POST', '/tenants', SUPPORT, onboardBody('nope'))).statusCode).toBe(403);
     expect((await call('POST', '/tenants', ENG, onboardBody('nope'))).statusCode).toBe(403);
@@ -211,9 +219,24 @@ describe('tenants', () => {
     expect((await call('PUT', `/tenants/${acmeId}/subscription`, OPS, { planCode: 'standard', status: 'active', seatLimit: 5, startsOn: '2026-10-01', endsOn: '2026-09-01' })).statusCode).toBe(400);
   });
 
+  it('adds a subscription period for a renewal and keeps the history', async () => {
+    // Renewed ahead of time: the period in effect stays current until the new one starts.
+    const next = new Date().getFullYear() + 1;
+    const renewed = await call('POST', `/tenants/${acmeId}/subscriptions`, OPS, { planCode: 'standard', seatLimit: 800, startsOn: `${next}-10-01`, endsOn: `${next + 1}-09-30` });
+    expect(renewed.statusCode, renewed.body).toBe(201);
+    expect(renewed.json().subscription).toMatchObject({ status: 'active', seatLimit: 500, startsOn: '2026-10-01', endsOn: `${next}-09-30` });
+    expect(renewed.json().subscriptions.map((x: { startsOn: string; endsOn: string; seatLimit: number }) => [x.startsOn, x.endsOn, x.seatLimit]))
+      .toEqual([[`${next}-10-01`, `${next + 1}-09-30`, 800], ['2026-10-01', `${next}-09-30`, 500]]);
+    const overlap = await call('POST', `/tenants/${acmeId}/subscriptions`, OPS, { planCode: 'standard', seatLimit: null, startsOn: `${next}-10-01` });
+    expect([overlap.statusCode, overlap.json().code]).toEqual([409, 'period_overlap']);
+    expect((await call('POST', `/tenants/${acmeId}/subscriptions`, SUPPORT, { planCode: 'standard', seatLimit: null, startsOn: `${next + 2}-01-01` })).statusCode).toBe(403);
+    const [audit] = await owner.select().from(platformAuditLog).where(eq(platformAuditLog.action, 'subscription.renew'));
+    expect(audit).toMatchObject({ tenantId: acmeId, actorEmail: OPS, detail: expect.objectContaining({ seatLimit: 800, previousEndsOn: `${next}-09-30` }) });
+  });
+
   it('reports usage as counts per tenant', async () => {
     const usage = (await call('GET', '/usage?month=2026-10', SUPPORT)).json();
-    expect(usage.find((u: { tenantId: string }) => u.tenantId === acmeId)).toMatchObject({ activeEmployees: 2, smsSent: 42, examsInMonth: 0 });
+    expect(usage.find((u: { tenantId: string }) => u.tenantId === acmeId)).toMatchObject({ activeEmployees: 2, smsSent: 42, examsInMonth: 0, seatLimit: 500 });
     expect((await call('GET', '/usage?month=2026-13', SUPPORT)).statusCode).toBe(400);
   });
 });
@@ -237,6 +260,20 @@ describe('announcements, platform users, templates', () => {
     expect((await call('PATCH', `/platform-users/${engId}`, ENG, { active: false })).json()).toMatchObject({ code: 'cannot_change_self' });
   });
 
+  it('edits and deactivates plans; a deactivated plan cannot be chosen again', async () => {
+    const plan = (await call('POST', '/plans', OPS, { code: 'pilot', name: '試辦方案' })).json();
+    expect((await call('PATCH', `/plans/${plan.id}`, OPS, { name: '試辦方案（2026）', pricing: { perSeat: 30 } })).json())
+      .toMatchObject({ code: 'pilot', name: '試辦方案（2026）', pricing: { perSeat: 30 }, active: true });
+    expect((await call('PATCH', `/plans/${plan.id}`, OPS, { active: false })).json()).toMatchObject({ active: false });
+    expect((await call('PATCH', `/plans/${plan.id}`, OPS, {})).statusCode).toBe(400);
+    expect((await call('PATCH', `/plans/${plan.id}`, OPS, { code: 'other' })).statusCode).toBe(400);
+    expect((await call('PATCH', `/plans/${acmeId}`, OPS, { active: true })).json()).toMatchObject({ code: 'plan_not_found' });
+    expect((await call('PATCH', `/plans/${plan.id}`, SUPPORT, { active: true })).statusCode).toBe(403);
+    const onboard = await call('POST', '/tenants', OPS, onboardBody('pilotco', { planCode: 'pilot' }));
+    expect([onboard.statusCode, onboard.json().code]).toEqual([400, 'unknown_plan']);
+    expect((await auditActions()).filter(a => a === 'plan.update')).toHaveLength(2);
+  });
+
   it('syncs default templates only when they changed', async () => {
     const res = await call('POST', '/templates/sync', OPS);
     expect(res.json().every((r: { changed: boolean; version: number }) => !r.changed && r.version === 1)).toBe(true);
@@ -246,5 +283,26 @@ describe('announcements, platform users, templates', () => {
   it('rolls back any write that skipped the platform audit log', async () => {
     expect((await call('POST', '/probe/unaudited', OPS)).statusCode).toBe(500);
     expect(await owner.select().from(announcements).where(eq(announcements.title, 'probe-unaudited'))).toHaveLength(0);
+  });
+
+  it('shows the platform audit log, newest first, filtered by tenant, person, action and date', async () => {
+    const all = await call('GET', '/audit', SUPPORT);
+    expect(all.statusCode, all.body).toBe(200);
+    const { total, items } = all.json();
+    expect(total).toBeGreaterThan(5);
+    expect(items.map((i: { at: string }) => i.at)).toEqual([...items.map((i: { at: string }) => i.at)].sort().reverse());
+    const suspended = (await call('GET', `/audit?tenantId=${acmeId}&action=tenant.suspend`, ENG)).json();
+    expect(suspended).toEqual({
+      total: 1,
+      items: [expect.objectContaining({
+        action: 'tenant.suspend', actor: { id: expect.any(String), email: OPS, name: '營運小王' },
+        tenant: { id: acmeId, subdomain: 'acme', name: 'Acme 股份有限公司' }, subjectTable: 'tenants', subjectId: acmeId, detail: { reason: '逾期未付款' },
+      })],
+    });
+    const byEng = (await call('GET', `/audit?actorId=${engId}`, OPS)).json();
+    expect(byEng.total).toBeGreaterThan(0);
+    expect(byEng.items.every((i: { actor: { email: string } }) => i.actor.email === ENG)).toBe(true);
+    expect((await call('GET', '/audit?from=2000-01-01&to=2000-01-31', OPS)).json()).toEqual({ total: 0, items: [] });
+    expect((await call('GET', '/audit?tenantId=acme', OPS)).statusCode).toBe(400);
   });
 });

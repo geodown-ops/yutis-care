@@ -1,5 +1,5 @@
 /* The four statutory prevention programmes (四大計畫). Questionnaire answers are JSONB with a form version. */
-import { boolean, date, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { base, bytea, filledByEnum, matLevelEnum, retainUntil, surveyStatusEnum, tenantKey, tenantRef } from './common.js';
 import { employees } from './employees.js';
 import { departments, sites } from './org.js';
@@ -30,6 +30,8 @@ export const ergoSurveys = pgTable('ergo_surveys', {
   filledBy: filledByEnum('filled_by'),
   reminders: integer('reminders').notNull().default(0),
   lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
+  /** 管控追蹤 for a suspected hazard: { measures, note, nextOn, status: 列管中 | 已改善 | 解除列管 }. */
+  tracking: jsonb('tracking'),
   retainUntil: retainUntil(),
 }, t => [
   tenantKey(t),
@@ -79,6 +81,8 @@ export const workloadAssessments = pgTable('workload_assessments', {
   evaluation: jsonb('evaluation'),
   riskLevel: smallint('risk_level'),
   ruleVersion: text('rule_version'),
+  reminders: integer('reminders').notNull().default(0),
+  lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
   retainUntil: retainUntil(),
 }, t => [
   tenantKey(t),
@@ -96,6 +100,8 @@ export const interviews = pgTable('interviews', {
   doctorUserId: uuid('doctor_user_id'),
   /** Structured findings and work-arrangement advice shown to HR (no clinical detail). */
   workAdvice: jsonb('work_advice'),
+  /** 面談指導結果 (fatigue, mental-health concern, diagnosis and guidance classes, remarks) as encrypted JSON. */
+  guidanceEnc: bytea('guidance_enc'),
   notesEnc: bytea('notes_enc'),
   nextOn: date('next_on'),
 }, t => [
@@ -195,11 +201,20 @@ export const violenceIncidents = pgTable('violence_incidents', {
   tenantRef('violence_incidents_victim_fk', t, t.victimEmployeeId, employees),
 ]);
 
+/** 預防措施查核及評估: a periodic review of the prevention measures, signed off like 附表八 (signatures). */
 export const violenceReviews = pgTable('violence_reviews', {
   ...base(),
+  siteId: uuid('site_id').notNull(),
+  departmentId: uuid('department_id'),
   reviewedOn: date('reviewed_on').notNull(),
+  /** Per review item: checked points, result, corrective measures. */
   items: jsonb('items').notNull(),
-}, t => [tenantKey(t)]);
+  status: text('status', { enum: ['草稿', '簽核中', '已完成'] }).notNull().default('草稿'),
+}, t => [
+  tenantKey(t),
+  tenantRef('violence_reviews_site_fk', t, t.siteId, sites),
+  tenantRef('violence_reviews_department_fk', t, t.departmentId, departments),
+]);
 
 /* ---------- notices to department managers ---------- */
 
@@ -221,4 +236,24 @@ export const managerNotices = pgTable('manager_notices', {
   index('manager_notices_manager_idx').on(t.tenantId, t.managerUserId),
   tenantRef('manager_notices_manager_fk', t, t.managerUserId, users),
   tenantRef('manager_notices_employee_fk', t, t.employeeId, employees),
+]);
+
+/* ---------- 員工端草稿 (employee portal drafts) ---------- */
+
+/**
+ * Answers an employee has started but not yet submitted, one per questionnaire, so a long questionnaire survives the
+ * session's idle timeout. Only the employee's own portal routes read them; submitting the questionnaire, by the employee
+ * or by a nurse, deletes the draft.
+ */
+export const portalDrafts = pgTable('portal_drafts', {
+  ...base(),
+  employeeId: uuid('employee_id').notNull(),
+  /** nmq → ergo_surveys, cbi and overload → workload_assessments. */
+  taskKind: text('task_kind', { enum: ['nmq', 'cbi', 'overload'] }).notNull(),
+  taskId: uuid('task_id').notNull(),
+  answers: jsonb('answers').notNull(),
+}, t => [
+  tenantKey(t),
+  unique('portal_drafts_task_key').on(t.tenantId, t.employeeId, t.taskKind, t.taskId),
+  tenantRef('portal_drafts_employee_fk', t, t.employeeId, employees),
 ]);

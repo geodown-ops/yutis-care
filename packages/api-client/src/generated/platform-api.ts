@@ -18,6 +18,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 目前登入的平台人員與權限 */
+        get: operations["MeController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform-api/tenants": {
         parameters: {
             query?: never;
@@ -102,11 +119,31 @@ export interface paths {
         };
         get?: never;
         /**
-         * 設定目前的訂閱
-         * @description 更新目前的訂閱（方案、狀態、人數上限、起訖日）；沒有訂閱時新增一筆。目前不依此收費。
+         * 修改目前的訂閱
+         * @description 直接改目前這一期（方案、狀態、人數上限、起訖日），用來更正；沒有訂閱時新增一筆。續約或換方案請用 POST /tenants/{id}/subscriptions，訂閱歷史才會保留。目前不依此收費。
          */
         put: operations["TenantsController_setSubscription"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/tenants/{id}/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 新增訂閱期間（續約、換方案）
+         * @description 新增一期，舊的留在訂閱歷史；開始日一到就成為目前的訂閱，所以可以在這期結束前先續約。新的一期要晚於最近一期的開始日；最近一期沒有結束日、或結束日不早於新期間開始日時，結束日改為新期間開始的前一天。目前不依此收費。
+         */
+        post: operations["TenantsController_addPeriod"];
         delete?: never;
         options?: never;
         head?: never;
@@ -132,6 +169,26 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/platform-api/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 修改或停用方案
+         * @description 代碼不能改。停用的方案不能再用於開通或新的訂閱期間，已在使用的訂閱不受影響。
+         */
+        patch: operations["PlansUsageController_updatePlan"];
         trace?: never;
     };
     "/platform-api/usage": {
@@ -268,6 +325,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 平台稽核紀錄
+         * @description 平台後台的所有變更，新的在前。日期為台灣時間，含起訖兩天。
+         */
+        get: operations["PlatformAuditController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -275,6 +352,27 @@ export interface components {
         HealthDto: {
             /** @enum {string} */
             status: "ok";
+        };
+        PlatformMeDto: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "營運" | "客服" | "工程";
+            /** @description 這個角色能做的事；畫面依此隱藏按鈕（API 仍會逐一檢查） */
+            permissions: ("tenants:read" | "tenants:write" | "subscriptions:write" | "announcements:write" | "templates:write" | "platform-users:manage" | "audit:read")[];
+        };
+        ApiErrorDto: {
+            /** @example 403 */
+            status: number;
+            /**
+             * @description 機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable
+             * @example forbidden
+             */
+            code: string;
+            /** @description 給開發者看的說明，不直接顯示給使用者 */
+            message: string;
         };
         SubscriptionDto: {
             planCode: string;
@@ -303,7 +401,7 @@ export interface components {
             status: "active" | "suspended" | "closed";
             /** Format: date-time */
             createdAt: string;
-            /** @description 目前的訂閱 */
+            /** @description 目前的訂閱：已開始的最新一期（都還沒開始時為最早的一期） */
             subscription: components["schemas"]["SubscriptionDto"] | null;
             /** @description 在職員工數（資料庫函式計算，平台看不到明細） */
             activeEmployees: number;
@@ -311,17 +409,6 @@ export interface components {
             staffAccounts: number;
             /** @description 在職員工數超過人數上限 */
             overSeatLimit: boolean;
-        };
-        ApiErrorDto: {
-            /** @example 403 */
-            status: number;
-            /**
-             * @description 機器可判讀的錯誤代碼，例如 unknown_tenant、tenant_inactive、unauthorized、forbidden、outside_sites、cross_origin、validation_failed、sign_in_unavailable
-             * @example forbidden
-             */
-            code: string;
-            /** @description 給開發者看的說明，不直接顯示給使用者 */
-            message: string;
         };
         TenantAdminDto: {
             name: string;
@@ -342,7 +429,7 @@ export interface components {
             status: "active" | "suspended" | "closed";
             /** Format: date-time */
             createdAt: string;
-            /** @description 目前的訂閱 */
+            /** @description 目前的訂閱：已開始的最新一期（都還沒開始時為最早的一期） */
             subscription: components["schemas"]["SubscriptionDto"] | null;
             /** @description 在職員工數（資料庫函式計算，平台看不到明細） */
             activeEmployees: number;
@@ -424,6 +511,44 @@ export interface components {
             /** @description 這次是否發布了新版本 */
             changed: boolean;
         };
+        PlatformAuditActorDto: {
+            /** Format: uuid */
+            id: string | null;
+            email: string;
+            /** @description 平台人員已刪除時為 null */
+            name: string | null;
+        };
+        PlatformAuditTenantDto: {
+            /** Format: uuid */
+            id: string;
+            subdomain: string;
+            name: string;
+        };
+        PlatformAuditEntryDto: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            actor: components["schemas"]["PlatformAuditActorDto"];
+            /**
+             * @description 例如 tenant.onboard、tenant.suspend、subscription.renew、plan.update、announcement.create
+             * @example tenant.suspend
+             */
+            action: string;
+            tenant: components["schemas"]["PlatformAuditTenantDto"] | null;
+            subjectTable: string | null;
+            subjectId: string | null;
+            /** @description 改了什麼；不含任何租戶員工資料 */
+            detail: {
+                [key: string]: unknown;
+            } | null;
+            ip: string | null;
+        };
+        PlatformAuditPageDto: {
+            /** @description 符合條件的總筆數 */
+            total: number;
+            /** @description 新的在前 */
+            items: components["schemas"]["PlatformAuditEntryDto"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -448,6 +573,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthDto"];
+                };
+            };
+        };
+    };
+    MeController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformMeDto"];
+                };
+            };
+            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user） */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
                 };
             };
         };
@@ -757,6 +919,78 @@ export interface operations {
             };
         };
     };
+    TenantsController_addPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    planCode: string;
+                    /**
+                     * @default active
+                     * @enum {string}
+                     */
+                    status?: "trial" | "active" | "past_due" | "cancelled";
+                    seatLimit: number | null;
+                    /** Format: date */
+                    startsOn: string;
+                    /** @default null */
+                    endsOn?: string | null;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantDetailDto"];
+                };
+            };
+            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 新期間沒有晚於最近一期的開始日（period_overlap） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     PlansUsageController_listPlans: {
         parameters: {
             query?: never;
@@ -842,11 +1076,60 @@ export interface operations {
             };
         };
     };
+    PlansUsageController_updatePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    pricing?: {
+                        [key: string]: unknown;
+                    };
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanDto"];
+                };
+            };
+            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
     PlansUsageController_usage: {
         parameters: {
             query?: {
-                /** @description 預設本月 */
-                month?: unknown;
+                /** @description 年月 YYYY-MM，預設本月 */
+                month?: string;
             };
             header?: never;
             path?: never;
@@ -1246,6 +1529,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateVersionDto"][];
+                };
+            };
+            /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PlatformAuditController_list: {
+        parameters: {
+            query?: {
+                /** @description 略過的筆數，預設 0 */
+                offset?: number;
+                /** @description 每頁筆數，預設 50，最多 200 */
+                limit?: number;
+                to?: string;
+                from?: string;
+                action?: string;
+                /** @description 只看這位平台人員的操作 */
+                actorId?: string;
+                /** @description 只看對這個租戶的操作 */
+                tenantId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAuditPageDto"];
                 };
             };
             /** @description 沒有經過 Identity-Aware Proxy 的有效身分 */

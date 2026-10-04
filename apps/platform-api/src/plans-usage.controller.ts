@@ -1,7 +1,7 @@
-import { Body, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, ConflictException, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { plans, tenants, tenantSubscriptions, usageCounters } from '@yutis/db';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { currentSubscriptionFirst, plans, tenants, tenantSubscriptions, usageCounters } from '@yutis/db';
+import { asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { Requires } from './auth/access.js';
 import { recordPlatformAudit } from './core/audit.js';
@@ -22,6 +22,11 @@ const CreatePlan = z.object({
   name: z.string().trim().min(1).max(100),
   pricing: z.record(z.string(), z.unknown()).default({}),
 }).strict();
+const UpdatePlan = z.object({
+  name: CreatePlan.shape.name,
+  pricing: z.record(z.string(), z.unknown()),
+  active: z.boolean(),
+}).partial().strict().refine(p => Object.keys(p).length > 0, { message: 'Nothing to change' });
 
 class UsageDto {
   @ApiProperty({ format: 'uuid' }) tenantId!: string;
@@ -67,10 +72,26 @@ export class PlansUsageController {
     }
   }
 
+  @Patch('plans/:id')
+  @Requires('subscriptions:write')
+  @ApiOperation({
+    summary: '修改或停用方案',
+    description: '代碼不能改。停用的方案不能再用於開通或新的訂閱期間，已在使用的訂閱不受影響。',
+  })
+  @ApiBody({ schema: openApiSchema(UpdatePlan) })
+  @ApiOkResponse({ type: PlanDto })
+  async updatePlan(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<PlanDto> {
+    const input = parse(UpdatePlan, body);
+    const [plan] = await ctx.tx.update(plans).set(input).where(eq(plans.id, id)).returning();
+    if (!plan) throw new NotFoundException({ code: 'plan_not_found', message: 'No such plan' });
+    await recordPlatformAudit(ctx, { action: 'plan.update', subjectTable: 'plans', subjectId: id, detail: input });
+    return plan;
+  }
+
   @Get('usage')
   @Requires('tenants:read')
   @ApiOperation({ summary: '各租戶用量（只有計數）', description: '員工與帳號數為目前值；健檢與簡訊為指定月份。平台拿不到任何一筆明細。' })
-  @ApiQuery({ name: 'month', required: false, example: '2026-10', description: '預設本月' })
+  @ApiQuery({ name: 'month', required: false, type: String, example: '2026-10', description: '年月 YYYY-MM，預設本月' })
   @ApiOkResponse({ type: [UsageDto] })
   async usage(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<UsageDto[]> {
     const { month } = parse(Month, query);
@@ -81,7 +102,7 @@ export class PlansUsageController {
       .where(sql`${usageCounters.metric} = 'sms_sent' and ${usageCounters.period} = ${period}`);
     const all = await ctx.tx.select({ id: tenants.id, slug: tenants.slug, name: tenants.name }).from(tenants).orderBy(asc(tenants.name));
     const seats = await ctx.tx.selectDistinctOn([tenantSubscriptions.tenantId], { tenantId: tenantSubscriptions.tenantId, seatLimit: tenantSubscriptions.seatLimit })
-      .from(tenantSubscriptions).orderBy(tenantSubscriptions.tenantId, desc(tenantSubscriptions.startsOn), desc(tenantSubscriptions.createdAt));
+      .from(tenantSubscriptions).orderBy(tenantSubscriptions.tenantId, ...currentSubscriptionFirst());
     return all.map(t => {
       const counts = rows.find(r => r.tenant_id === t.id);
       const activeEmployees = Number(counts?.active_employees ?? 0);

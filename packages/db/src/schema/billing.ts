@@ -8,7 +8,7 @@
  * subscription but never change it; usage_counters are written by the tenant API and worker for their own
  * tenant (e.g. one more SMS sent) and never deleted.
  */
-import { sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import { bigint, boolean, check, date, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { tenants } from './common.js';
 
@@ -42,6 +42,16 @@ export const tenantSubscriptions = pgTable('tenant_subscriptions', {
   check('tenant_subscriptions_term', sql`${t.endsOn} is null or ${t.endsOn} >= ${t.startsOn}`),
   check('tenant_subscriptions_seat_limit', sql`${t.seatLimit} is null or ${t.seatLimit} > 0`),
 ]);
+
+/**
+ * ORDER BY terms that put a tenant's subscription in effect today (Taiwan time) first: periods that have started, newest
+ * first, then periods that start later. A renewal can be entered before the current period ends.
+ */
+export const currentSubscriptionFirst = () => [
+  sql`${tenantSubscriptions.startsOn} > (now() at time zone 'Asia/Taipei')::date`,
+  desc(tenantSubscriptions.startsOn),
+  desc(tenantSubscriptions.createdAt),
+];
 
 /**
  * What gets counted per tenant per month. SMS is paid by the operator, so it is counted per tenant even though

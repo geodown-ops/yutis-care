@@ -4,17 +4,19 @@
  * month's `active_employees` usage counter is set to the number of current employees. National ID numbers (身分證字號)
  * are never stored in full: only a per-tenant keyed fingerprint, used to match clinic files, and a masked form for display.
  */
-import { Body, Controller, HttpCode, Inject, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
-import { departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
-import { desc, eq, sql } from 'drizzle-orm';
+import { Body, Controller, Get, HttpCode, Inject, Post, Query, Res } from '@nestjs/common';
+import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
+import { currentSubscriptionFirst, departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
+import { EMPLOYEE_LANGS, isEmployeeLang } from '@yutis/domain';
+import { eq, sql } from 'drizzle-orm';
+import type { FastifyReply } from 'fastify';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
-import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
+import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue } from './excel.js';
 import { ImportQuery } from './org.controller.js';
 import { raiseAgeEvents } from '../programs/common.js';
 
@@ -22,7 +24,6 @@ export const EMPLOYEE_COLUMNS = {
   required: ['工號', '姓名', '性別', '出生日期', '法人代碼', '廠區代碼', '部門'],
   optional: ['身分證字號', '職稱', '班別', '健檢類別', '特殊作業', '語言', '到職日', 'Email', '手機', '狀態'],
 } as const;
-const LANGS = ['zh', 'en', 'ja', 'vi', 'th'];
 const STATUSES = ['在職', '留停', '離職'] as const;
 /** Taiwan national ID or resident certificate number: a letter, then 1/2 (or 8/9, A–D for residents), then 8 digits. */
 const NATIONAL_ID = /^[A-Z][12890ABCD]\d{8}$/;
@@ -56,13 +57,22 @@ const COMPARED: (keyof EmployeeValues)[] = [
 export class EmployeesController {
   constructor(@Inject(TENANT_CRYPTO) private readonly crypto: TenantCrypto) {}
 
+  @Get('import-template')
+  @StaffOnly({ feature: 'tenant-admin' })
+  @ApiOperation({ summary: '員工主檔匯入範本（.xlsx）', description: '只有欄位名稱；粗體為必填。' })
+  @ApiProduces(XLSX_MIME)
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  async template(@Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendXlsx(reply, '員工主檔匯入範本.xlsx', await templateWorkbook([{ name: '員工', ...EMPLOYEE_COLUMNS }]));
+  }
+
   @Post('import')
   @HttpCode(200)
   @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
   @ApiOperation({
     summary: '以 Excel 匯入員工主檔',
     description: `第一個工作表，第一列為欄位名稱。必填：${EMPLOYEE_COLUMNS.required.join('、')}；選填：${EMPLOYEE_COLUMNS.optional.join('、')}。`
-      + '依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。',
+      + '依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。語言留空時保留員工在員工端自己設定的語言（新員工為 zh）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。',
   })
   @ApiConsumes(XLSX_MIME)
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
@@ -95,7 +105,7 @@ export class EmployeesController {
       if (v['性別'] && v['性別'] !== '男' && v['性別'] !== '女') add(row, '性別', '應為「男」或「女」');
       for (const c of ['出生日期', '到職日']) if (v[c] && !isIsoDate(v[c]!)) add(row, c, '日期格式應為 YYYY-MM-DD');
       if (v['Email'] && !isEmail(v['Email'])) add(row, 'Email', 'Email 格式錯誤');
-      if (v['語言'] && !LANGS.includes(v['語言'])) add(row, '語言', `應為 ${LANGS.join('、')} 之一`);
+      if (v['語言'] && !isEmployeeLang(v['語言'])) add(row, '語言', `應為 ${EMPLOYEE_LANGS.join('、')} 之一`);
       if (v['狀態'] && !(STATUSES as readonly string[]).includes(v['狀態'])) add(row, '狀態', `應為 ${STATUSES.join('、')} 之一`);
       let nationalIdHash: string | undefined;
       const nationalId = v['身分證字號']?.toUpperCase();
@@ -123,7 +133,8 @@ export class EmployeesController {
           name: v['姓名']!, sex: v['性別'] as '男' | '女', birthDate: v['出生日期']!, legalEntityId: le.id, siteId: site.id, departmentId: dept.id,
           title: v['職稱'] || null, shift: v['班別'] || null, examCategory: v['健檢類別'] || null,
           specialOperations: (v['特殊作業'] ?? '').split(/[、,，;；]/).map(s => s.trim()).filter(Boolean),
-          lang: v['語言'] || 'zh', hireDate: v['到職日'] || null, email: v['Email']?.toLowerCase() || null, phone: v['手機'] || null,
+          // Blank keeps the language the employee chose in the portal (new employees get the default, zh).
+          lang: v['語言'] || undefined, hireDate: v['到職日'] || null, email: v['Email']?.toLowerCase() || null, phone: v['手機'] || null,
           status: (v['狀態'] || '在職') as (typeof STATUSES)[number],
         },
       });
@@ -132,7 +143,7 @@ export class EmployeesController {
     const toCreate = parsed.filter(p => !existing.has(p.empNo));
     const toUpdate = parsed.filter(p => {
       const cur = existing.get(p.empNo);
-      return cur && (COMPARED.some(k => JSON.stringify(cur[k] ?? null) !== JSON.stringify(p.values[k] ?? null))
+      return cur && (COMPARED.some(k => p.values[k] !== undefined && JSON.stringify(cur[k] ?? null) !== JSON.stringify(p.values[k] ?? null))
         || (p.nationalId !== undefined && (p.nationalId.hash !== cur.nationalIdHash || p.nationalId.masked !== cur.nationalIdMasked)));
     });
     const report: EmployeeImportReportDto = {
@@ -176,7 +187,7 @@ export class EmployeesController {
       report.seats.activeEmployees = projectedActive();
     }
     const [subscription] = await ctx.tx.select({ seatLimit: tenantSubscriptions.seatLimit }).from(tenantSubscriptions)
-      .orderBy(desc(tenantSubscriptions.startsOn), desc(tenantSubscriptions.createdAt)).limit(1);
+      .orderBy(...currentSubscriptionFirst()).limit(1);
     report.seats.seatLimit = subscription?.seatLimit ?? null;
     report.seats.overLimit = report.seats.seatLimit !== null && report.seats.activeEmployees > report.seats.seatLimit;
     return report;

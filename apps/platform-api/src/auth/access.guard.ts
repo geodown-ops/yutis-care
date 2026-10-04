@@ -34,7 +34,7 @@ export class PlatformAccessGuard implements CanActivate {
       .from(platformUsers).where(and(eq(platformUsers.email, email), eq(platformUsers.active, true)));
     if (!user) throw new ForbiddenException({ code: 'not_platform_user', message: 'Not an active platform user' });
     request.platform = { user, ip: request.ip, userAgent: request.headers['user-agent'], compensations: [], audited: false };
-    if (!can(user.role, rule.permission)) throw new ForbiddenException();
+    if (rule.permission && !can(user.role, rule.permission)) throw new ForbiddenException();
     return true;
   }
 }

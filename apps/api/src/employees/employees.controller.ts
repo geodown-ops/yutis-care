@@ -93,12 +93,12 @@ export class EmployeeDirectoryController {
     summary: '搜尋負責廠區的員工',
     description: '只列出負責廠區（或有效破窗授權）的員工，依工號排序。q 比對姓名或工號。每位列出的員工都記入稽核。',
   })
-  @ApiQuery({ name: 'q', required: false, description: '姓名或工號的一部分' })
-  @ApiQuery({ name: 'siteId', required: false, description: '只看某個廠區；不是負責廠區時回 403' })
-  @ApiQuery({ name: 'departmentId', required: false })
+  @ApiQuery({ name: 'q', required: false, type: String, description: '姓名或工號的一部分' })
+  @ApiQuery({ name: 'siteId', required: false, type: String, format: 'uuid', description: '只看某個廠區；不是負責廠區時回 403' })
+  @ApiQuery({ name: 'departmentId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'status', required: false, enum: STATUSES })
-  @ApiQuery({ name: 'limit', required: false, description: '每頁筆數，預設 50，最多 200' })
-  @ApiQuery({ name: 'offset', required: false, description: '略過的筆數，預設 0' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '每頁筆數，預設 50，最多 200' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: '略過的筆數，預設 0' })
   @ApiOkResponse({ type: EmployeePageDto })
   async list(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<EmployeePageDto> {
     const q = parse(ListQuery, query);
