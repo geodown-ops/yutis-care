@@ -5,7 +5,7 @@
 # terraform apply, which shows the plan and asks for "yes" before creating anything. Safe to run again.
 set -euo pipefail
 project="${1:?usage: bash infra/bootstrap-production.sh <project id> [domain]}"
-domain="${2:-care.yutis.com.tw}"
+domain="${2:-care.yutis.net}"
 me="$(gcloud config get-value account 2>/dev/null)"
 cd "$(dirname "$0")/terraform/production"
 

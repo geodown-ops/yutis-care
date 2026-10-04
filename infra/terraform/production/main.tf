@@ -1,4 +1,4 @@
-# 正式站 care.yutis.com.tw：租戶 {slug}.care.yutis.com.tw（/me 員工端），平台管理後台 admin.care.yutis.com.tw。
+# 正式站 care.yutis.net：租戶 {slug}.care.yutis.net（/me 員工端），平台管理後台 admin.care.yutis.net。
 terraform {
   backend "gcs" {
     prefix = "production"
@@ -42,7 +42,7 @@ variable "alert_email" {
 variable "domain" {
   description = "Tenants at {slug}.<domain>, the platform back office at admin.<domain>."
   type        = string
-  default     = "care.yutis.com.tw"
+  default     = "care.yutis.net"
 }
 
 variable "email_from" {
