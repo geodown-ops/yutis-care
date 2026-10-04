@@ -96,14 +96,14 @@ export function saveProblem(err: unknown): string {
     if (err.code === 'validation_failed') return '有欄位格式不正確，請檢查後再送出。';
     if (err.code === 'unknown_assessment') return '找不到所選的環境危害評估，請重新選擇。';
     if (err.code === 'employee_not_found') return '找不到這位員工，可能已被刪除。';
-    if (err.code === 'already_confirmed') return '員工已確認這份紀錄，不需要再寄連結。';
+    if (err.code === 'already_confirmed') return '員工已確認這份紀錄，不需要再產生連結。';
     if (err.code === 'not_a_manager') return '收件人必須是在職的部門主管帳號。';
     if (err.code === 'unknown_department') return '所選部門不屬於這個廠區，請重新選擇。';
     if (err.code === 'unknown_sign_off_role') return '簽核人員的類別必須是租戶設定的簽核角色。';
     if (err.code === 'no_signers') return '請先加入至少一位簽核人員再送出。';
     if (err.code === 'not_draft') return '這份紀錄已送出簽核，不能再修改或刪除。請重新整理。';
     if (err.code === 'not_in_sign_off') return '這份紀錄目前不在簽核中。請重新整理。';
-    if (err.code === 'already_signed') return '這位簽核人員已經簽核，不需要重寄。';
+    if (err.code === 'already_signed') return '這位簽核人員已經簽核，不需要重發連結。';
     if (err.code === 'not_suspected') return '只有疑似有危害的問卷可以列管。';
     if (err.code === 'interview_date_required') return '面談狀態為已面談時，請填面談日期。';
     if (err.code === 'unknown_staff') return '找不到這位醫師的帳號，可能已停用。';

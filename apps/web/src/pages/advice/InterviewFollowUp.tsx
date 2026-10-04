@@ -55,9 +55,9 @@ export function NoticeList({ notices }: { notices: readonly NoticeStatus[] }) {
         <Group key={n.id} justify="space-between" gap="xs" wrap="nowrap">
           <div style={{ minWidth: 0 }}>
             <Text size="sm">{n.managerName}</Text>
-            <Text size="xs" c="dimmed">{when(n.sentAt)} 寄出{n.readAt ? ` · ${when(n.readAt)} 已讀` : ''}</Text>
+            <Text size="xs" c="dimmed">{when(n.sentAt)} 送出{n.readAt ? ` · ${when(n.readAt)} 已讀` : ''}</Text>
           </div>
-          <ToneBadge tone={n.readAt ? 'ok' : 'warn'}>{n.readAt ? '已讀' : '未讀'}</ToneBadge>
+          <div style={{ flexShrink: 0 }}><ToneBadge tone={n.readAt ? 'ok' : 'warn'}>{n.readAt ? '已讀' : '未讀'}</ToneBadge></div>
         </Group>
       ))}
     </Stack>

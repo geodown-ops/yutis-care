@@ -50,7 +50,7 @@ export function MaternalEnvTab({ envs }: { envs: UseQueryResult<EnvAssessment[]>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th>評估區域</Table.Th><Table.Th>作業型態</Table.Th>
+                  <Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th>部門</Table.Th><Table.Th>評估區域</Table.Th><Table.Th>班別</Table.Th>
                   <Table.Th>危害判定</Table.Th><Table.Th>管理分級</Table.Th><Table.Th />
                 </Table.Tr>
               </Table.Thead>
@@ -95,7 +95,7 @@ function EnvDetailModal({ env, onClose }: { env: EnvAssessment | null; onClose: 
             <Kv label="廠區" value={names.site(env.siteId)} />
             <Kv label="部門" value={env.departmentId ? names.department(env.departmentId) : '不指定'} />
             <Kv label="評估區域" value={env.area} />
-            <Kv label="作業型態" value={env.shiftType || '—'} />
+            <Kv label="班別" value={env.shiftType || '—'} />
             <Kv label="管理分級" value={<LevelBadge level={env.level} />} />
           </SimpleGrid>
           <Table verticalSpacing={6}>
@@ -159,9 +159,9 @@ function NewEnvForm({ onDone }: { onDone: () => void }) {
         <TextInput label="評估區域" required placeholder="建物名稱、樓別" maxLength={100} value={area} onChange={e => setArea(e.currentTarget.value)}
           error={tried && !area.trim() ? '請填寫評估區域' : undefined} />
         <div>
-          <Text size="sm" fw={500} mb={4}>作業型態</Text>
+          <Text size="sm" fw={500} mb={4}>班別</Text>
           {options.isPending ? <Skeleton h={36} /> : options.isError ? <Text size="sm" c="var(--yutis-bad)">{problemText(options.error)}</Text>
-            : <SegmentedControl fullWidth value={shiftType ?? ''} onChange={setShiftType} data={shiftTypes} aria-label="作業型態" />}
+            : <SegmentedControl fullWidth value={shiftType ?? ''} onChange={setShiftType} data={shiftTypes} aria-label="班別" />}
         </div>
       </SimpleGrid>
 

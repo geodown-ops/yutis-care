@@ -1,13 +1,15 @@
 import { Badge, Box, Card, Group, Stack, Text, Title } from '@mantine/core';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { ToneBadge } from '../programs/maternalViolenceCommon';
 import { CardNote } from '../states';
 import { byNewest, isNew } from './advice';
 import { noticesQuery } from './queries';
 
 const when = (iso: string) => new Date(iso).toLocaleString('zh-TW', { dateStyle: 'medium', timeStyle: 'short' });
 
-/** 部門主管: work-arrangement advice the occupational health staff sent me. Opening the page marks it all read. */
+/**
+ * 部門主管: work-arrangement advice the occupational health staff sent me. Opening the page marks it all read. The API
+ * names every notice's programme 「工作調整」 for managers (it must not hint at a pregnancy), so no programme is shown.
+ */
 export function NoticesPage() {
   const { data: notices } = useSuspenseQuery(noticesQuery);
   const rows = [...notices].sort(byNewest);
@@ -32,7 +34,6 @@ export function NoticesPage() {
                   <Group gap="xs">
                     <Text fw={600}>{n.name}</Text>
                     <Text size="sm" c="dimmed" ff="monospace">{n.empNo}</Text>
-                    <ToneBadge tone="info">{n.programme}</ToneBadge>
                     {isNew(n) && <Badge size="sm" color="yutis" variant="filled" styles={{ root: { textTransform: 'none' } }}>新通知</Badge>}
                   </Group>
                   <Text size="xs" c="dimmed">{when(n.sentAt)}</Text>

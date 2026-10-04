@@ -42,7 +42,7 @@ export function ViolenceReviewsTab({ reviews, onNotice }: { reviews: UseQueryRes
       <Group justify="space-between" gap="sm" mb="sm">
         <Group gap="sm">
           <OrgFilterSelects rows={reviews.data ?? []} names={reviewNames(reviews.data ?? [])} value={org} onChange={setOrg} />
-          <Text size="sm" c="dimmed">定期查核預防措施的執行情形，送出後以 Email 請相關人員簽核。</Text>
+          <Text size="sm" c="dimmed">定期查核預防措施的執行情形，送出後請相關人員以一次性連結簽核。</Text>
         </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setOpen({ id: null })} disabled={!sites.length}>新增查核</Button>
       </Group>
@@ -250,7 +250,7 @@ function ReviewView({ review, onClose }: { review: Review; onClose: () => void }
       </Table.ScrollContainer>
       <div>
         <Text fw={600} mb="xs">簽核紀錄</Text>
-        <Table.ScrollContainer minWidth={800}>
+        <Table.ScrollContainer minWidth={720}>
           <Table verticalSpacing={6}>
             <Table.Thead>
               <Table.Tr style={NOWRAP}><Table.Th>人員類別</Table.Th><Table.Th>姓名</Table.Th><Table.Th>首次發出連結</Table.Th><Table.Th>最近發出連結</Table.Th><Table.Th>簽核</Table.Th><Table.Th>回覆意見</Table.Th><Table.Th /></Table.Tr>
@@ -260,14 +260,14 @@ function ReviewView({ review, onClose }: { review: Review; onClose: () => void }
                 <Table.Tr key={s.id}>
                   <Table.Td style={NOWRAP}>{s.role}</Table.Td>
                   <Table.Td>{s.name}<Text size="xs" c="dimmed">{s.email}</Text></Table.Td>
-                  <Table.Td style={NOWRAP}>{when(s.firstSentAt)}</Table.Td>
-                  <Table.Td style={NOWRAP}>{when(s.sentAt)}</Table.Td>
+                  <Table.Td>{when(s.firstSentAt)}</Table.Td>
+                  <Table.Td>{when(s.sentAt)}</Table.Td>
                   <Table.Td style={NOWRAP}>{s.signedAt ? <ToneBadge tone="ok">{when(s.signedAt)}</ToneBadge> : <Text span size="sm" c="dimmed">未簽核</Text>}</Table.Td>
                   <Table.Td style={{ whiteSpace: 'pre-wrap' }}>{s.comment || '—'}</Table.Td>
                   <Table.Td ta="right">
                     {review.status === '簽核中' && !s.signedAt && (
                       <Button size="compact-xs" variant="default" loading={resend.isPending && resend.variables === s.id}
-                        onClick={() => resend.mutate(s.id, { onSuccess: l => setIssued(x => ({ ...x, [s.id]: l })) })}>重寄連結</Button>
+                        onClick={() => resend.mutate(s.id, { onSuccess: l => setIssued(x => ({ ...x, [s.id]: l })) })}>重發連結</Button>
                     )}
                   </Table.Td>
                 </Table.Tr>
