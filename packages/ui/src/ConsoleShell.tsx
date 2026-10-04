@@ -39,7 +39,12 @@ export function ConsoleShell({ title, subtitle, user, onSignOut, nav, navFooter,
       <AppShell.Header>
         <Group h="100%" px="lg" gap="sm" wrap="nowrap">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="開啟選單" />
-          <Box style={{ flex: 1, minWidth: 0 }}>{headerStart}</Box>
+          {/* Phones hide the sidebar, so the header carries the mark and title instead. */}
+          <Group hiddenFrom="sm" gap={8} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <YutisMark height={24} />
+            <Text fw={700} truncate title={title}>{title}</Text>
+          </Group>
+          <Box visibleFrom="sm" style={{ flex: 1, minWidth: 0 }}>{headerStart}</Box>
           {headerEnd}
           <ColorSchemeToggle />
           {onSignOut ? (
@@ -48,6 +53,7 @@ export function ConsoleShell({ title, subtitle, user, onSignOut, nav, navFooter,
                 <UnstyledButton aria-label={`${user.name}的帳號選單`} style={{ borderRadius: 999 }}><UserChip user={user} /></UnstyledButton>
               </Menu.Target>
               <Menu.Dropdown>
+                <Menu.Label hiddenFrom="md">{user.name}・{user.role}</Menu.Label>
                 <Menu.Item leftSection={<IconLogout size={16} />} onClick={onSignOut}>登出</Menu.Item>
               </Menu.Dropdown>
             </Menu>
