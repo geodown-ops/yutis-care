@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  caseDraftProblem, composeArrangement, composeDetail, countByLevel, emptyHazards, hazardFindings, hazardsBody, interviewsByCase,
-  suggestedLevel, typeLabel, type MaternalCase, type WorkAdvice,
+  caseAckState, caseDraftProblem, composeArrangement, composeDetail, countByLevel, emptyHazards, hazardFindings, hazardsBody, interviewsNewestFirst,
+  latestInterview, stageOf, suggestedLevel, typeLabel, type MaternalCase, type MaternalInterview,
 } from './maternal';
 
-const kase = (id: string, employeeId: string, notifiedOn: string): MaternalCase =>
-  ({ id, employeeId, name: 'x', type: '妊娠', notifiedOn, dueDate: null, weeks: null, level: null, detail: null });
-const advice = (employeeId: string, on: string | null, programme: WorkAdvice['programme'] = '母性健康保護'): WorkAdvice =>
-  ({ employeeId, empNo: 'E1', name: 'x', programme, on, advice: '', restrictions: [] });
+const iv = (id: string, interviewedOn: string, acknowledgement: MaternalInterview['acknowledgement'] = null): MaternalInterview =>
+  ({ id, interviewedOn, fitAdvice: null, limits: [], agreedArrangement: null, acknowledgement, notices: [] });
+const kase = (p: Partial<MaternalCase> = {}): MaternalCase =>
+  ({ id: 'c', employeeId: 'e', name: 'x', type: '妊娠', notifiedOn: '2026-09-01', dueDate: null, weeks: null, level: null, detail: null, interviews: [], ...p });
 
 describe('maternal environment assessment', () => {
   it('suggests the level the API will store', () => {
@@ -42,25 +42,29 @@ describe('maternal environment assessment', () => {
 });
 
 describe('maternal cases', () => {
-  it('attributes interviews to the case they followed', () => {
-    const cases = [kase('a', 'e1', '2025-01-10'), kase('b', 'e1', '2025-11-01'), kase('c', 'e2', '2025-03-01')];
-    const rows = [advice('e1', '2025-02-01'), advice('e1', '2025-11-05'), advice('e1', '2025-01-01'), advice('e2', '2025-03-02'),
-      advice('e2', '2025-04-01', '異常工作負荷'), advice('e2', null)];
-    const by = interviewsByCase(cases, rows);
-    expect(by.get('a')!.map(a => a.on)).toEqual(['2025-02-01']);
-    expect(by.get('b')!.map(a => a.on)).toEqual(['2025-11-05']);
-    expect(by.get('c')!.map(a => a.on)).toEqual(['2025-03-02']);
+  it('lists the newest interview first and takes the latest from the end of the API list', () => {
+    const c = kase({ interviews: [iv('a', '2026-09-01'), iv('b', '2026-09-20')] });
+    expect(interviewsNewestFirst(c).map(i => i.id)).toEqual(['b', 'a']);
+    expect(latestInterview(c)?.id).toBe('b');
+    expect(c.interviews.map(i => i.id)).toEqual(['a', 'b']);
+    expect(latestInterview(kase())).toBeUndefined();
   });
 
-  it('lists the newest interview first', () => {
-    const by = interviewsByCase([kase('a', 'e1', '2025-01-01')], [advice('e1', '2025-02-01'), advice('e1', '2025-03-01')]);
-    expect(by.get('a')!.map(a => a.on)).toEqual(['2025-03-01', '2025-02-01']);
+  it('reads the latest interview\'s confirmation for the list', () => {
+    expect(caseAckState(kase())).toBe('no-interview');
+    expect(caseAckState(kase({ interviews: [iv('a', '2026-09-01')] }))).toBe('unsent');
+    const sent = { id: 'k', sentAt: '2026-09-02T00:00:00Z', confirmedAt: null, comment: null };
+    expect(caseAckState(kase({ interviews: [iv('a', '2026-09-01', sent)] }))).toBe('sent');
+    expect(caseAckState(kase({ interviews: [iv('a', '2026-09-01', { ...sent, confirmedAt: '2026-09-03T00:00:00Z' }), iv('b', '2026-09-20', sent)] }))).toBe('sent');
   });
 
-  it('labels postpartum cases the same whichever way they were stored', () => {
+  it('labels the year after birth and notices a pregnancy past its due date', () => {
     expect(typeLabel('產後')).toBe('產後一年內');
-    expect(typeLabel('產後一年內')).toBe('產後一年內');
     expect(typeLabel('妊娠')).toBe('妊娠');
+    expect(stageOf({ type: '妊娠', dueDate: '2026-10-04' }, '2026-10-04')).toBe('妊娠中');
+    expect(stageOf({ type: '妊娠', dueDate: '2026-10-03' }, '2026-10-04')).toBe('已過預產期');
+    expect(stageOf({ type: '妊娠', dueDate: null }, '2026-10-04')).toBe('妊娠中');
+    expect(stageOf({ type: '產後', dueDate: null }, '2026-10-04')).toBe('產後一年內');
   });
 
   it('composes the detail and the agreed arrangement', () => {

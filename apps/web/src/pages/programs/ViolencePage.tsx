@@ -1,6 +1,7 @@
-import { Card, SimpleGrid, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Alert, Card, SimpleGrid, Stack, Tabs, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { StatCard } from '@yutis/ui';
+import { useState } from 'react';
 import { canAccess } from '../../nav';
 import { useMe } from '../../session';
 import { CardNote } from '../states';
@@ -8,30 +9,34 @@ import { CLINICAL_ACCESS, dt, ENVIRONMENT_ACCESS } from './maternalViolenceCommo
 import { countByRisk, riskRows } from './violence';
 import { ViolenceChecklistTab } from './violenceChecklists';
 import { ViolenceIncidentsTab } from './violenceIncidents';
-import { checklistsQuery, incidentsQuery, riskAssessmentsQuery } from './violenceQueries';
+import { checklistsQuery, incidentsQuery, reviewsQuery, riskAssessmentsQuery } from './violenceQueries';
+import { ViolenceReviewsTab } from './violenceReviews';
 import { ViolenceRiskTab } from './violenceRisk';
 
-type ViolenceTab = 'risk' | 'place' | 'staffing' | 'incidents';
+type ViolenceTab = 'risk' | 'place' | 'staffing' | 'incidents' | 'review';
 
 /**
- * 執行職務遭受不法侵害預防. Risk assessments and checklists describe workplaces (with 職安衛人員); incidents are about
- * people and stay with the clinical staff.
+ * 執行職務遭受不法侵害預防. Risk assessments, checklists and reviews describe workplaces (with 職安衛人員); incidents
+ * are about people and stay with the clinical staff.
  */
 export function ViolencePage({ tab, onTab }: { tab?: string; onTab: (tab: ViolenceTab) => void }) {
   const me = useMe();
   const clinical = canAccess(me, CLINICAL_ACCESS);
   const environment = canAccess(me, ENVIRONMENT_ACCESS);
+  const [notice, setNotice] = useState<string | null>(null);
   const tabs = ([
     environment && { value: 'risk', label: '辨識及評估危害' },
     environment && { value: 'place', label: '適當配置作業場所' },
     environment && { value: 'staffing', label: '依工作適性調整人力' },
     clinical && { value: 'incidents', label: '事件通報與處理' },
+    environment && { value: 'review', label: '措施查核及評估' },
   ] as const).filter(t => !!t);
   const current = tabs.find(t => t.value === tab)?.value ?? tabs[0]?.value;
 
   const risks = useQuery({ ...riskAssessmentsQuery, enabled: environment });
   const checklists = useQuery({ ...checklistsQuery, enabled: environment });
   const incidents = useQuery({ ...incidentsQuery, enabled: clinical });
+  const reviews = useQuery({ ...reviewsQuery, enabled: environment && current === 'review' });
   const high = risks.data ? countByRisk(risks.data.flatMap(r => riskRows(r.items)))['高度風險'] : undefined;
   const toFix = checklists.data?.reduce((n, c) => n + c.items.filter(i => !i.ok).length, 0);
   const open = incidents.data?.filter(i => i.status !== '結案').length;
@@ -40,8 +45,9 @@ export function ViolencePage({ tab, onTab }: { tab?: string; onTab: (tab: Violen
     <Stack gap="lg">
       <div>
         <Title order={2}>不法侵害預防</Title>
-        <Text c="dimmed" size="sm" mt={4}>辨識及評估危害、適當配置作業場所、依工作適性調整人力{clinical ? '，以及事件通報與處理' : ''}。</Text>
+        <Text c="dimmed" size="sm" mt={4}>辨識及評估危害、適當配置作業場所、依工作適性調整人力{clinical ? '、事件通報與處理' : ''}，以及措施查核及評估。</Text>
       </div>
+      {notice && <Alert color="green" variant="light" withCloseButton onClose={() => setNotice(null)} closeButtonLabel="關閉">{notice}</Alert>}
       {!current ? <Card><CardNote>你的角色沒有這個計畫的權限。</CardNote></Card> : (
         <>
           <Card>
@@ -60,7 +66,8 @@ export function ViolencePage({ tab, onTab }: { tab?: string; onTab: (tab: Violen
           {current === 'risk' && <ViolenceRiskTab risks={risks} />}
           {current === 'place' && <ViolenceChecklistTab kind="作業場所" checklists={checklists} />}
           {current === 'staffing' && <ViolenceChecklistTab kind="人力" checklists={checklists} />}
-          {current === 'incidents' && <ViolenceIncidentsTab incidents={incidents} />}
+          {current === 'incidents' && <ViolenceIncidentsTab incidents={incidents} onNotice={setNotice} />}
+          {current === 'review' && <ViolenceReviewsTab reviews={reviews} onNotice={setNotice} />}
         </>
       )}
     </Stack>

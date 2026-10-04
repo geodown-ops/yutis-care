@@ -10,7 +10,7 @@ import { employeeQuery } from '../../queries';
 import { CardNote, problemText } from '../states';
 import { DateField, dt, EmployeePicker, Kv, PersonLink, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
 import { VIO_FOLLOW, VIO_INC_TYPES, type Incident } from './violence';
-import { incidentsQuery } from './violenceQueries';
+import { incidentsQuery, useIncidentStatus } from './violenceQueries';
 
 type Employee = Schemas['EmployeeDto'];
 
@@ -32,12 +32,13 @@ function Victim({ id, victims }: { id: string | null; victims: Victims }) {
   return <PersonLink employeeId={id} name={e.name} empNo={e.empNo} />;
 }
 
-export function ViolenceIncidentsTab({ incidents }: { incidents: UseQueryResult<Incident[]> }) {
+export function ViolenceIncidentsTab({ incidents, onNotice }: { incidents: UseQueryResult<Incident[]>; onNotice: (text: string) => void }) {
   const siteName = useSiteName();
   const sites = useMySites();
   const victims = useVictims(incidents.data ?? []);
   const [creating, setCreating] = useState(false);
-  const [viewing, setViewing] = useState<Incident | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const viewing = incidents.data?.find(i => i.id === viewingId) ?? null;
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
@@ -60,7 +61,7 @@ export function ViolenceIncidentsTab({ incidents }: { incidents: UseQueryResult<
                     <Table.Td><Victim id={i.victimEmployeeId} victims={victims} /></Table.Td>
                     <Table.Td>{i.followUps.join('、') || '—'}</Table.Td>
                     <Table.Td><ToneBadge tone={i.status === '結案' ? 'ok' : 'warn'}>{i.status}</ToneBadge></Table.Td>
-                    <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewing(i)}>檢視</Button></Table.Td>
+                    <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewingId(i.id)}>檢視</Button></Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -70,16 +71,21 @@ export function ViolenceIncidentsTab({ incidents }: { incidents: UseQueryResult<
         </>
       )}
       <NewIncidentModal opened={creating} onClose={() => setCreating(false)} />
-      <IncidentDetailModal incident={viewing} victims={victims} onClose={() => setViewing(null)} />
+      <IncidentDetailModal incident={viewing} victims={victims} onClose={() => setViewingId(null)} onNotice={onNotice} />
     </Card>
   );
 }
 
-function IncidentDetailModal({ incident, victims, onClose }: { incident: Incident | null; victims: Victims; onClose: () => void }) {
+function IncidentDetailModal({ incident, victims, onClose, onNotice }: {
+  incident: Incident | null; victims: Victims; onClose: () => void; onNotice: (text: string) => void;
+}) {
   const siteName = useSiteName();
   const size = useModalSize('lg');
+  const status = useIncidentStatus();
+  const next = incident?.status === '結案' ? '處理中' : '結案';
+  const close = () => { status.reset(); onClose(); };
   return (
-    <Modal opened={!!incident} onClose={onClose} title="不法侵害事件" {...size}>
+    <Modal opened={!!incident} onClose={close} title="不法侵害事件" {...size}>
       {incident && (
         <Stack gap="md">
           <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
@@ -87,7 +93,7 @@ function IncidentDetailModal({ incident, victims, onClose }: { incident: Inciden
             <Kv label="廠區" value={siteName(incident.siteId)} />
             <Kv label="類型" value={incident.type} />
             <Kv label="受害員工" value={<Victim id={incident.victimEmployeeId} victims={victims} />} />
-            <Kv label="狀態" value={incident.status} />
+            <Kv label="狀態" value={<ToneBadge tone={incident.status === '結案' ? 'ok' : 'warn'}>{incident.status}</ToneBadge>} />
           </SimpleGrid>
           <div>
             <Text size="sm" fw={600} mb={4}>事件經過與處理</Text>
@@ -97,7 +103,17 @@ function IncidentDetailModal({ incident, victims, onClose }: { incident: Inciden
             <Text size="sm" fw={600} mb={4}>後續協助</Text>
             <Text size="sm" c={incident.followUps.length ? undefined : 'dimmed'}>{incident.followUps.join('、') || '無'}</Text>
           </div>
-          <Text size="xs" c="dimmed">這次查看已記入存取紀錄。</Text>
+          {status.isError && <Text size="sm" c="var(--yutis-bad)" role="alert">{saveProblem(status.error)}</Text>}
+          <Group justify="space-between" gap="sm">
+            <Text size="xs" c="dimmed">這次查看已記入存取紀錄。</Text>
+            <Group gap="sm">
+              <Button variant="default" onClick={close}>關閉</Button>
+              <Button variant={next === '結案' ? 'filled' : 'default'} loading={status.isPending}
+                onClick={() => status.mutate({ id: incident.id, status: next }, { onSuccess: () => onNotice(next === '結案' ? '事件已結案。' : '事件已重新開啟，狀態為處理中。') })}>
+                {next === '結案' ? '結案' : '重新開啟'}
+              </Button>
+            </Group>
+          </Group>
         </Stack>
       )}
     </Modal>

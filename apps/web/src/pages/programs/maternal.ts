@@ -1,13 +1,14 @@
 /*
- * Pure helpers for 工作場所母性健康保護 over /api/programs/maternal/* and GET /api/programs/work-advice.
+ * Pure helpers for 工作場所母性健康保護 over /api/programs/maternal/*.
  * Form vocabularies follow the prototype (作業場所危害評估表、附表四 工作適性安排建議).
  */
 import type { Schemas } from '@yutis/api-client';
 import { MAT_LEVELS, suggestMaternalLevel, type IsoDate, type MatLevel } from '@yutis/domain';
+import { ackState, type AckState } from '../advice/advice';
 
 export type EnvAssessment = Schemas['EnvAssessmentDto'];
 export type MaternalCase = Schemas['MaternalCaseDto'];
-export type WorkAdvice = Schemas['WorkAdviceDto'];
+export type MaternalInterview = Schemas['MaternalInterviewDto'];
 export type HazardAnswer = '無' | '可能有影響' | '有';
 export interface HazardDraft { v: HazardAnswer; note: string }
 
@@ -48,25 +49,28 @@ export function countByLevel(envs: readonly Pick<EnvAssessment, 'level'>[]): Rec
   return out;
 }
 
-/** 妊娠 or 產後 (the API stores 產後; older imports say 產後一年內). */
-export const isPostpartum = (type: string) => type.startsWith('產後');
-export const typeLabel = (type: string) => (isPostpartum(type) ? '產後一年內' : type);
+/** 產後 is the API's name for the year after birth (產後一年內). */
+export const isPostpartum = (type: MaternalCase['type']) => type === '產後';
+export const typeLabel = (type: MaternalCase['type']) => (isPostpartum(type) ? '產後一年內' : type);
 
 /**
- * Interviews of each case. The case list carries no interviews, so they come from the work advice (one row per
- * maternal interview): same employee, on or after the notification, and before that employee's next notification.
+ * Where the employee is now: pregnant; past the due date (so most likely in the year after birth, which needs its
+ * own 產後 notification and assessment); or in the year after birth.
  */
-export function interviewsByCase(cases: readonly MaternalCase[], advice: readonly WorkAdvice[]): Map<string, WorkAdvice[]> {
-  const out = new Map<string, WorkAdvice[]>(cases.map(c => [c.id, []]));
-  const maternal = advice.filter(a => a.programme === '母性健康保護' && a.on);
-  for (const c of cases) {
-    const next = cases
-      .filter(o => o.employeeId === c.employeeId && o.notifiedOn > c.notifiedOn)
-      .reduce<string | null>((d, o) => (!d || o.notifiedOn < d ? o.notifiedOn : d), null);
-    const mine = maternal.filter(a => a.employeeId === c.employeeId && a.on! >= c.notifiedOn && (!next || a.on! < next));
-    out.set(c.id, mine.sort((a, b) => b.on!.localeCompare(a.on!)));
-  }
-  return out;
+export type MaternalStage = '妊娠中' | '已過預產期' | '產後一年內';
+export function stageOf(c: Pick<MaternalCase, 'type' | 'dueDate'>, today: IsoDate): MaternalStage {
+  if (isPostpartum(c.type)) return '產後一年內';
+  return c.dueDate && c.dueDate < today ? '已過預產期' : '妊娠中';
+}
+
+/** The case's interviews, newest first (the API lists them oldest first). */
+export const interviewsNewestFirst = (c: Pick<MaternalCase, 'interviews'>): MaternalInterview[] => [...c.interviews].reverse();
+export const latestInterview = (c: Pick<MaternalCase, 'interviews'>): MaternalInterview | undefined => c.interviews.at(-1);
+
+/** The 員工確認 column: how the latest interview's confirmation stands, or that there is no interview yet. */
+export function caseAckState(c: Pick<MaternalCase, 'interviews'>): AckState | 'no-interview' {
+  const last = latestInterview(c);
+  return !last ? 'no-interview' : last.acknowledgement ? ackState(last.acknowledgement) : 'unsent';
 }
 
 /** Self-reported symptoms and a free note, as the case's encrypted detail text. */

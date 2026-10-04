@@ -3,7 +3,8 @@ import { useMutation, useQueryClient, queryOptions } from '@tanstack/react-query
 import { data } from '@yutis/api-client';
 import { api } from '../../api';
 import { ergoDispatchesQuery } from '../../queries';
-import type { NmqBody, Survey } from './ergo';
+import type { NmqBody, Survey, TrackingBody } from './ergo';
+import { markReminded } from './lists';
 
 /** One batch's surveys for the employees of my sites; every row read is audited, so it is not refetched on focus. */
 export const ergoSurveysQuery = (dispatchId: string) => queryOptions({
@@ -19,6 +20,27 @@ export function useCreateDispatch() {
   return useMutation({
     mutationFn: (body: DispatchInput) => data(api.POST('/api/programs/ergo/dispatches', { body })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ergoDispatchesQuery.queryKey }),
+  });
+}
+
+/** 未填寫通知 for the given unfilled surveys of a batch; the cached rows count the reminder instead of being read again. */
+export function useRemindSurveys(dispatchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (surveyIds: string[]) => data(api.POST('/api/programs/ergo/dispatches/{id}/remind', { params: { path: { id: dispatchId } }, body: { surveyIds } })),
+    onSuccess: (r, ids) => {
+      qc.setQueryData(ergoSurveysQuery(dispatchId).queryKey, list => list && markReminded(list, new Set(ids), r.noEmail, new Date().toISOString()));
+    },
+  });
+}
+
+/** 管控追蹤: replaces the survey's tracking record. */
+export function useSaveTracking(dispatchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ surveyId, body }: { surveyId: string; body: TrackingBody }) =>
+      data(api.PUT('/api/programs/ergo/surveys/{id}/tracking', { params: { path: { id: surveyId } }, body })),
+    onSuccess: (row: Survey) => qc.setQueryData(ergoSurveysQuery(dispatchId).queryKey, list => list?.map(s => (s.id === row.id ? row : s))),
   });
 }
 

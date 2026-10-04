@@ -1,5 +1,6 @@
 import { Badge, Box, Card, Group, Stack, Text, Title } from '@mantine/core';
 import { useSuspenseQuery } from '@tanstack/react-query';
+import { ToneBadge } from '../programs/maternalViolenceCommon';
 import { CardNote } from '../states';
 import { byNewest, isNew } from './advice';
 import { noticesQuery } from './queries';
@@ -27,10 +28,11 @@ export function NoticesPage() {
           <Stack gap="sm">
             {rows.map(n => (
               <Box key={n.id} p="md" style={{ background: isNew(n) ? 'var(--yutis-tile-lavender)' : 'var(--yutis-surface2)', borderRadius: 'var(--mantine-radius-md)' }}>
-                <Group justify="space-between" gap="xs" mb={6}>
+                <Group justify="space-between" gap="xs" mb={6} align="flex-start">
                   <Group gap="xs">
                     <Text fw={600}>{n.name}</Text>
                     <Text size="sm" c="dimmed" ff="monospace">{n.empNo}</Text>
+                    <ToneBadge tone="info">{n.programme}</ToneBadge>
                     {isNew(n) && <Badge size="sm" color="yutis" variant="filled" styles={{ root: { textTransform: 'none' } }}>新通知</Badge>}
                   </Group>
                   <Text size="xs" c="dimmed">{when(n.sentAt)}</Text>

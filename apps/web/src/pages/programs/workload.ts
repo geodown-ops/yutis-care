@@ -1,10 +1,13 @@
 /* Pure helpers for the overwork programme (異常工作負荷促發疾病預防) over GET /api/programs/workload/assessments. */
 import type { Schemas, StaffMe, TenantPaths } from '@yutis/api-client';
-import { ADVICE, cbiScores, CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, type Level3 } from '@yutis/domain';
+import { ADVICE, cbiScores, CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, LOAD_LABEL, RISK_LABEL, type Level3 } from '@yutis/domain';
 import { canAccess } from '../../nav';
+import { matchOrg, NO_ORG_FILTER, type Column, type OrgFilter } from './lists';
 
 export type Assessment = Schemas['AssessmentDto'];
 export type Interview = Schemas['InterviewDto'];
+export type InterviewAdvice = Schemas['InterviewAdviceDto'];
+export type InterviewGuidance = Schemas['InterviewGuidanceDto'];
 export type InterviewStatus = Interview['status'];
 export type InterviewBody = TenantPaths['/api/programs/workload/assessments/{id}/interview']['put']['requestBody']['content']['application/json'];
 export type FatigueBody = TenantPaths['/api/programs/workload/assessments/{id}/fatigue']['put']['requestBody']['content']['application/json'];
@@ -41,14 +44,17 @@ export function readEvaluation(a: Pick<Assessment, 'evaluation'>): Evaluation | 
   return { complete: !!e.complete && !!cvd && !!load && level(e.riskLevel), cvd, load, riskLevel: e.riskLevel, advice: e.advice, shortM: e.shortM, longM: e.longM };
 }
 
-/** Questionnaires the employee (or a nurse) still has to fill in. */
-export function missingSteps(a: Pick<Assessment, 'personalBurnout' | 'overtime1m'>): ('過勞量表' | '過負荷評估')[] {
-  return [...(a.personalBurnout == null ? ['過勞量表' as const] : []), ...(a.overtime1m == null ? ['過負荷評估' as const] : [])];
+const STEP_NAME = { cbi: '過勞量表', overload: '過負荷評估' } as const;
+/** Questionnaires the employee (or a nurse) still has to fill in, from the API's own reasons (missing). */
+export function missingSteps(a: Pick<Assessment, 'missing'>): ('過勞量表' | '過負荷評估')[] {
+  return a.missing.flatMap(m => (m === 'exam' ? [] : [STEP_NAME[m]]));
 }
+/** Someone to send a fill-in reminder to. */
+export const remindable = (a: Pick<Assessment, 'missing'>) => missingSteps(a).length > 0;
 
 export const riskLevelOf = (a: Pick<Assessment, 'riskLevel'>): Level3 | null => (level(a.riskLevel) ? a.riskLevel : null);
-/** Why there is no risk level yet: a questionnaire is open, or the health check lacks the values the score needs. */
-export const noRiskReason = (a: Pick<Assessment, 'personalBurnout' | 'overtime1m'>) => (missingSteps(a).length ? '問卷未完成' : '無法判定');
+/** Why there is no risk level yet: a questionnaire is open, or there was no health check to score. */
+export const noRiskReason = (a: Pick<Assessment, 'missing'>) => (remindable(a) ? '問卷未完成' : a.missing.includes('exam') ? '缺健檢資料' : '無法判定');
 export const RISK_TONE = ['ok', 'warn', 'bad'] as const;
 
 /** An interview is due at 中度 or 高度 risk until it took place or the employee declined. */
@@ -56,7 +62,7 @@ export const interviewDone = (iv: Interview | null) => iv?.status === '已面談
 export const needsInterview = (a: Assessment) => (riskLevelOf(a) ?? 0) >= 1 && !interviewDone(a.interview);
 
 export type RiskFilter = 'all' | '2' | '1' | '0' | 'incomplete';
-export interface AssessFilter { batch?: string | null; risk?: RiskFilter; q?: string }
+export interface AssessFilter { batch?: string | null; risk?: RiskFilter; q?: string; org?: OrgFilter }
 
 const matchQ = (a: Assessment, q?: string) => {
   const n = q?.trim().toLowerCase();
@@ -68,17 +74,17 @@ export function filterAssessments(list: readonly Assessment[], f: AssessFilter):
   return list
     .filter(a => !f.batch || a.sentOn === f.batch)
     .filter(a => !f.risk || f.risk === 'all' || (f.risk === 'incomplete' ? riskLevelOf(a) == null : riskLevelOf(a) === Number(f.risk)))
-    .filter(a => matchQ(a, f.q))
+    .filter(a => matchQ(a, f.q) && matchOrg(a, f.org ?? NO_ORG_FILTER))
     .sort((a, b) => b.sentOn.localeCompare(a.sentOn) || (riskLevelOf(b) ?? -1) - (riskLevelOf(a) ?? -1) || a.empNo.localeCompare(b.empNo));
 }
 
 export type InterviewFilter = 'open' | 'done' | 'all';
 /** People who need (or had) a physician interview: open ones first, highest risk first. */
-export function interviewRows(list: readonly Assessment[], f: InterviewFilter = 'open', q = ''): Assessment[] {
+export function interviewRows(list: readonly Assessment[], f: InterviewFilter = 'open', q = '', org: OrgFilter = NO_ORG_FILTER): Assessment[] {
   return list
     .filter(a => (riskLevelOf(a) ?? 0) >= 1 || a.interview)
     .filter(a => f === 'all' || (f === 'done') === interviewDone(a.interview))
-    .filter(a => matchQ(a, q))
+    .filter(a => matchQ(a, q) && matchOrg(a, org))
     .sort((a, b) => Number(interviewDone(a.interview)) - Number(interviewDone(b.interview)) || (riskLevelOf(b) ?? 0) - (riskLevelOf(a) ?? 0)
       || b.sentOn.localeCompare(a.sentOn));
 }
@@ -98,17 +104,10 @@ export function workloadCounts(list: readonly Assessment[]): WorkloadCounts {
   };
 }
 
-/** Work restrictions or leave were advised (採取措施). */
-export function hasMeasures(iv: Interview | null): boolean {
-  const w = readAdvice(iv);
-  return !!w && (w.restrictions.length > 0 || (w.fitness !== '' && w.fitness !== '一般工作'));
-}
-
-export interface WorkAdvice { fitness: string; restrictions: string[]; suggestion: string }
-export function readAdvice(iv: Pick<Interview, 'workAdvice'> | null): WorkAdvice | null {
-  const w = iv?.workAdvice as Partial<WorkAdvice> | null | undefined;
-  if (!w) return null;
-  return { fitness: typeof w.fitness === 'string' ? w.fitness : '', restrictions: Array.isArray(w.restrictions) ? w.restrictions.filter(x => typeof x === 'string') : [], suggestion: typeof w.suggestion === 'string' ? w.suggestion : '' };
+/** Work restrictions, changed hours or work, or leave were advised (採取措施). */
+export function hasMeasures(iv: Pick<Interview, 'workAdvice'> | null): boolean {
+  const w = iv?.workAdvice;
+  return !!w && (w.restrictions.length > 0 || !!w.adjustHours || !!w.changeWork || (w.fitness !== '' && w.fitness !== '一般工作'));
 }
 
 export interface BatchRow { sentOn: string; sent: number; done: number; high: number; mid: number; low: number; interviewed: number; measures: number }
@@ -148,6 +147,11 @@ export const CBI_WORK: { q: string; scale: readonly string[] }[] = [
 
 export interface CbiDraft { p: (number | null)[]; w: (number | null)[] }
 export const emptyCbi = (): CbiDraft => ({ p: Array<null>(CBI_PERSONAL_ITEMS).fill(null), w: Array<null>(CBI_WORK_ITEMS).fill(null) });
+/** The saved answers to start from when the sheet is filled again; a blank sheet when only scores were entered. */
+export function cbiDraftFrom(answers: Assessment['cbiAnswers']): CbiDraft {
+  const fit = (xs: readonly number[] | undefined, n: number) => Array.from({ length: n }, (_, i) => (typeof xs?.[i] === 'number' ? xs[i] : null));
+  return answers ? { p: fit(answers.p, CBI_PERSONAL_ITEMS), w: fit(answers.w, CBI_WORK_ITEMS) } : emptyCbi();
+}
 export const cbiAnswered = (d: CbiDraft) => [...d.p, ...d.w].filter(x => x != null).length;
 /** Scores once all 13 questions are answered. */
 export function cbiResult(d: CbiDraft): { pf: number; wf: number } | null {
@@ -160,39 +164,98 @@ export function burnoutLabel(kind: 'personal' | 'work', score: number): '嚴重'
   return score > high ? '嚴重' : score >= mid ? '中度' : '輕微';
 }
 
-/* Interview form. Fitness and restriction wording follow the prototype's 工作區分 and 採取措施建議. */
+/* Interview form, worded as the prototype's 面談指導結果 and 採取措施建議. */
 export const FITNESS = ['一般工作', '工作限制', '需休假'] as const;
-export const RESTRICTIONS = ['縮短工時', '限制加班', '禁止加班', '調整上下班時間', '調整為常日班', '變更作業內容', '變更工作場所', '暫停出差'];
+export const FATIGUE = ['無', '輕度', '中度', '重度'] as const;
+export const MENTAL_CONCERN = ['有', '無'] as const;
+export const DIAGNOSIS = ['無異常', '需觀察或進一步追蹤檢查', '需進行醫療'] as const;
+export const GUIDANCE = ['不需指導', '需健康指導', '需醫療指導'] as const;
+export const ADJUST_HOURS = ['縮短工時', '限制加班', '禁止加班', '調整上下班時間'];
+export const CHANGE_WORK = ['調整為常日班', '變更作業內容', '變更工作場所', '暫停出差'];
 export const INTERVIEW_STATUSES: InterviewStatus[] = ['待安排', '已安排', '已面談', '拒絕面談'];
 
+type G = InterviewGuidance;
 export interface InterviewDraft {
   status: InterviewStatus; interviewedOn: string; doctorUserId: string | null;
-  fitness: string; restrictions: string[]; suggestion: string; notes: string; nextOn: string;
+  fatigue: G['fatigue']; mentalConcern: G['mentalConcern']; diagnosis: G['diagnosis']; guidance: G['guidance']; needMeasure: boolean | null;
+  seeDoctor: string; special: string;
+  fitness: string; adjustHours: string; changeWork: string; period: string; restrictions: string[]; suggestion: string;
+  notes: string; nextOn: string;
 }
 
+/** The form from the full interview (GET /assessments/{id}, which carries the guidance and notes the list leaves out). */
 export function interviewDraft(iv: Interview | null, defaults: { today: string; doctorUserId: string | null }): InterviewDraft {
-  const w = readAdvice(iv);
+  const w = iv?.workAdvice;
+  const g = iv?.guidance;
   return {
     status: iv?.status ?? '已面談', interviewedOn: iv?.interviewedOn ?? defaults.today, doctorUserId: iv?.doctorUserId ?? defaults.doctorUserId,
-    fitness: w?.fitness ?? '', restrictions: w?.restrictions ?? [], suggestion: w?.suggestion ?? '', notes: '', nextOn: iv?.nextOn ?? '',
+    fatigue: g?.fatigue ?? null, mentalConcern: g?.mentalConcern ?? null, diagnosis: g?.diagnosis ?? null, guidance: g?.guidance ?? null,
+    needMeasure: g?.needMeasure ?? null, seeDoctor: g?.seeDoctor ?? '', special: g?.special ?? '',
+    fitness: w?.fitness ?? '', adjustHours: w?.adjustHours ?? '', changeWork: w?.changeWork ?? '', period: w?.period ?? '',
+    restrictions: w?.restrictions ?? [], suggestion: w?.suggestion ?? '',
+    notes: iv?.notes ?? '', nextOn: iv?.nextOn ?? '',
   };
 }
 
-/** Problems that stop the interview from being saved, in plain words. */
+/** Problems that stop the interview from being saved, in plain words. A held interview needs what the prototype asks for. */
 export function interviewProblems(d: InterviewDraft): string[] {
   const out: string[] = [];
   if ((d.status === '已安排' || d.status === '已面談') && !d.interviewedOn) out.push(d.status === '已安排' ? '請填預定面談日期' : '請填面談日期');
-  if (d.status === '已面談' && !d.fitness) out.push('請選擇工作區分');
+  if (d.status === '已面談') {
+    if (!d.fatigue) out.push('請選擇疲勞累積狀況');
+    if (!d.diagnosis) out.push('請選擇診斷區分');
+    if (!d.fitness) out.push('請選擇工作區分');
+  }
   if (d.nextOn && d.interviewedOn && d.nextOn < d.interviewedOn) out.push('下次面談日期不能早於面談日期');
   return out;
 }
 
-/** The PUT body. The API replaces the whole interview, so every field is sent; empty advice is sent as null. */
+const blank = (o: Record<string, unknown>) => Object.values(o).every(v => v == null || v === '' || (Array.isArray(v) && v.length === 0));
+
+/** The PUT body. The form starts from the full record, so every field is sent; an empty section is sent as null. */
 export function interviewBody(d: InterviewDraft): InterviewBody {
-  const restrictions = d.restrictions.map(r => r.trim()).filter(Boolean);
-  const advice = d.fitness || restrictions.length || d.suggestion.trim() ? { fitness: d.fitness, restrictions, suggestion: d.suggestion.trim() } : null;
+  const workAdvice = {
+    fitness: d.fitness, restrictions: d.restrictions.map(r => r.trim()).filter(Boolean), suggestion: d.suggestion.trim(),
+    adjustHours: d.adjustHours, changeWork: d.changeWork, period: d.period.trim(),
+  };
+  const guidance = {
+    fatigue: d.fatigue, mentalConcern: d.mentalConcern, diagnosis: d.diagnosis, guidance: d.guidance, needMeasure: d.needMeasure,
+    seeDoctor: d.seeDoctor.trim(), special: d.special.trim(),
+  };
   return {
-    status: d.status, interviewedOn: d.interviewedOn || null, doctorUserId: d.doctorUserId, workAdvice: advice,
+    status: d.status, interviewedOn: d.interviewedOn || null, doctorUserId: d.doctorUserId,
+    workAdvice: blank(workAdvice) ? null : workAdvice, guidance: blank(guidance) ? null : guidance,
     notes: d.notes.trim() || null, nextOn: d.nextOn || null,
   };
 }
+
+/** The 工作安排 cell: 工作區分 and the measures under it. */
+export function adviceSummary(w: InterviewAdvice | null): { fitness: string; measures: string } | null {
+  if (!w) return null;
+  const measures = new Set([w.adjustHours, w.changeWork, ...w.restrictions].filter(Boolean));
+  return { fitness: w.fitness, measures: [...measures, w.period && `期間 ${w.period}`].filter(Boolean).join('、') };
+}
+
+/* ---------- CSV export: the prototype's columns, from the list on screen ---------- */
+
+const fatigueFill = (a: Assessment) => (a.fatigueBy === 'nurse' ? '職護代填' : a.fatigueBy === 'self' ? '員工自填' : '');
+
+export const ASSESS_COLUMNS: Column<Assessment>[] = [
+  { h: '評估日期', v: a => a.sentOn },
+  { h: '工號', v: a => a.empNo },
+  { h: '姓名', v: a => a.name },
+  { h: '廠區', v: a => a.site },
+  { h: '部門', v: a => a.department },
+  { h: '個人相關過勞', v: a => a.personalBurnout },
+  { h: '工作相關過勞', v: a => a.workBurnout },
+  { h: '過勞量表填寫', v: fatigueFill },
+  { h: '近1月加班', v: a => a.overtime1m },
+  { h: '近2-6月平均加班', v: a => a.overtime6mAvg },
+  { h: '十年心血管風險%', v: a => readEvaluation(a)?.cvd?.risk },
+  { h: '工作負荷等級', v: a => { const l = readEvaluation(a)?.load?.level; return l == null ? '' : LOAD_LABEL[l]; } },
+  { h: '風險等級', v: a => { const l = riskLevelOf(a); return l == null ? noRiskReason(a) : RISK_LABEL[l]; } },
+  { h: '面談建議', v: a => { const e = readEvaluation(a); return e?.complete ? e.advice : ''; } },
+  { h: '面談狀態', v: a => a.interview?.status ?? '' },
+  { h: '催填次數', v: a => a.reminders },
+];
+
