@@ -1678,7 +1678,7 @@
     },
     "/api/admin/employees/import": {
       "post": {
-        "description": "第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：身分證字號、職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。",
+        "description": "第一個工作表，第一列為欄位名稱。必填：工號、姓名、性別、出生日期、法人代碼、廠區代碼、部門；選填：身分證字號、職稱、班別、健檢類別、特殊作業、語言、到職日、Email、手機、狀態。依工號新增或更新（檔案裡沒有的員工不會被刪除；離職請填狀態）。語言留空時保留員工在員工端自己設定的語言（新員工為 zh）。組織需先建立。預設只預覽；加 commit=true 才寫入，有任何錯誤列就整份不寫入。超過人數上限只提醒。",
         "operationId": "EmployeesController_import",
         "parameters": [
           {
@@ -2611,6 +2611,152 @@
         ]
       }
     },
+    "/api/admin/audit": {
+      "get": {
+        "description": "依員工、操作者、動作、資料等級與日期（台灣時間，含起訖兩天）查詢稽核日誌，新的在前。每次查詢也記入稽核。",
+        "operationId": "AuditController_search",
+        "parameters": [
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "略過的筆數，預設 0",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每頁筆數，預設 50，最多 200",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dataCategory",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "identity",
+                "work",
+                "health",
+                "medical"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "read",
+                "create",
+                "update",
+                "delete",
+                "export",
+                "sign_in",
+                "break_glass"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "description": "這位後台人員做的",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "description": "資料屬於這位員工",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "稽核查詢",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/exams/mappings": {
       "get": {
         "operationId": "ExamsController_mappings",
@@ -2680,7 +2826,9 @@
             "name": "fileName",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "commit",
@@ -2699,7 +2847,10 @@
             "required": true,
             "in": "query",
             "description": "健檢匯入對照 id",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3539,6 +3690,75 @@
       }
     },
     "/api/admin/phrases": {
+      "get": {
+        "description": "和 GET /api/phrases 相同的清單，給租戶管理員維護片語用。",
+        "operationId": "RecordsController_adminPhrases",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PhraseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "片語庫（租戶管理）",
+        "tags": [
+          "records",
+          "admin"
+        ]
+      },
       "post": {
         "operationId": "RecordsController_createPhrase",
         "parameters": [],
@@ -4118,14 +4338,18 @@
             "required": false,
             "in": "query",
             "description": "略過的筆數，預設 0",
-            "schema": {}
+            "schema": {
+              "type": "number"
+            }
           },
           {
             "name": "limit",
             "required": false,
             "in": "query",
             "description": "每頁筆數，預設 50，最多 200",
-            "schema": {}
+            "schema": {
+              "type": "number"
+            }
           },
           {
             "name": "status",
@@ -4144,21 +4368,29 @@
             "name": "departmentId",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           },
           {
             "name": "siteId",
             "required": false,
             "in": "query",
             "description": "只看某個廠區；不是負責廠區時回 403",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           },
           {
             "name": "q",
             "required": false,
             "in": "query",
             "description": "姓名或工號的一部分",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5762,7 +5994,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedDto"
+                  "$ref": "#/components/schemas/InterviewCreatedDto"
                 }
               }
             }
@@ -6781,6 +7013,88 @@
         "tags": [
           "portal"
         ]
+      },
+      "put": {
+        "description": "之後的任務標題與確認紀錄都用這個語言。",
+        "operationId": "PortalController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "zh",
+                      "en",
+                      "ja",
+                      "vi",
+                      "th"
+                    ]
+                  }
+                },
+                "required": [
+                  "lang"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "設定員工端語言",
+        "tags": [
+          "portal"
+        ]
       }
     },
     "/api/portal/tasks": {
@@ -6838,6 +7152,263 @@
           }
         ],
         "summary": "我的待辦：待填問卷與待確認紀錄",
+        "tags": [
+          "portal"
+        ]
+      }
+    },
+    "/api/portal/tasks/{kind}/{id}": {
+      "get": {
+        "description": "從通知連結打開任務時用：是否已完成，以及尚未送出的草稿。不是自己的任務回 404。",
+        "operationId": "PortalController_task",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "nmq",
+                "cbi",
+                "overload",
+                "acknowledgement"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "一項任務",
+        "tags": [
+          "portal"
+        ]
+      }
+    },
+    "/api/portal/tasks/{kind}/{id}/draft": {
+      "put": {
+        "description": "作答到一半先存起來，登入逾時或換裝置後可接著填。送出問卷（本人或職護代填）後草稿就刪除。草稿只有本人看得到，不記入稽核。",
+        "operationId": "PortalController_saveDraft",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "nmq",
+                "cbi",
+                "overload"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "answers"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "問卷已送出（already_submitted）"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "儲存問卷草稿",
+        "tags": [
+          "portal"
+        ]
+      },
+      "delete": {
+        "operationId": "PortalController_discardDraft",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "enum": [
+                "nmq",
+                "cbi",
+                "overload"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "捨棄問卷草稿",
         "tags": [
           "portal"
         ]
@@ -6987,12 +7558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "suspectedHazard": {
-                      "type": "boolean"
-                    }
-                  }
+                  "$ref": "#/components/schemas/NmqSubmittedDto"
                 }
               }
             }
@@ -7095,12 +7661,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "submitted": {
-                      "type": "boolean"
-                    }
-                  }
+                  "$ref": "#/components/schemas/SubmittedDto"
                 }
               }
             }
@@ -7208,12 +7769,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "submitted": {
-                      "type": "boolean"
-                    }
-                  }
+                  "$ref": "#/components/schemas/SubmittedDto"
                 }
               }
             }
@@ -7478,7 +8034,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MyHealthDto"
+                  "$ref": "#/components/schemas/MyHealthExportDto"
                 }
               }
             }
@@ -7761,7 +8317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AcknowledgementDto"
+                  "$ref": "#/components/schemas/SignDocumentDto"
                 }
               }
             }
@@ -7838,7 +8394,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AcknowledgementDto"
+                  "$ref": "#/components/schemas/SignDocumentDto"
                 }
               }
             }
@@ -8648,19 +9204,28 @@
             "name": "departmentId",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           },
           {
             "name": "siteId",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           },
           {
             "name": "legalEntityId",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9476,6 +10041,74 @@
           "lang"
         ]
       },
+      "OrgDepartmentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerPhone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "managerName",
+          "managerEmail",
+          "managerPhone"
+        ]
+      },
+      "OrgSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrgDepartmentDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "address",
+          "departments"
+        ]
+      },
       "LegalEntityDto": {
         "type": "object",
         "properties": {
@@ -9492,7 +10125,7 @@
           "sites": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SiteDto"
+              "$ref": "#/components/schemas/OrgSiteDto"
             }
           }
         },
@@ -9825,6 +10458,167 @@
           "effectiveFrom",
           "note",
           "rules"
+        ]
+      },
+      "AuditActorDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "staff",
+              "employee",
+              "system"
+            ],
+            "description": "後台人員、員工本人（員工端或確認連結），或系統排程"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "職護",
+              "職醫",
+              "職安衛人員",
+              "人資",
+              "部門主管",
+              "租戶管理員"
+            ],
+            "description": "後台人員的角色"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "role"
+        ]
+      },
+      "AuditEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "empNo",
+          "name"
+        ]
+      },
+      "AuditEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditActorDto"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "read",
+              "create",
+              "update",
+              "delete",
+              "export",
+              "sign_in",
+              "break_glass"
+            ],
+            "description": "讀取、新增、修改、刪除、匯出、登入、破窗"
+          },
+          "subjectTable": {
+            "type": "string",
+            "nullable": true,
+            "example": "assist_records"
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "employee": {
+            "nullable": true,
+            "description": "資料屬於哪位員工",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditEmployeeDto"
+              }
+            ]
+          },
+          "dataCategory": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "identity",
+              "work",
+              "health",
+              "medical"
+            ],
+            "description": "資料敏感等級"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "ip": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "action",
+          "subjectTable",
+          "subjectId",
+          "employee",
+          "dataCategory",
+          "reason",
+          "ip"
+        ]
+      },
+      "AuditPageDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "符合條件的總筆數"
+          },
+          "items": {
+            "description": "新的在前",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "items"
         ]
       },
       "ExamImportReportDto": {
@@ -10979,6 +11773,18 @@
             "nullable": true,
             "description": "0 低度、1 中度、2 高度風險；資料不全時為 null"
           },
+          "missing": {
+            "type": "array",
+            "description": "還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cbi",
+                "overload",
+                "exam"
+              ]
+            }
+          },
           "interview": {
             "nullable": true,
             "type": "object",
@@ -11002,6 +11808,7 @@
           "workPatterns",
           "evaluation",
           "riskLevel",
+          "missing",
           "interview"
         ]
       },
@@ -11200,6 +12007,24 @@
           "interviews"
         ]
       },
+      "InterviewCreatedDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "acknowledgementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "員工確認紀錄；用來產生確認連結"
+          }
+        },
+        "required": [
+          "id",
+          "acknowledgementId"
+        ]
+      },
       "RiskAssessmentDto": {
         "type": "object",
         "properties": {
@@ -11375,7 +12200,15 @@
             "type": "string"
           },
           "lang": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "zh",
+              "en",
+              "ja",
+              "vi",
+              "th"
+            ],
+            "description": "員工端語言"
           },
           "site": {
             "type": "string"
@@ -11412,7 +12245,8 @@
             "description": "問卷、評估或確認的 id"
           },
           "title": {
-            "type": "string"
+            "type": "string",
+            "description": "依員工端語言；問卷發放名稱照原文"
           },
           "dueOn": {
             "type": "string",
@@ -11427,6 +12261,146 @@
           "dueOn"
         ]
       },
+      "DraftDto": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "尚未送出的作答，格式由前端決定"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "answers",
+          "savedAt"
+        ]
+      },
+      "TaskDetailDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "nmq",
+              "cbi",
+              "overload",
+              "acknowledgement"
+            ],
+            "description": "NMQ 問卷、過勞量表、工時調查、紀錄確認"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "問卷、評估或確認的 id"
+          },
+          "title": {
+            "type": "string",
+            "description": "依員工端語言；問卷發放名稱照原文"
+          },
+          "dueOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "done": {
+            "type": "boolean",
+            "description": "已填寫或已確認"
+          },
+          "draft": {
+            "nullable": true,
+            "description": "尚未送出的草稿；紀錄確認沒有草稿",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DraftDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "title",
+          "dueOn",
+          "done",
+          "draft"
+        ]
+      },
+      "NmqSubmittedDto": {
+        "type": "object",
+        "properties": {
+          "submitted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "maxScore": {
+            "type": "number",
+            "description": "各部位最高分（0–5）"
+          },
+          "suspectedHazard": {
+            "type": "boolean",
+            "description": "疑似有肌肉骨骼危害"
+          }
+        },
+        "required": [
+          "submitted",
+          "maxScore",
+          "suspectedHazard"
+        ]
+      },
+      "SubmittedDto": {
+        "type": "object",
+        "properties": {
+          "submitted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "submitted"
+        ]
+      },
+      "AcknowledgementContentDto": {
+        "type": "object",
+        "properties": {
+          "interviewedOn": {
+            "type": "string",
+            "format": "date",
+            "description": "面談日期"
+          },
+          "fitAdvice": {
+            "type": "string",
+            "nullable": true,
+            "description": "適性評估（工作安排建議）"
+          },
+          "limits": {
+            "description": "工作限制",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agreedArrangement": {
+            "type": "string",
+            "nullable": true,
+            "description": "雙方同意的工作調整"
+          }
+        },
+        "required": [
+          "interviewedOn",
+          "fitAdvice",
+          "limits",
+          "agreedArrangement"
+        ]
+      },
       "AcknowledgementDto": {
         "type": "object",
         "properties": {
@@ -11436,12 +12410,18 @@
           },
           "title": {
             "type": "string",
-            "example": "母性健康保護面談紀錄"
+            "example": "母性健康保護面談紀錄",
+            "description": "依員工的員工端語言"
           },
           "content": {
+            "nullable": true,
+            "description": "要確認的內容（不含醫護內部紀錄）；找不到原始紀錄時為 null",
             "type": "object",
-            "additionalProperties": true,
-            "description": "要確認的內容（不含醫護內部紀錄）"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AcknowledgementContentDto"
+              }
+            ]
           },
           "confirmedAt": {
             "type": "string",
@@ -11461,38 +12441,228 @@
           "comment"
         ]
       },
+      "MyExamItemDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "B0111"
+          },
+          "name": {
+            "type": "string",
+            "example": "血壓－收縮壓"
+          },
+          "unit": {
+            "type": "string",
+            "example": "mmHg"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "description": "檢查值（數值以字串表示）"
+          },
+          "grade": {
+            "type": "number",
+            "nullable": true,
+            "description": "分級 0–4；無分級標準時為 null"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "unit",
+          "value",
+          "grade"
+        ]
+      },
+      "MyExamDto": {
+        "type": "object",
+        "properties": {
+          "examDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "clinic": {
+            "type": "string",
+            "nullable": true
+          },
+          "kind": {
+            "type": "string",
+            "example": "一般健檢"
+          },
+          "gradeTotal": {
+            "type": "number",
+            "description": "各項分級總和"
+          },
+          "gradeMax": {
+            "type": "number",
+            "description": "最高分級"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyExamItemDto"
+            }
+          }
+        },
+        "required": [
+          "examDate",
+          "clinic",
+          "kind",
+          "gradeTotal",
+          "gradeMax",
+          "items"
+        ]
+      },
+      "MySurveyDto": {
+        "type": "object",
+        "properties": {
+          "dispatch": {
+            "type": "string",
+            "description": "問卷發放名稱"
+          },
+          "filledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "maxScore": {
+            "type": "number",
+            "nullable": true,
+            "description": "各部位最高分（0–5）"
+          },
+          "suspectedHazard": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "疑似有肌肉骨骼危害"
+          }
+        },
+        "required": [
+          "dispatch",
+          "filledAt",
+          "maxScore",
+          "suspectedHazard"
+        ]
+      },
+      "MyWorkloadDto": {
+        "type": "object",
+        "properties": {
+          "sentOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "personalBurnout": {
+            "type": "number",
+            "nullable": true,
+            "description": "個人相關過勞分數"
+          },
+          "workBurnout": {
+            "type": "number",
+            "nullable": true,
+            "description": "工作相關過勞分數"
+          },
+          "riskLevel": {
+            "type": "number",
+            "nullable": true,
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "description": "0 低度、1 中度、2 高度風險；還不能判定時為 null，原因見 missing"
+          },
+          "missing": {
+            "type": "array",
+            "description": "還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cbi",
+                "overload",
+                "exam"
+              ]
+            }
+          },
+          "advice": {
+            "type": "string",
+            "nullable": true,
+            "description": "建議（例如：建議安排醫師面談）"
+          }
+        },
+        "required": [
+          "sentOn",
+          "personalBurnout",
+          "workBurnout",
+          "riskLevel",
+          "missing",
+          "advice"
+        ]
+      },
       "MyHealthDto": {
         "type": "object",
         "properties": {
           "exams": {
+            "description": "我的健檢結果與分級，新的在前",
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
-            },
-            "description": "我的健檢結果與分級"
+              "$ref": "#/components/schemas/MyExamDto"
+            }
           },
           "surveys": {
+            "description": "我的 NMQ 結果",
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
-            },
-            "description": "我的 NMQ 結果"
+              "$ref": "#/components/schemas/MySurveyDto"
+            }
           },
           "workload": {
+            "description": "我的過勞評估結果，新的在前",
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
-            },
-            "description": "我的過勞評估結果"
+              "$ref": "#/components/schemas/MyWorkloadDto"
+            }
           }
         },
         "required": [
           "exams",
           "surveys",
           "workload"
+        ]
+      },
+      "MyHealthExportDto": {
+        "type": "object",
+        "properties": {
+          "exams": {
+            "description": "我的健檢結果與分級，新的在前",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyExamDto"
+            }
+          },
+          "surveys": {
+            "description": "我的 NMQ 結果",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MySurveyDto"
+            }
+          },
+          "workload": {
+            "description": "我的過勞評估結果，新的在前",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyWorkloadDto"
+            }
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "exams",
+          "surveys",
+          "workload",
+          "exportedAt"
         ]
       },
       "ConsentDto": {
@@ -11533,6 +12703,107 @@
           "documentVersion",
           "givenAt",
           "withdrawnAt"
+        ]
+      },
+      "SignerDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "example": "職醫"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "name"
+        ]
+      },
+      "ServiceSignContentDto": {
+        "type": "object",
+        "properties": {
+          "serviceOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "site": {
+            "type": "string",
+            "nullable": true,
+            "description": "廠區名稱"
+          },
+          "record": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "附表八內容，格式同勞工健康服務紀錄的 content"
+          },
+          "signer": {
+            "description": "以什麼身分簽核",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SignerDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "serviceOn",
+          "site",
+          "record",
+          "signer"
+        ]
+      },
+      "SignDocumentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "acknowledgement",
+              "signature"
+            ],
+            "description": "員工確認紀錄，或簽核附表八"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AcknowledgementContentDto"
+              },
+              {
+                "$ref": "#/components/schemas/ServiceSignContentDto"
+              }
+            ],
+            "description": "kind 為 acknowledgement 時是 AcknowledgementContentDto，signature 時是 ServiceSignContentDto"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "確認或簽核的時間"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "content",
+          "confirmedAt",
+          "comment"
         ]
       },
       "SignatureDto": {

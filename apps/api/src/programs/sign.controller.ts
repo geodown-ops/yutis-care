@@ -5,7 +5,7 @@
  * The lookup runs in the URL's tenant, so a link only works on its own tenant's subdomain.
  */
 import { Body, Controller, Get, GoneException, HttpCode, NotFoundException, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiGoneResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiExtraModels, ApiGoneResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags, getSchemaPath } from '@nestjs/swagger';
 import { employeeAcknowledgements, serviceRecords, signatures, sites } from '@yutis/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
@@ -14,10 +14,35 @@ import { recordAudit } from '../core/audit.js';
 import { Ctx, type RequestContext } from '../core/context.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { openApiSchema, parse } from '../core/validation.js';
-import { AcknowledgementDto, acknowledgementDocument } from './acknowledgements.js';
+import { AcknowledgementContentDto, acknowledgementDocument } from './acknowledgements.js';
 import { hashToken } from './advice.controller.js';
 
 const Confirm = z.object({ comment: z.string().trim().max(1000).optional() }).strict();
+
+class SignerDto {
+  @ApiProperty({ example: '職醫' }) role!: string;
+  @ApiProperty() name!: string;
+}
+class ServiceSignContentDto {
+  @ApiProperty({ type: String, format: 'date', nullable: true }) serviceOn!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: '廠區名稱' }) site!: string | null;
+  @ApiProperty({ type: 'object', nullable: true, additionalProperties: true, description: '附表八內容，格式同勞工健康服務紀錄的 content' }) record!: unknown;
+  @ApiProperty({ type: SignerDto, description: '以什麼身分簽核' }) signer!: SignerDto;
+}
+
+@ApiExtraModels(AcknowledgementContentDto, ServiceSignContentDto)
+class SignDocumentDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ enum: ['acknowledgement', 'signature'], description: '員工確認紀錄，或簽核附表八' }) kind!: 'acknowledgement' | 'signature';
+  @ApiProperty() title!: string;
+  @ApiProperty({
+    nullable: true, oneOf: [{ $ref: getSchemaPath(AcknowledgementContentDto) }, { $ref: getSchemaPath(ServiceSignContentDto) }],
+    description: 'kind 為 acknowledgement 時是 AcknowledgementContentDto，signature 時是 ServiceSignContentDto',
+  })
+  content!: AcknowledgementContentDto | ServiceSignContentDto | null;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true, description: '確認或簽核的時間' }) confirmedAt!: Date | null;
+  @ApiProperty({ type: String, nullable: true }) comment!: string | null;
+}
 
 type Found =
   | { kind: 'acknowledgement'; row: typeof employeeAcknowledgements.$inferSelect }
@@ -29,13 +54,13 @@ export class SignController {
   @Get(':token')
   @Public()
   @ApiOperation({ summary: '以一次性連結開啟要確認或簽核的紀錄', description: '開啟不會讓連結失效；確認或簽核後才失效。' })
-  @ApiOkResponse({ type: AcknowledgementDto })
+  @ApiOkResponse({ type: SignDocumentDto })
   @ApiGoneResponse({ description: '連結已使用（token_used）或已過期（token_expired）', type: ApiErrorDto })
-  async open(@Ctx() ctx: RequestContext, @Param('token') token: string): Promise<AcknowledgementDto> {
+  async open(@Ctx() ctx: RequestContext, @Param('token') token: string): Promise<SignDocumentDto> {
     const found = await this.find(ctx, token);
     if (found.kind === 'acknowledgement') {
       await recordAudit(ctx, { action: 'read', subjectTable: 'employee_acknowledgements', subjectId: found.row.id, employeeId: found.row.employeeId, reason: 'sign link opened' }, employeeActor(found.row.employeeId));
-      return acknowledgementDocument(ctx.tx, found.row);
+      return { kind: 'acknowledgement', ...await acknowledgementDocument(ctx.tx, found.row) };
     }
     await recordAudit(ctx, { action: 'read', subjectTable: 'signatures', subjectId: found.row.id, reason: `sign link opened by ${found.row.signerRole} ${found.row.signerName}` }, undefined);
     return this.serviceDocument(ctx, found.row);
@@ -46,16 +71,16 @@ export class SignController {
   @Public()
   @ApiOperation({ summary: '以一次性連結確認或簽核', description: '完成後連結立即失效，不能再用。附表八所有簽核人員都簽核後，紀錄狀態變為已完成。' })
   @ApiBody({ schema: openApiSchema(Confirm) })
-  @ApiOkResponse({ type: AcknowledgementDto })
+  @ApiOkResponse({ type: SignDocumentDto })
   @ApiGoneResponse({ type: ApiErrorDto })
-  async confirm(@Ctx() ctx: RequestContext, @Param('token') token: string, @Body() body: unknown): Promise<AcknowledgementDto> {
+  async confirm(@Ctx() ctx: RequestContext, @Param('token') token: string, @Body() body: unknown): Promise<SignDocumentDto> {
     const { comment } = parse(Confirm, body ?? {});
     const found = await this.find(ctx, token);
     const done = { comment: comment ?? null, tokenHash: null, tokenExpiresAt: null, updatedAt: new Date() };
     if (found.kind === 'acknowledgement') {
       const [row] = await ctx.tx.update(employeeAcknowledgements).set({ ...done, confirmedAt: new Date() }).where(eq(employeeAcknowledgements.id, found.row.id)).returning();
       await recordAudit(ctx, { action: 'update', subjectTable: 'employee_acknowledgements', subjectId: found.row.id, employeeId: found.row.employeeId, reason: 'confirmed via sign link' }, employeeActor(found.row.employeeId));
-      return acknowledgementDocument(ctx.tx, row!);
+      return { kind: 'acknowledgement', ...await acknowledgementDocument(ctx.tx, row!) };
     }
     const [row] = await ctx.tx.update(signatures).set({ ...done, signedAt: new Date() }).where(eq(signatures.id, found.row.id)).returning();
     await recordAudit(ctx, { action: 'update', subjectTable: 'signatures', subjectId: found.row.id, reason: `signed by ${found.row.signerRole} ${found.row.signerName}` }, undefined);
@@ -82,11 +107,13 @@ export class SignController {
   }
 
   /** What a signer sees: the 附表八 record they are asked to sign, and who they sign as. */
-  private async serviceDocument(ctx: RequestContext, sig: typeof signatures.$inferSelect): Promise<AcknowledgementDto> {
+  private async serviceDocument(ctx: RequestContext, sig: typeof signatures.$inferSelect): Promise<SignDocumentDto> {
     const [record] = await ctx.tx.select({ r: serviceRecords, site: sites.name }).from(serviceRecords).innerJoin(sites, eq(sites.id, serviceRecords.siteId)).where(eq(serviceRecords.id, sig.subjectId));
     return {
-      id: sig.id, title: '勞工健康服務執行紀錄表（附表八）',
-      content: { serviceOn: record?.r.serviceOn, site: record?.site, record: record?.r.content, signer: { role: sig.signerRole, name: sig.signerName } },
+      id: sig.id, kind: 'signature', title: '勞工健康服務執行紀錄表（附表八）',
+      content: {
+        serviceOn: record?.r.serviceOn ?? null, site: record?.site ?? null, record: record?.r.content ?? null, signer: { role: sig.signerRole, name: sig.signerName },
+      },
       confirmedAt: sig.signedAt, comment: sig.comment,
     };
   }

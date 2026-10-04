@@ -10,7 +10,7 @@ import vm from 'node:vm';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
   auditLog, caseEvents, defaultTemplates, departments, employeeAcknowledgements, employees, gradingRuleSets, healthExamResults, healthExams, legalEntities,
-  maternalCases, sites, tenants, users, violenceIncidents, type Db,
+  maternalCases, portalDrafts, sites, tenants, users, violenceIncidents, type Db,
 } from '@yutis/db';
 import { cbiScores, EXAM_ITEMS, NMQ_KEYS, RULES_V1 } from '@yutis/domain';
 import { and, eq, sql } from 'drizzle-orm';
@@ -46,7 +46,7 @@ const masterKey = randomBytes(32);
 const crypto = new LocalTenantCrypto(masterKey);
 const ids: Record<string, string> = {};
 
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 function call(slug: string, method: Method, url: string, opts: { cookie?: string; body?: unknown } = {}) {
   return app.inject({
     method, url, headers: { host: `${slug}.care.test`, ...(opts.cookie ? { cookie: opts.cookie } : {}) },
@@ -147,9 +147,11 @@ describe('overwork (異常工作負荷)', () => {
     expect(created).toHaveLength(completeWorkload.length);
     for (const { a, w } of completeWorkload) {
       const id = created.find((c: { empNo: string }) => c.empNo === a.empId).id;
-      await call('acme', 'PUT', `/api/programs/workload/assessments/${id}/fatigue`, { cookie: await nurse(), body: { personalBurnout: a.pf, workBurnout: a.wf } });
+      const fatigue = await call('acme', 'PUT', `/api/programs/workload/assessments/${id}/fatigue`, { cookie: await nurse(), body: { personalBurnout: a.pf, workBurnout: a.wf } });
+      expect(fatigue.json()).toMatchObject({ riskLevel: null, missing: ['overload'] });
       const res = await call('acme', 'PUT', `/api/programs/workload/assessments/${id}/overload`, { cookie: await nurse(), body: { overtime1m: a.m1, overtime6mAvg: a.avg6, workPatterns: a.patterns } });
       expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().missing).toEqual([]);
       const ev = res.json().evaluation;
       expect({ lv: res.json().riskLevel, advice: ev.advice, total: ev.cvd.total, risk: ev.cvd.risk, band: ev.cvd.band, load: ev.load.level }, a.empId)
         .toEqual({ lv: w.riskLevel, advice: w.advice, total: w.cvd!.total, risk: w.cvd!.risk, band: w.cvd!.band, load: w.load!.level });
@@ -217,12 +219,60 @@ describe('ergonomics (人因) and the employee portal', () => {
     expect(audits.map(x => x.subjectTable)).toEqual(expect.arrayContaining(['ergo_surveys', 'workload_assessments']));
   });
 
+  it('opens one task and keeps a draft of it until it is submitted', async () => {
+    const alice = await as('a001@acme.test', 'employee');
+    const bob = await as('b001@acme.test', 'employee');
+    const overload = (await call('acme', 'GET', '/api/portal/tasks', { cookie: alice })).json().find((t: { kind: string }) => t.kind === 'overload');
+    const url = `/api/portal/tasks/overload/${overload.id}`;
+    expect((await call('acme', 'GET', url, { cookie: alice })).json()).toEqual({ kind: 'overload', id: overload.id, title: '工時與工作型態調查', dueOn: null, done: false, draft: null });
+    expect((await call('acme', 'GET', url, { cookie: bob })).statusCode).toBe(404);
+    expect((await call('acme', 'GET', `/api/portal/tasks/cbi/${overload.id}`, { cookie: alice })).json()).toMatchObject({ kind: 'cbi', done: true });
+    expect((await call('acme', 'GET', `/api/portal/tasks/other/${overload.id}`, { cookie: alice })).statusCode).toBe(400);
+
+    expect((await call('acme', 'PUT', `${url}/draft`, { cookie: alice, body: { answers: { overtime1m: 20 } } })).json()).toEqual({ answers: { overtime1m: 20 }, savedAt: expect.any(String) });
+    await call('acme', 'PUT', `${url}/draft`, { cookie: alice, body: { answers: { overtime1m: 30, overtime6mAvg: 12 } } });
+    expect((await call('acme', 'GET', url, { cookie: alice })).json().draft).toEqual({ answers: { overtime1m: 30, overtime6mAvg: 12 }, savedAt: expect.any(String) });
+    expect((await call('acme', 'PUT', `${url}/draft`, { cookie: bob, body: { answers: {} } })).statusCode).toBe(404);
+    expect((await call('acme', 'PUT', `${url}/draft`, { cookie: alice, body: { answers: { note: 'x'.repeat(25_000) } } })).json()).toMatchObject({ code: 'draft_too_large' });
+    expect((await call('acme', 'PUT', `/api/portal/tasks/acknowledgement/${overload.id}/draft`, { cookie: alice, body: { answers: {} } })).statusCode).toBe(400);
+
+    // The CBI is in but there is no health check yet, so the risk cannot be judged; the reasons say why.
+    expect((await call('acme', 'GET', '/api/portal/health', { cookie: alice })).json().workload[0]).toMatchObject({ riskLevel: null, missing: ['overload', 'exam'] });
+    expect((await call('acme', 'PUT', `/api/portal/workload/${overload.id}/overload`, { cookie: alice, body: { overtime1m: 30, overtime6mAvg: 12, workPatterns: [] } })).json()).toEqual({ submitted: true });
+    expect((await call('acme', 'GET', url, { cookie: alice })).json()).toMatchObject({ done: true, draft: null });
+    expect(await owner.select().from(portalDrafts).where(eq(portalDrafts.taskId, overload.id))).toEqual([]);
+    expect((await call('acme', 'PUT', `${url}/draft`, { cookie: alice, body: { answers: {} } })).json()).toMatchObject({ code: 'already_submitted' });
+    expect((await call('acme', 'GET', '/api/portal/health', { cookie: alice })).json().workload[0]).toMatchObject({ riskLevel: null, missing: ['exam'] });
+
+    // A draft can be discarded, and a nurse entering the answers removes it too.
+    const bobNmq = (await call('acme', 'GET', '/api/portal/tasks', { cookie: bob })).json().find((t: { kind: string }) => t.kind === 'nmq').id;
+    await call('acme', 'PUT', `/api/portal/tasks/nmq/${bobNmq}/draft`, { cookie: bob, body: { answers: { neck: 2 } } });
+    expect((await call('acme', 'DELETE', `/api/portal/tasks/nmq/${bobNmq}/draft`, { cookie: bob })).statusCode).toBe(204);
+    expect((await call('acme', 'GET', `/api/portal/tasks/nmq/${bobNmq}`, { cookie: bob })).json().draft).toBeNull();
+    await call('acme', 'PUT', `/api/portal/tasks/nmq/${bobNmq}/draft`, { cookie: bob, body: { answers: { neck: 3 } } });
+    expect((await call('acme', 'PUT', `/api/programs/ergo/surveys/${bobNmq}`, { cookie: await nurse(), body: fullNmq({ neck: 3 }) })).statusCode).toBe(200);
+    expect(await owner.select().from(portalDrafts).where(eq(portalDrafts.taskId, bobNmq))).toEqual([]);
+  });
+
+  it("titles tasks in the employee's language, which they can change", async () => {
+    const bob = await as('b001@acme.test', 'employee');
+    expect((await call('acme', 'PUT', '/api/portal/profile', { cookie: bob, body: { lang: 'vi' } })).json()).toMatchObject({ empNo: 'B001', lang: 'vi' });
+    expect((await call('acme', 'PUT', '/api/portal/profile', { cookie: bob, body: { lang: 'fr' } })).statusCode).toBe(400);
+    expect((await call('acme', 'GET', '/api/portal/tasks', { cookie: bob })).json().map((t: { title: string }) => t.title).sort())
+      .toEqual(['Bảng câu hỏi về tình trạng kiệt sức', 'Khảo sát giờ làm việc và hình thức làm việc']);
+    const b = await empId('B001');
+    expect(await owner.select().from(auditLog).where(and(eq(auditLog.employeeId, b), eq(auditLog.reason, 'portal language vi')))).toHaveLength(1);
+    await call('acme', 'PUT', '/api/portal/profile', { cookie: bob, body: { lang: 'zh' } });
+    expect((await call('acme', 'GET', '/api/portal/tasks', { cookie: bob })).json().map((t: { title: string }) => t.title)).toContain('過勞量表');
+  });
+
   it('gives employees their own health data and an export, and nothing of anyone else', async () => {
     const someone = completeWorkload[0]!.a.empId;
     const mine = await as(`${someone.toLowerCase()}@acme.test`, 'employee');
     const health = (await call('acme', 'GET', '/api/portal/health', { cookie: mine })).json();
     expect(health.exams).toHaveLength(1);
-    expect(health.workload[0]).toMatchObject({ riskLevel: completeWorkload[0]!.w.riskLevel });
+    expect(health.workload[0]).toMatchObject({ riskLevel: completeWorkload[0]!.w.riskLevel, missing: [] });
+    expect(health.exams[0].items[0]).toEqual({ code: 'B0111', name: '血壓－收縮壓', unit: 'mmHg', value: expect.any(String), grade: null });
     const alice = await as('a001@acme.test', 'employee');
     expect((await call('acme', 'GET', '/api/portal/health', { cookie: alice })).json().exams).toEqual([]);
     const exported = await call('acme', 'GET', '/api/portal/health/export', { cookie: mine });
@@ -284,7 +334,10 @@ describe('maternal protection, confirmations and sign links', () => {
     expect((await call('globex', 'GET', `/api/sign/${token}`)).statusCode).toBe(410);
 
     const doc = await call('acme', 'GET', `/api/sign/${token}`);
-    expect(doc.json()).toMatchObject({ title: '母性健康保護面談紀錄', content: { fitAdvice: '可繼續工作，避免接觸有機溶劑', agreedArrangement: '調至組裝線' }, confirmedAt: null });
+    expect(doc.json()).toEqual({
+      id: iv.acknowledgementId, kind: 'acknowledgement', title: '母性健康保護面談紀錄', confirmedAt: null, comment: null,
+      content: { interviewedOn: '2026-09-25', fitAdvice: '可繼續工作，避免接觸有機溶劑', limits: ['不從事塗裝作業'], agreedArrangement: '調至組裝線' },
+    });
     expect(JSON.stringify(doc.json())).not.toContain('118/76');
     expect((await call('acme', 'POST', `/api/sign/${token}`, { body: { comment: '了解' } })).json()).toMatchObject({ comment: '了解' });
     const reused = await call('acme', 'POST', `/api/sign/${token}`, { body: {} });
@@ -310,7 +363,13 @@ describe('maternal protection, confirmations and sign links', () => {
     await owner.update(employeeAcknowledgements).set({ tokenExpiresAt: new Date(Date.now() - 1000) }).where(eq(employeeAcknowledgements.id, iv.acknowledgementId));
     expect((await call('acme', 'GET', `/api/sign/${token}`)).json()).toMatchObject({ code: 'token_expired' });
     const alice = await as('a001@acme.test', 'employee');
-    expect((await call('acme', 'POST', `/api/portal/acknowledgements/${iv.acknowledgementId}/confirm`, { cookie: alice, body: {} })).json()).toMatchObject({ confirmedAt: expect.any(String) });
+    await call('acme', 'PUT', '/api/portal/profile', { cookie: alice, body: { lang: 'en' } });
+    const task = (await call('acme', 'GET', '/api/portal/tasks', { cookie: alice })).json().find((t: { kind: string }) => t.kind === 'acknowledgement');
+    expect(task).toEqual({ kind: 'acknowledgement', id: iv.acknowledgementId, title: 'Maternal health protection interview record', dueOn: null });
+    expect((await call('acme', 'GET', `/api/portal/tasks/acknowledgement/${iv.acknowledgementId}`, { cookie: alice })).json()).toMatchObject({ done: false, draft: null });
+    expect((await call('acme', 'POST', `/api/portal/acknowledgements/${iv.acknowledgementId}/confirm`, { cookie: alice, body: {} })).json())
+      .toMatchObject({ title: 'Maternal health protection interview record', confirmedAt: expect.any(String) });
+    await call('acme', 'PUT', '/api/portal/profile', { cookie: alice, body: { lang: 'zh' } });
     const bob = await as('b001@acme.test', 'employee');
     expect((await call('acme', 'GET', `/api/portal/acknowledgements/${iv.acknowledgementId}`, { cookie: bob })).statusCode).toBe(404);
   });

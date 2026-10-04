@@ -1,5 +1,5 @@
 /* The four statutory prevention programmes (四大計畫). Questionnaire answers are JSONB with a form version. */
-import { boolean, date, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { base, bytea, filledByEnum, matLevelEnum, retainUntil, surveyStatusEnum, tenantKey, tenantRef } from './common.js';
 import { employees } from './employees.js';
 import { departments, sites } from './org.js';
@@ -221,4 +221,24 @@ export const managerNotices = pgTable('manager_notices', {
   index('manager_notices_manager_idx').on(t.tenantId, t.managerUserId),
   tenantRef('manager_notices_manager_fk', t, t.managerUserId, users),
   tenantRef('manager_notices_employee_fk', t, t.employeeId, employees),
+]);
+
+/* ---------- 員工端草稿 (employee portal drafts) ---------- */
+
+/**
+ * Answers an employee has started but not yet submitted, one per questionnaire, so a long questionnaire survives the
+ * session's idle timeout. Only the employee's own portal routes read them; submitting the questionnaire, by the employee
+ * or by a nurse, deletes the draft.
+ */
+export const portalDrafts = pgTable('portal_drafts', {
+  ...base(),
+  employeeId: uuid('employee_id').notNull(),
+  /** nmq → ergo_surveys, cbi and overload → workload_assessments. */
+  taskKind: text('task_kind', { enum: ['nmq', 'cbi', 'overload'] }).notNull(),
+  taskId: uuid('task_id').notNull(),
+  answers: jsonb('answers').notNull(),
+}, t => [
+  tenantKey(t),
+  unique('portal_drafts_task_key').on(t.tenantId, t.employeeId, t.taskKind, t.taskId),
+  tenantRef('portal_drafts_employee_fk', t, t.employeeId, employees),
 ]);

@@ -96,7 +96,8 @@ export class ReportsController {
     summary: '統計報表',
     description: `負責廠區內的員工，可再依法人、廠區、部門篩選。職安衛人員與人資只看去識別統計：少於 ${MIN_CELL_SIZE} 人的格子（及可由它推算的格子）不顯示。`,
   })
-  @ApiQuery({ name: 'legalEntityId', required: false }) @ApiQuery({ name: 'siteId', required: false }) @ApiQuery({ name: 'departmentId', required: false })
+  @ApiQuery({ name: 'legalEntityId', required: false, type: String, format: 'uuid' }) @ApiQuery({ name: 'siteId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({ name: 'departmentId', required: false, type: String, format: 'uuid' })
   @ApiOkResponse({ type: ReportDto })
   async report(@Ctx() ctx: RequestContext, @Param('kind') kind: string, @Param('type') type: string, @Query() query: unknown): Promise<Report> {
     if (!isReport(kind, type)) throw new NotFoundException({ code: 'unknown_report', message: 'No such report' });

@@ -111,9 +111,9 @@ export class ExamsController {
   })
   @ApiConsumes(XLSX_MIME)
   @ApiBody({ schema: { type: 'string', format: 'binary' } })
-  @ApiQuery({ name: 'mapping', description: '健檢匯入對照 id' })
+  @ApiQuery({ name: 'mapping', type: String, format: 'uuid', description: '健檢匯入對照 id' })
   @ApiQuery({ name: 'commit', required: false, enum: ['true', 'false'] })
-  @ApiQuery({ name: 'fileName', required: false })
+  @ApiQuery({ name: 'fileName', required: false, type: String })
   @ApiOkResponse({ type: ExamImportReportDto })
   @ApiUnprocessableEntityResponse({ description: '檔案有錯誤（import_invalid），未寫入', type: ApiErrorDto })
   async import(@Ctx() ctx: RequestContext, @Body() body: unknown, @Query() query: unknown): Promise<ExamImportReportDto> {

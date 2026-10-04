@@ -10,12 +10,13 @@ import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, type RequestContext } from '../core/context.js';
+import { CreatedDto } from '../core/dto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { pgErrorCode } from '../core/pg.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { findSheet, ImportIssueDto, isEmail, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from './excel.js';
 
-class DepartmentDto {
+class OrgDepartmentDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ type: String, nullable: true }) code!: string | null;
   @ApiProperty() name!: string;
@@ -23,21 +24,18 @@ class DepartmentDto {
   @ApiProperty({ type: String, nullable: true }) managerEmail!: string | null;
   @ApiProperty({ type: String, nullable: true }) managerPhone!: string | null;
 }
-class SiteDto {
+class OrgSiteDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() code!: string;
   @ApiProperty() name!: string;
   @ApiProperty({ type: String, nullable: true }) address!: string | null;
-  @ApiProperty({ type: [DepartmentDto] }) departments!: DepartmentDto[];
+  @ApiProperty({ type: [OrgDepartmentDto] }) departments!: OrgDepartmentDto[];
 }
 class LegalEntityDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() code!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ type: [SiteDto] }) sites!: SiteDto[];
-}
-class CreatedDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ type: [OrgSiteDto] }) sites!: OrgSiteDto[];
 }
 class ImportCountsDto {
   @ApiProperty() create!: number;

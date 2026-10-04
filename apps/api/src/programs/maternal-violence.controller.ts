@@ -17,6 +17,7 @@ import { ENVIRONMENT_ROLES } from '../auth/permissions.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
+import { CreatedDto } from '../core/dto.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { assertSitesInScope, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
@@ -93,8 +94,8 @@ class RiskAssessmentDto {
   @ApiProperty({ type: String, format: 'date' }) assessedOn!: string;
   @ApiProperty({ type: 'array', items: { type: 'object', additionalProperties: true }, description: '每題的可能性、嚴重度、風險等級與控制措施' }) items!: unknown[];
 }
-class CreatedDto {
-  @ApiProperty({ format: 'uuid' }) id!: string;
+class InterviewCreatedDto extends CreatedDto {
+  @ApiProperty({ format: 'uuid', description: '員工確認紀錄；用來產生確認連結' }) acknowledgementId!: string;
 }
 
 @ApiTags('programs')
@@ -153,8 +154,8 @@ export class MaternalViolenceController {
 
   @Post('maternal/cases/:id/interviews') @Clinical()
   @ApiOperation({ summary: '母性健康保護面談', description: '面談紀錄加密；適性評估與工作調整送交員工在員工端確認。' })
-  @ApiBody({ schema: openApiSchema(MaternalInterview) }) @ApiCreatedResponse({ type: CreatedDto })
-  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<CreatedDto & { acknowledgementId: string }> {
+  @ApiBody({ schema: openApiSchema(MaternalInterview) }) @ApiCreatedResponse({ type: InterviewCreatedDto })
+  async interview(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<InterviewCreatedDto> {
     const { notes, ...input } = parse(MaternalInterview, body);
     const [c] = await ctx.tx.select().from(maternalCases).where(eq(maternalCases.id, id));
     if (!c) throw new NotFoundException({ code: 'not_found', message: 'No such maternal case' });

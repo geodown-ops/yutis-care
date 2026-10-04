@@ -265,4 +265,57 @@ describe('employee import', () => {
     const taken = (await call('acme', 'POST', '/api/admin/employees/import', { cookie, xlsx: await withIds([['E104', 'B223456789']]) })).json();
     expect(taken.issues).toEqual([{ row: 2, column: '身分證字號', message: '已屬於工號 E101' }]);
   });
+
+  it("keeps the employee's own portal language when 語言 is left blank", async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const e101 = and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101'));
+    await owner.update(employees).set({ lang: 'vi' }).where(e101);
+    const blank = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await xlsx({ 員工: [header, row('E101', { 語言: '' })] }) })).json();
+    expect(blank).toMatchObject({ committed: true, update: 0, unchanged: 1 });
+    expect((await owner.select().from(employees).where(e101))[0]!.lang).toBe('vi');
+    const set = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await xlsx({ 員工: [header, row('E101', { 語言: 'en' })] }) })).json();
+    expect(set).toMatchObject({ committed: true, update: 1 });
+    expect((await owner.select().from(employees).where(e101))[0]!.lang).toBe('en');
+  });
+});
+
+describe('phrases and audit search', () => {
+  it('lets tenant admins list the phrases they maintain', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const created = (await call('acme', 'POST', '/api/admin/phrases', { cookie, body: { category: '處理狀況', text: '已轉介職醫。' } })).json();
+    expect((await call('acme', 'GET', '/api/admin/phrases', { cookie })).json()).toEqual([{ id: created.id, category: '處理狀況', text: '已轉介職醫。', kind: null }]);
+    expect((await call('acme', 'GET', '/api/admin/phrases?category=其他', { cookie })).json()).toEqual([]);
+    expect((await call('acme', 'GET', '/api/admin/phrases', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+  });
+
+  it('finds who did what to whose data, newest first, and records each search', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101')));
+    const res = await call('acme', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie });
+    expect(res.statusCode, res.body).toBe(200);
+    const page = res.json();
+    expect(page.total).toBe(page.items.length);
+    expect(page.items.map((i: { action: string }) => i.action)).toEqual(['update', 'update', 'create']);
+    expect(page.items[2]).toMatchObject({
+      actor: { kind: 'staff', id: ids.admin, name: '陳管理員', role: '租戶管理員' }, action: 'create', subjectTable: 'employees', subjectId: e!.id,
+      employee: { id: e!.id, empNo: 'E101', name: '員工E101' }, dataCategory: 'identity', reason: 'employee import',
+    });
+    expect(Date.parse(page.items[0].at)).toBeGreaterThanOrEqual(Date.parse(page.items[2].at));
+
+    const searches = (await audits('audit_log')).filter(a => a.employeeId === e!.id);
+    expect(searches).toMatchObject([{ action: 'read', actorUserId: ids.admin, reason: `audit search employeeId=${e!.id}` }]);
+
+    const paged = (await call('acme', 'GET', '/api/admin/audit?action=create&limit=2&offset=1', { cookie })).json();
+    expect(paged.items).toHaveLength(2);
+    expect(paged.items.every((i: { action: string }) => i.action === 'create')).toBe(true);
+    expect((await call('acme', 'GET', '/api/admin/audit?from=2000-01-01&to=2000-01-31', { cookie })).json()).toEqual({ total: 0, items: [] });
+    expect((await call('acme', 'GET', '/api/admin/audit?from=2026-02-01&to=2026-01-01', { cookie })).statusCode).toBe(400);
+  });
+
+  it("keeps the audit log to this tenant's admins", async () => {
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'E101')));
+    expect((await call('acme', 'GET', '/api/admin/audit', { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    const globex = (await call('globex', 'GET', `/api/admin/audit?employeeId=${e!.id}`, { cookie: await signIn('globex', 'admin@globex.test') })).json();
+    expect(globex).toEqual({ total: 0, items: [] });
+  });
 });

@@ -13,7 +13,7 @@ import { CLINICAL_ROLES } from '../auth/permissions.js';
 import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type Principal, type RequestContext } from '../core/context.js';
 import { openApiSchema, parse } from '../core/validation.js';
-import { employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
+import { clearDraft, employeeInScope, mySiteIds, raiseEvent, todayTw } from './common.js';
 
 export const Clinical = () => StaffOnly({ data: 'health', feature: 'programs', roles: CLINICAL_ROLES });
 
@@ -61,6 +61,7 @@ export async function submitNmq(ctx: RequestContext, surveyId: string, input: Nm
     answers: input, maxScore, suspectedHazard: suspected, status: '已填寫', filledAt: new Date(), filledBy: by.kind === 'employee' ? 'self' : 'nurse',
     updatedAt: new Date(), updatedBy: by.kind === 'staff' ? by.userId : null,
   }).where(eq(ergoSurveys.id, surveyId)).returning();
+  await clearDraft(ctx, 'nmq', surveyId);
   if (suspected) {
     await raiseEvent(ctx, {
       employeeId: survey.employeeId, type: 'er', sourceTable: 'ergo_surveys', sourceId: surveyId, occurredOn: todayTw(),

@@ -1,6 +1,6 @@
 /* Shared by the four programmes (四大計畫): site scope, abnormal events and the latest health check. */
 import { NotFoundException } from '@nestjs/common';
-import { caseEvents, employees, healthExamResults, healthExams } from '@yutis/db';
+import { caseEvents, employees, healthExamResults, healthExams, portalDrafts } from '@yutis/db';
 import { ageAt, EXAM_ITEMS, isAgeConcern, type EventType, type ExamValues } from '@yutis/domain';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { assertSiteAccess, siteAccess } from '../auth/site-access.js';
@@ -25,6 +25,11 @@ export async function mySiteIds(ctx: RequestContext): Promise<string[]> {
 
 export async function assertSitesInScope(ctx: RequestContext, siteId: string) {
   await assertSiteAccess(ctx.tx, staff(ctx), siteId);
+}
+
+/** A submitted questionnaire no longer needs the employee's draft, whoever submitted it. */
+export async function clearDraft(ctx: RequestContext, taskKind: typeof portalDrafts.$inferSelect.taskKind, taskId: string) {
+  await ctx.tx.delete(portalDrafts).where(and(eq(portalDrafts.taskKind, taskKind), eq(portalDrafts.taskId, taskId)));
 }
 
 /** Record an abnormal event for case management; the same source raises it only once. */

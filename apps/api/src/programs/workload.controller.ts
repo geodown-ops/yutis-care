@@ -9,6 +9,7 @@ import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, 
 import { employees, interviews, users, workloadAssessments } from '@yutis/db';
 import {
   CBI_PERSONAL_ITEMS, CBI_WORK_ITEMS, cbiScores, cvdScore, evaluateWorkload, loadEval, RISK_LABEL, WORK_PATTERNS, WORKLOAD_RULE_VERSION,
+  type WorkloadResult,
 } from '@yutis/domain';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -16,9 +17,24 @@ import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type Principal, type RequestContext } from '../core/context.js';
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { openApiSchema, parse } from '../core/validation.js';
-import { employeeInScope, latestExamFor, mySiteIds, raiseEvent, todayTw } from './common.js';
+import { clearDraft, employeeInScope, latestExamFor, mySiteIds, raiseEvent, todayTw } from './common.js';
 import { Clinical } from './ergo.controller.js';
 import { noticesBySubject, NoticeStatusDto } from './notices.js';
+
+export const RISK_MISSING = ['cbi', 'overload', 'exam'] as const;
+export const RISK_MISSING_DESCRIPTION =
+  '還不能判定風險的原因：cbi 過勞量表未填、overload 工時與工作型態未填、exam 評估時沒有健檢可算十年心血管風險。已判定時為空陣列。';
+
+/** Why an assessment has no risk level yet. */
+export function riskMissing(a: typeof workloadAssessments.$inferSelect): (typeof RISK_MISSING)[number][] {
+  if (a.riskLevel !== null) return [];
+  const evaluation = a.evaluation as WorkloadResult | null;
+  return [
+    ...(a.fatigueAt ? [] : ['cbi' as const]),
+    ...(a.overloadAt ? [] : ['overload' as const]),
+    ...(evaluation && !evaluation.cvd ? ['exam' as const] : []),
+  ];
+}
 
 const answer = z.number().int().min(0).max(4);
 export const CbiAnswers = z.object({ p: z.array(answer).length(CBI_PERSONAL_ITEMS), w: z.array(answer).length(CBI_WORK_ITEMS) }).strict();
@@ -69,6 +85,7 @@ class AssessmentDto {
   @ApiProperty({ type: [String] }) workPatterns!: string[];
   @ApiProperty({ type: 'object', nullable: true, additionalProperties: true, description: '十年心血管風險、負荷等級與矩陣結果（評估當下的快照）' }) evaluation!: unknown;
   @ApiProperty({ type: Number, nullable: true, description: '0 低度、1 中度、2 高度風險；資料不全時為 null' }) riskLevel!: number | null;
+  @ApiProperty({ enum: RISK_MISSING, isArray: true, description: RISK_MISSING_DESCRIPTION }) missing!: (typeof RISK_MISSING)[number][];
   @ApiProperty({ type: InterviewDto, nullable: true }) interview!: InterviewDto | null;
 }
 
@@ -79,6 +96,7 @@ export async function submitFatigue(ctx: RequestContext, crypto: TenantCrypto, a
     cbiAnswers: scores.answers, personalBurnout: String(scores.pf), workBurnout: String(scores.wf), fatigueAt: new Date(),
     fatigueBy: by.kind === 'employee' ? 'self' : 'nurse', updatedAt: new Date(),
   }).where(eq(workloadAssessments.id, assessmentId));
+  await clearDraft(ctx, 'cbi', assessmentId);
   return evaluate(ctx, crypto, assessmentId, by);
 }
 
@@ -86,6 +104,7 @@ export async function submitOverload(ctx: RequestContext, crypto: TenantCrypto, 
   await ctx.tx.update(workloadAssessments).set({
     overtime1m: String(input.overtime1m), overtime6mAvg: String(input.overtime6mAvg), workPatterns: input.workPatterns, overloadAt: new Date(), updatedAt: new Date(),
   }).where(eq(workloadAssessments.id, assessmentId));
+  await clearDraft(ctx, 'overload', assessmentId);
   return evaluate(ctx, crypto, assessmentId, by);
 }
 
@@ -210,6 +229,7 @@ export class WorkloadController {
       return {
         id: a.id, employeeId: a.employeeId, empNo, name, sentOn: a.sentOn, personalBurnout: num(a.personalBurnout), workBurnout: num(a.workBurnout),
         overtime1m: num(a.overtime1m), overtime6mAvg: num(a.overtime6mAvg), workPatterns: a.workPatterns, evaluation: a.evaluation, riskLevel: a.riskLevel,
+        missing: riskMissing(a),
         interview: iv ? {
           id: iv.id, status: iv.status, interviewedOn: iv.interviewedOn, doctorUserId: iv.doctorUserId, workAdvice: iv.workAdvice as WorkAdviceInput | null,
           notes: await decryptOptional(this.crypto, ctx.tenant.id, iv.notesEnc), nextOn: iv.nextOn, notices: notices.get(iv.id) ?? [],

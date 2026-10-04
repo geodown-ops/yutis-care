@@ -17,16 +17,18 @@ export const PERMISSIONS = [
   'templates:write',
   /** Platform accounts and their roles. */
   'platform-users:manage',
+  /** The platform audit log: who did what in the platform admin. */
+  'audit:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<PlatformRole, readonly Permission[]> = {
   /** Operations: customers, plans, announcements and templates. */
-  營運: ['tenants:read', 'tenants:write', 'subscriptions:write', 'announcements:write', 'templates:write'],
+  營運: ['tenants:read', 'tenants:write', 'subscriptions:write', 'announcements:write', 'templates:write', 'audit:read'],
   /** Support: reads customer status, posts announcements. Entering a tenant needs that tenant admin's grant. */
-  客服: ['tenants:read', 'announcements:write'],
+  客服: ['tenants:read', 'announcements:write', 'audit:read'],
   /** Engineering: reads customer status, templates and platform accounts. */
-  工程: ['tenants:read', 'templates:write', 'platform-users:manage'],
+  工程: ['tenants:read', 'templates:write', 'platform-users:manage', 'audit:read'],
 };
 
 export const can = (role: PlatformRole, permission: Permission) => ROLE_PERMISSIONS[role].includes(permission);
