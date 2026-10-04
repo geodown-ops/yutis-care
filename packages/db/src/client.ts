@@ -22,13 +22,17 @@ export function withTenant<T>(db: Db, tenantId: string, fn: (tx: Tx) => Promise<
   });
 }
 
-export type TenantSummary = { id: string; slug: string; name: string; status: 'active' | 'suspended' | 'closed' };
+export type TenantSummary = {
+  id: string; slug: string; name: string; status: 'active' | 'suspended' | 'closed';
+  /** The tenant's Identity Platform tenant (its sign-in settings); null until onboarding created one. */
+  idpTenantId: string | null;
+};
 
 /**
  * Find a tenant by its subdomain before any tenant scope is set (RLS hides `tenants` until then). Goes through the
  * `tenant_by_slug` database function, which returns one exact match and cannot list tenants.
  */
 export async function tenantBySlug(db: Db, slug: string): Promise<TenantSummary | undefined> {
-  const { rows } = await db.execute<TenantSummary>(sql`select id, slug, name, status from tenant_by_slug(${slug})`);
+  const { rows } = await db.execute<TenantSummary>(sql`select id, slug, name, status, idp_tenant_id as "idpTenantId" from tenant_by_slug(${slug})`);
   return rows[0];
 }

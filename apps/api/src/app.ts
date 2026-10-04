@@ -21,7 +21,7 @@ export class AppModule {
   static forRoot(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CoreModule.forRoot(config), AuthModule.register({ devSignIn: config.devSignIn }), AdminModule, CareModule, EmployeesModule, ProgramsModule, ReportsModule],
+      imports: [CoreModule.forRoot(config), AuthModule.register(config), AdminModule, CareModule, EmployeesModule, ProgramsModule, ReportsModule],
       controllers: [TenantController],
     };
   }

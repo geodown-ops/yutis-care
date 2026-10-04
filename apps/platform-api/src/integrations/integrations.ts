@@ -5,6 +5,8 @@
  */
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { PlatformConfig } from '../config.js';
+import { CloudKmsTenantKeys, GoogleApi, IdentityPlatformInvitations, IdentityPlatformTenants, MetadataTokenSource } from './gcp.js';
 
 /** One Cloud KMS key per tenant; it wraps the tenant's data keys, so destroying it makes the tenant's `_enc` data unreadable. */
 export interface TenantKeyService {
@@ -24,6 +26,8 @@ export interface Invitation {
   tenantName: string;
   /** e.g. https://acme.care.yutis.com.tw */
   tenantUrl: string;
+  /** The tenant's Identity Platform tenant, which the sign-in link belongs to. */
+  idpTenantId: string;
 }
 
 /** Invitation email to a tenant's first admin. Contains no health data, only the sign-in link. */
@@ -103,8 +107,18 @@ export class FakeInvitations implements InvitationMailer {
   async sendTenantAdminInvitation(i: Invitation) { fakeLog.log(`Invitation for ${i.tenantName} sent to the new tenant admin: ${i.tenantUrl}`); }
 }
 
-export function defaultIntegrations(fake: boolean): Integrations {
-  return fake
-    ? { keys: new FakeTenantKeys(), identityTenants: new FakeIdentityTenants(), invitations: new FakeInvitations(), billing: new NoopBillingProvider() }
-    : { keys: new UnconfiguredTenantKeys(), identityTenants: new UnconfiguredIdentityTenants(), invitations: new UnconfiguredInvitations(), billing: new NoopBillingProvider() };
+export function defaultIntegrations(config: Pick<PlatformConfig, 'fakeIntegrations' | 'gcp' | 'tenantBaseDomain'>): Integrations {
+  if (config.fakeIntegrations) {
+    return { keys: new FakeTenantKeys(), identityTenants: new FakeIdentityTenants(), invitations: new FakeInvitations(), billing: new NoopBillingProvider() };
+  }
+  if (config.gcp) {
+    const api = new GoogleApi(new MetadataTokenSource());
+    return {
+      keys: new CloudKmsTenantKeys(api, config.gcp.kmsKeyRing),
+      identityTenants: new IdentityPlatformTenants(api, config.gcp.projectId, config.tenantBaseDomain),
+      invitations: new IdentityPlatformInvitations(api, config.gcp.projectId),
+      billing: new NoopBillingProvider(),
+    };
+  }
+  return { keys: new UnconfiguredTenantKeys(), identityTenants: new UnconfiguredIdentityTenants(), invitations: new UnconfiguredInvitations(), billing: new NoopBillingProvider() };
 }

@@ -19,6 +19,9 @@ import {
   type BillingProvider, type IdentityTenantService, type InvitationMailer, type TenantKeyService,
 } from '../integrations/integrations.js';
 
+/** demo.care.yutis.com.tw points at the separate marketing demo deployment, so no real tenant may take it. */
+const DEMO_SITE_SUBDOMAIN = 'demo';
+
 const isoDate = z.iso.date();
 
 export const OnboardTenant = z.object({
@@ -50,8 +53,8 @@ export class OnboardingService {
 
   async onboard(ctx: RequestContext, input: OnboardTenantInput): Promise<string> {
     const slug = input.subdomain;
-    if (!isValidTenantSlug(slug)) {
-      throw new BadRequestException({ code: 'invalid_subdomain', message: 'Subdomain must be one lower-case DNS label and not admin, api or www' });
+    if (!isValidTenantSlug(slug) || slug === DEMO_SITE_SUBDOMAIN) {
+      throw new BadRequestException({ code: 'invalid_subdomain', message: 'Subdomain must be one lower-case DNS label and not admin, api, www or demo' });
     }
     const [taken] = await ctx.tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.slug, slug));
     if (taken) throw new ConflictException({ code: 'subdomain_taken', message: `Subdomain ${slug} is already in use` });
@@ -94,7 +97,9 @@ export class OnboardingService {
       detail: { subdomain: slug, name: input.name, plan: plan.code, subscriptionStatus: input.subscriptionStatus, seatLimit: input.seatLimit },
     });
     // Last, so a failure here still undoes everything above.
-    await this.invitations.sendTenantAdminInvitation({ email: input.admin.email, name: input.admin.name, tenantName: input.name, tenantUrl: this.tenantUrl(slug) });
+    await this.invitations.sendTenantAdminInvitation({
+      email: input.admin.email, name: input.admin.name, tenantName: input.name, tenantUrl: this.tenantUrl(slug), idpTenantId,
+    });
     return tenantId;
   }
 }

@@ -1,0 +1,74 @@
+name: Deploy
+
+# main → demo site automatically. Production only by hand (Actions → Deploy → Run workflow → production), and the
+# "production" GitHub environment should require a reviewer. Each GitHub environment holds the variables Terraform
+# prints as github_variables. Nothing runs until the repository variable DEPLOY_ENABLED is "true".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [demo, production]
+        default: demo
+
+concurrency:
+  group: deploy-${{ inputs.environment || 'demo' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'demo' }}
+      url: ${{ vars.SITE_URL }}
+    env:
+      REGION: ${{ vars.GCP_REGION }}
+      SERVER_IMAGE: ${{ vars.IMAGE_REGISTRY }}/server:${{ github.sha }}
+      WEB_IMAGE: ${{ vars.IMAGE_REGISTRY }}/web:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY }}
+          service_account: ${{ vars.GCP_DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Build and push images
+        run: |
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -f deploy/server.Dockerfile -t "$SERVER_IMAGE" .
+          docker build -f deploy/web.Dockerfile --build-arg VITE_API=${{ vars.WEB_API_MODE }} -t "$WEB_IMAGE" .
+          docker push "$SERVER_IMAGE"
+          docker push "$WEB_IMAGE"
+
+      - name: Release (migrations, database roles, job queues)
+        run: |
+          gcloud run jobs update release --region "$REGION" --image "$SERVER_IMAGE" --quiet
+          gcloud run jobs execute release --region "$REGION" --wait
+
+      - name: Roll out
+        run: |
+          gcloud run services update api --region "$REGION" --image "$SERVER_IMAGE" --quiet
+          gcloud run services update worker --region "$REGION" --image "$SERVER_IMAGE" --quiet
+          if [ "${{ vars.DEPLOY_PLATFORM_API }}" = "true" ]; then
+            gcloud run services update platform-api --region "$REGION" --image "$SERVER_IMAGE" --quiet
+          fi
+          gcloud run services update web --region "$REGION" --image "$WEB_IMAGE" --quiet
+
+      - name: Smoke test
+        if: vars.SITE_URL != ''
+        run: |
+          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors "${{ vars.SITE_URL }}/healthz" -o /dev/null
+          echo "${{ vars.SITE_URL }} is up"

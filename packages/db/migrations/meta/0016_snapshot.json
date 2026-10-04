@@ -1,5 +1,5 @@
 {
-  "id": "890dc0d3-9cc2-456a-ad93-334d119d1640",
+  "id": "cf7da4eb-972b-483a-a2a2-3d7a4c41ce1e",
   "prevId": "131a51af-ef11-46d5-aedc-b61763a76ef7",
   "version": "7",
   "dialect": "postgresql",
@@ -858,12 +858,6 @@
         },
         "national_id_hash": {
           "name": "national_id_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "national_id_masked": {
-          "name": "national_id_masked",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -6952,6 +6946,72 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tenant_keys": {
+      "name": "tenant_keys",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wrapped_key": {
+          "name": "wrapped_key",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kms_key_version": {
+          "name": "kms_key_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tenant_keys_tenant_id_tenants_id_fk": {
+          "name": "tenant_keys_tenant_id_tenants_id_fk",
+          "tableFrom": "tenant_keys",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "tenant_keys_tenant_id_purpose_pk": {
+          "name": "tenant_keys_tenant_id_purpose_pk",
+          "columns": [
+            "tenant_id",
+            "purpose"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
