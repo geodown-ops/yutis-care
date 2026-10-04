@@ -3,13 +3,16 @@ import { Box, Card, Chip, Grid, Group, Progress, SimpleGrid, Skeleton, Stack, Ta
 import { IconArrowUpRight } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import type { Schemas } from '@yutis/api-client';
-import { EVENT_TYPES, parseDate, toIsoDate, type EventType, type Grade } from '@yutis/domain';
+import { EVENT_TYPES, parseDate, type EventType, type Grade } from '@yutis/domain';
 import { CaseStatusBadge, GradeBadge, StatCard } from '@yutis/ui';
 import { useState } from 'react';
-import { byUrgency, countByStatus, dueFollowUps, EVENT_SERIES, eventTypes, filterByEvents, latestEventOn, monthlyEvents, todayIso } from '../cases';
+import { addDays, byUrgency, countByStatus, dueFollowUps, EVENT_SERIES, eventTypes, filterByEvents, latestEventOn, monthlyEvents, todayIso } from '../cases';
 import { AnchorLink, ButtonLink } from '../links';
 import { casesQuery, ergoDispatchesQuery, followUpsQuery, reportQuery } from '../queries';
 import { useMe } from '../session';
+import { nurseAccess } from './nurse/access';
+import { FollowUpMenu } from './nurse/FollowUpActions';
+import { RecordFormModal, type RecordFormTarget } from './nurse/RecordForm';
 import { CardNote } from './states';
 
 const FILTERS: EventType[] = ['hc', 'wl', 'er', 'mat'];
@@ -24,6 +27,8 @@ export function HomePage() {
   const me = useMe();
   const today = todayIso();
   const [filter, setFilter] = useState<EventType | 'all'>('all');
+  const [writing, setWriting] = useState<RecordFormTarget | null>(null);
+  const canWrite = nurseAccess(me).records;
   const cases = useQuery(casesQuery);
   const followUps = useQuery(followUpsQuery);
   const dispatches = useQuery(ergoDispatchesQuery);
@@ -111,10 +116,13 @@ export function HomePage() {
                       <Box style={{ position: 'absolute', left: 4, top: i === 0 ? 18 : 0, bottom: i === list.length - 1 ? 'calc(100% - 18px)' : 0, width: 2, background: 'var(--yutis-line-strong)' }} />
                       <Box style={{ position: 'absolute', left: 1, top: 14, width: 8, height: 8, borderRadius: '50%', background: f.daysLeft < 0 ? 'var(--yutis-bad)' : 'var(--yutis-brand)' }} />
                     </Box>
-                    <Box p="sm" mb={8} style={{ flex: 1, minWidth: 0, background: 'var(--yutis-surface2)', borderRadius: 'var(--mantine-radius-md)' }}>
-                      <AnchorLink to="/employees/$employeeId" params={{ employeeId: f.employeeId }} size="sm" fw={600} c="var(--mantine-color-text)">{f.employeeName} · {f.category}</AnchorLink>
-                      <Text size="xs" c={f.daysLeft < 0 ? 'var(--yutis-bad)' : 'dimmed'}>{f.daysLeft < 0 ? `已逾期 ${-f.daysLeft} 天` : f.daysLeft === 0 ? '今天' : `${f.daysLeft} 天後`} · {f.empNo}</Text>
-                    </Box>
+                    <Group p="sm" mb={8} gap={4} wrap="nowrap" align="flex-start" style={{ flex: 1, minWidth: 0, background: 'var(--yutis-surface2)', borderRadius: 'var(--mantine-radius-md)' }}>
+                      <Box style={{ flex: 1, minWidth: 0 }}>
+                        <AnchorLink to="/employees/$employeeId" params={{ employeeId: f.employeeId }} size="sm" fw={600} c="var(--mantine-color-text)">{f.employeeName} · {f.category}</AnchorLink>
+                        <Text size="xs" c={f.daysLeft < 0 ? 'var(--yutis-bad)' : 'dimmed'}>{f.daysLeft < 0 ? `已逾期 ${-f.daysLeft} 天` : f.daysLeft === 0 ? '今天' : `${f.daysLeft} 天後`} · {f.empNo}</Text>
+                      </Box>
+                      {canWrite && <FollowUpMenu f={f} onWrite={() => setWriting({ employeeId: f.employeeId, employeeName: f.employeeName, completes: f.recordId })} />}
+                    </Group>
                   </Group>
                 ))}
               </Stack>
@@ -143,6 +151,7 @@ export function HomePage() {
           </Card>
         </Grid.Col>
       </Grid>
+      <RecordFormModal target={writing} onClose={() => setWriting(null)} />
     </Stack>
   );
 }
@@ -166,10 +175,4 @@ function GradeDistribution({ report }: { report: Schemas['ReportDto'] }) {
       </Stack>
     </>
   );
-}
-
-function addDays(d: string, n: number) {
-  const x = parseDate(d);
-  x.setDate(x.getDate() + n);
-  return toIsoDate(x);
 }
