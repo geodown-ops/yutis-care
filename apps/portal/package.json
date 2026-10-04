@@ -2,7 +2,7 @@
   "name": "@yutis/portal",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 員工端（{租戶}.care.yutis.com.tw/me）：手機優先，填問卷、確認紀錄、看自己的健康資料。",
+  "description": "Yutis Care 員工端（{租戶}.care.yutis.net/me）：手機優先，填問卷、確認紀錄、看自己的健康資料。",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +21,7 @@
     "@tanstack/react-router": "^1.170.41",
     "@yutis/api-client": "workspace:*",
     "@yutis/domain": "workspace:*",
+    "@yutis/sign-in": "workspace:*",
     "@yutis/ui": "workspace:*",
     "i18next": "^26.4.2",
     "react": "^19.3.0",

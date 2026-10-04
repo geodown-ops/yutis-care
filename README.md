@@ -37,14 +37,6 @@ pnpm build
 
 改了 `packages/db/src/schema` 之後，執行 `pnpm --filter @yutis/db db:generate` 產生新的 migration 並一起提交；CI 會檢查兩者一致。
 
-前端在 API 完成前使用示範資料，可直接預覽（畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)）：
-
-```bash
-pnpm dev:web        # 租戶後台 http://localhost:5180，右上角可切換示範角色
-pnpm dev:portal     # 員工端 http://localhost:5181/me/
-pnpm dev:platform   # 平台後台 http://localhost:5182
-```
-
 ### 租戶 API
 
 本機以子網域 `{租戶}.localhost` 區分租戶，登入暫時用開發模式（以 Email 或手機號碼當作登入 token，不需密碼；正式環境會拒絕啟動）。
@@ -75,7 +67,7 @@ pnpm --filter @yutis/api worker                 # 另一個終端機：背景工
 - 統計報表（`/api/reports`，16 種，與雛形相同）：職護、職醫看負責廠區的完整數字；職安衛人員與人資只看去識別統計，少於 5 人的格子（以及可由總數推算出的格子）不顯示。匯出（`/api/exports`）由背景工作產生 Excel／PDF，附匯出人與時間浮水印，以 5 分鐘、一次性的連結下載，申請與下載都記入稽核。
 - 保存期限：健檢匯入時依一般 7 年、特殊 10 年設定 `retain_until`（待法務確認）；背景工作每晚列出已過期的資料（`/api/retention`）供人工確認刪除，系統不會自動刪除。
 - 租戶管理（`/api/admin/*`，只有租戶管理員）：組織架構、後台人員帳號、員工匯入、片語庫、稽核查詢（`/api/admin/audit`，依員工、操作者、動作、資料等級與日期查，每次查詢也記入稽核；選員工用 `/api/admin/employees?q=`，重開查詢連結時用 `?ids=` 帶回員工，只回 id、工號、姓名與在職狀態）。Excel 匯入以 .xlsx 檔案本身當 request body（`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`），預設只預覽並列出錯誤列，加 `?commit=true` 才寫入；有任何錯誤列就整份不寫入。欄位格式見 API 文件。
-- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json` 並一起提交；CI 會檢查兩者一致，前端的 API client 由它產生。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/api openapi` 更新 `apps/api/openapi.json`，再執行 `pnpm --filter @yutis/api-client generate` 更新前端型別，全部一起提交；CI 會檢查三者一致。
 
 ### 平台 API
 
@@ -92,7 +84,24 @@ pnpm --filter @yutis/platform-api dev                      # http://localhost:30
 - 訂閱：續約或換方案用 `POST /platform-api/tenants/{id}/subscriptions` 新增一期，舊的留在歷史；開始日到了才成為目前的訂閱，所以可以提早續約。`PUT …/subscription` 只用來更正目前這一期。
 - 開通租戶時，Cloud KMS 金鑰、Identity Platform 租戶與邀請信都透過介面呼叫，目前只有本機假實作（`PLATFORM_FAKE_INTEGRATIONS=true`）；任一步失敗會清掉已建立的部分。
 - 預設範本（分級規則 V1、片語庫、簽核角色、問卷版本）在 `apps/platform-api/src/templates/defaults.ts`，以 `POST /platform-api/templates/sync` 發布到資料庫。
-- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`。
+- 改了路由或 DTO 後執行 `pnpm build && pnpm --filter @yutis/platform-api openapi` 更新 `apps/platform-api/openapi.json`，再執行 `pnpm --filter @yutis/api-client generate`。
+
+### 前端
+
+三個前端都直接呼叫上面兩個 API，沒有內建的示範資料，所以先照上面的步驟啟動 API（`db:seed-demo` 會讓畫面有內容）。畫面設計見 [UX 規格](https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34)。
+
+```bash
+pnpm dev:web        # 租戶後台 http://demo.localhost:5180
+pnpm dev:portal     # 員工端 http://demo.localhost:5181/me/
+pnpm dev:platform   # 平台後台 http://localhost:5182
+```
+
+- 一定要用 `demo.localhost` 開租戶後台與員工端：Vite 把 `/api` 轉給 API 時保留 Host，API 由此找到租戶。API 不在 3000／3001 時不用另外設定：Vite 會讀 `apps/api/.env`、`apps/platform-api/.env` 的 `PORT`。
+- 登入頁依 `GET /api/tenant` 的登入方式顯示。本機與示範站是 `dev`：demo 租戶的登入頁有示範帳號（職護、職醫、職安衛、人資、主管、租戶管理員；員工端有示範員工），一鍵登入，取代以前的角色切換。正式站是 Identity Platform：SSO、Email 登入連結或密碼，取得 ID token 後換成 session cookie（`packages/sign-in`）。
+- 選單依 `GET /api/me` 的 `features` 與 `dataCategories` 顯示，只是方便；權限一律由 API 檢查。
+- 平台後台先讀 `GET /platform-api/sign-in-config`：`google`（Railway）顯示 Google 登入頁，之後每個請求帶 ID token；`iap`（Google Cloud）由 IAP 把關，沒有登入頁；`dev`（本機）由 Vite 代理加上 `X-Dev-Platform-User: ops@yutis.test`（`PLATFORM_DEV_USER=eng@yutis.test pnpm dev:platform` 換成其他角色）。
+- Email 一次性連結不用登入：附表八簽核是租戶後台的 `/sign/{token}`，員工確認紀錄是員工端的 `/me/sign/{token}`。本機 API 產生的連結沒有埠號，手動補上 `:5180` 或 `:5181`。
+- API 型別在 `packages/api-client/src/generated`，由兩份 `openapi.json` 產生，不要手改。
 
 ## 部署
 

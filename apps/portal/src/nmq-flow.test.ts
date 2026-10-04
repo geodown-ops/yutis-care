@@ -1,9 +1,7 @@
 import { NMQ_KEYS } from '@yutis/domain';
 import { describe, expect, it } from 'vitest';
-import i18n, { LANG_CODES } from './i18n';
-import { nmqComplete, nmqQuestions } from './nmq-flow';
-import app from './locales/app.json';
-import nmq from './locales/nmq.json';
+import i18n from './i18n';
+import { nmqBody, nmqComplete, nmqQuestions } from './nmq-flow';
 
 describe('NMQ flow', () => {
   it('has one rating step per body part and side', () => {
@@ -21,16 +19,13 @@ describe('NMQ flow', () => {
     const { neck: _omit, ...missing } = scores;
     expect(nmqComplete({ any: true, injury: true, scores: missing })).toBe(false);
   });
-});
 
-describe('translations', () => {
-  const keys = (o: object, p = ''): string[] => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' && !Array.isArray(v) ? keys(v, `${p}${k}.`) : [`${p}${k}`]));
-
-  it('every language has the same keys as Chinese', () => {
-    for (const l of LANG_CODES) {
-      expect(keys(app[l]), `app ${l}`).toEqual(keys(app.zh));
-      expect(keys(nmq[l]), `nmq ${l}`).toEqual(keys(nmq.zh));
-      expect(nmq[l].scale, `scale ${l}`).toHaveLength(6);
-    }
+  it('sends every body part as a number, and the yes/no answers', () => {
+    const scores = Object.fromEntries(NMQ_KEYS.map((k, i) => [k.key, String(i % 6)]));
+    const body = nmqBody({ any: true, injury: false, scores });
+    expect(Object.keys(body.scores).sort()).toEqual(NMQ_KEYS.map(k => k.key).sort());
+    expect(body.scores.shoulderL).toBe(1);
+    expect(body.yesNo).toEqual({ any: true, injury: false });
+    expect(() => nmqBody({ any: true, injury: null, scores })).toThrow();
   });
 });

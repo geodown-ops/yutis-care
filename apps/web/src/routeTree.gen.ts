@@ -9,128 +9,540 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as CasesRouteImport } from './routes/cases'
-import { Route as EmployeesIndexRouteImport } from './routes/employees.index'
-import { Route as EmployeesEmployeeIdRouteImport } from './routes/employees.$employeeId'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSplatRouteImport } from './routes/_app/$'
+import { Route as AppCasesRouteImport } from './routes/_app/cases'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
+import { Route as AppServiceRecordsRouteImport } from './routes/_app/service-records'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
+import { Route as AppAdminAccountsRouteImport } from './routes/_app/admin.accounts'
+import { Route as AppAdminAuditRouteImport } from './routes/_app/admin.audit'
+import { Route as AppAdminCompanyRouteImport } from './routes/_app/admin.company'
+import { Route as AppAdminEmployeeImportRouteImport } from './routes/_app/admin.employee-import'
+import { Route as AppAdminExamMappingRouteImport } from './routes/_app/admin.exam-mapping'
+import { Route as AppAdminLoginRouteImport } from './routes/_app/admin.login'
+import { Route as AppAdminOrgRouteImport } from './routes/_app/admin.org'
+import { Route as AppAdminRulesRouteImport } from './routes/_app/admin.rules'
+import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
+import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
+import { Route as AppExamsImportRouteImport } from './routes/_app/exams.import'
+import { Route as AppProgramsErgoRouteImport } from './routes/_app/programs.ergo'
+import { Route as AppProgramsMaternalRouteImport } from './routes/_app/programs.maternal'
+import { Route as AppProgramsNoticesRouteImport } from './routes/_app/programs.notices'
+import { Route as AppProgramsViolenceRouteImport } from './routes/_app/programs.violence'
+import { Route as AppProgramsWorkloadRouteImport } from './routes/_app/programs.workload'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const SplatRoute = SplatRouteImport.update({
+const AppSplatRoute = AppSplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const CasesRoute = CasesRouteImport.update({
+const AppCasesRoute = AppCasesRouteImport.update({
   id: '/cases',
   path: '/cases',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppServiceRecordsRoute = AppServiceRecordsRouteImport.update({
+  id: '/service-records',
+  path: '/service-records',
+  getParentRoute: () => AppRoute,
+} as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EmployeesIndexRoute = EmployeesIndexRouteImport.update({
+const AppAdminAccountsRoute = AppAdminAccountsRouteImport.update({
+  id: '/admin/accounts',
+  path: '/admin/accounts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminAuditRoute = AppAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminCompanyRoute = AppAdminCompanyRouteImport.update({
+  id: '/admin/company',
+  path: '/admin/company',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminEmployeeImportRoute = AppAdminEmployeeImportRouteImport.update({
+  id: '/admin/employee-import',
+  path: '/admin/employee-import',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminExamMappingRoute = AppAdminExamMappingRouteImport.update({
+  id: '/admin/exam-mapping',
+  path: '/admin/exam-mapping',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminLoginRoute = AppAdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminOrgRoute = AppAdminOrgRouteImport.update({
+  id: '/admin/org',
+  path: '/admin/org',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminRulesRoute = AppAdminRulesRouteImport.update({
+  id: '/admin/rules',
+  path: '/admin/rules',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmployeesIndexRoute = AppEmployeesIndexRouteImport.update({
   id: '/employees/',
   path: '/employees/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const EmployeesEmployeeIdRoute = EmployeesEmployeeIdRouteImport.update({
+const AppEmployeesEmployeeIdRoute = AppEmployeesEmployeeIdRouteImport.update({
   id: '/employees/$employeeId',
   path: '/employees/$employeeId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExamsImportRoute = AppExamsImportRouteImport.update({
+  id: '/exams/import',
+  path: '/exams/import',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsErgoRoute = AppProgramsErgoRouteImport.update({
+  id: '/programs/ergo',
+  path: '/programs/ergo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsMaternalRoute = AppProgramsMaternalRouteImport.update({
+  id: '/programs/maternal',
+  path: '/programs/maternal',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsNoticesRoute = AppProgramsNoticesRouteImport.update({
+  id: '/programs/notices',
+  path: '/programs/notices',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsViolenceRoute = AppProgramsViolenceRouteImport.update({
+  id: '/programs/violence',
+  path: '/programs/violence',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsWorkloadRoute = AppProgramsWorkloadRouteImport.update({
+  id: '/programs/workload',
+  path: '/programs/workload',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees/': typeof EmployeesIndexRoute
+  '/': typeof AppIndexRoute
+  '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
+  '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
+  '/admin/accounts': typeof AppAdminAccountsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
+  '/admin/company': typeof AppAdminCompanyRoute
+  '/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/admin/exam-mapping': typeof AppAdminExamMappingRoute
+  '/admin/login': typeof AppAdminLoginRoute
+  '/admin/org': typeof AppAdminOrgRoute
+  '/admin/rules': typeof AppAdminRulesRoute
+  '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/exams/import': typeof AppExamsImportRoute
+  '/programs/ergo': typeof AppProgramsErgoRoute
+  '/programs/maternal': typeof AppProgramsMaternalRoute
+  '/programs/notices': typeof AppProgramsNoticesRoute
+  '/programs/violence': typeof AppProgramsViolenceRoute
+  '/programs/workload': typeof AppProgramsWorkloadRoute
+  '/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees': typeof EmployeesIndexRoute
+  '/login': typeof LoginRoute
+  '/$': typeof AppSplatRoute
+  '/cases': typeof AppCasesRoute
+  '/reports': typeof AppReportsRoute
+  '/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
+  '/': typeof AppIndexRoute
+  '/admin/accounts': typeof AppAdminAccountsRoute
+  '/admin/audit': typeof AppAdminAuditRoute
+  '/admin/company': typeof AppAdminCompanyRoute
+  '/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/admin/exam-mapping': typeof AppAdminExamMappingRoute
+  '/admin/login': typeof AppAdminLoginRoute
+  '/admin/org': typeof AppAdminOrgRoute
+  '/admin/rules': typeof AppAdminRulesRoute
+  '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/exams/import': typeof AppExamsImportRoute
+  '/programs/ergo': typeof AppProgramsErgoRoute
+  '/programs/maternal': typeof AppProgramsMaternalRoute
+  '/programs/notices': typeof AppProgramsNoticesRoute
+  '/programs/violence': typeof AppProgramsViolenceRoute
+  '/programs/workload': typeof AppProgramsWorkloadRoute
+  '/employees': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/cases': typeof CasesRoute
-  '/employees/$employeeId': typeof EmployeesEmployeeIdRoute
-  '/employees/': typeof EmployeesIndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_app/$': typeof AppSplatRoute
+  '/_app/cases': typeof AppCasesRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/service-records': typeof AppServiceRecordsRoute
+  '/sign/$token': typeof SignTokenRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/admin/accounts': typeof AppAdminAccountsRoute
+  '/_app/admin/audit': typeof AppAdminAuditRoute
+  '/_app/admin/company': typeof AppAdminCompanyRoute
+  '/_app/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/_app/admin/exam-mapping': typeof AppAdminExamMappingRoute
+  '/_app/admin/login': typeof AppAdminLoginRoute
+  '/_app/admin/org': typeof AppAdminOrgRoute
+  '/_app/admin/rules': typeof AppAdminRulesRoute
+  '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/_app/exams/import': typeof AppExamsImportRoute
+  '/_app/programs/ergo': typeof AppProgramsErgoRoute
+  '/_app/programs/maternal': typeof AppProgramsMaternalRoute
+  '/_app/programs/notices': typeof AppProgramsNoticesRoute
+  '/_app/programs/violence': typeof AppProgramsViolenceRoute
+  '/_app/programs/workload': typeof AppProgramsWorkloadRoute
+  '/_app/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/cases' | '/employees/$employeeId' | '/employees'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
+    | '/login'
     | '/$'
     | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
+    | '/admin/accounts'
+    | '/admin/audit'
+    | '/admin/company'
+    | '/admin/employee-import'
+    | '/admin/exam-mapping'
+    | '/admin/login'
+    | '/admin/org'
+    | '/admin/rules'
     | '/employees/$employeeId'
+    | '/exams/import'
+    | '/programs/ergo'
+    | '/programs/maternal'
+    | '/programs/notices'
+    | '/programs/violence'
+    | '/programs/workload'
     | '/employees/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/reports'
+    | '/service-records'
+    | '/sign/$token'
+    | '/'
+    | '/admin/accounts'
+    | '/admin/audit'
+    | '/admin/company'
+    | '/admin/employee-import'
+    | '/admin/exam-mapping'
+    | '/admin/login'
+    | '/admin/org'
+    | '/admin/rules'
+    | '/employees/$employeeId'
+    | '/exams/import'
+    | '/programs/ergo'
+    | '/programs/maternal'
+    | '/programs/notices'
+    | '/programs/violence'
+    | '/programs/workload'
+    | '/employees'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/$'
+    | '/_app/cases'
+    | '/_app/reports'
+    | '/_app/service-records'
+    | '/sign/$token'
+    | '/_app/'
+    | '/_app/admin/accounts'
+    | '/_app/admin/audit'
+    | '/_app/admin/company'
+    | '/_app/admin/employee-import'
+    | '/_app/admin/exam-mapping'
+    | '/_app/admin/login'
+    | '/_app/admin/org'
+    | '/_app/admin/rules'
+    | '/_app/employees/$employeeId'
+    | '/_app/exams/import'
+    | '/_app/programs/ergo'
+    | '/_app/programs/maternal'
+    | '/_app/programs/notices'
+    | '/_app/programs/violence'
+    | '/_app/programs/workload'
+    | '/_app/employees/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SplatRoute: typeof SplatRoute
-  CasesRoute: typeof CasesRoute
-  EmployeesEmployeeIdRoute: typeof EmployeesEmployeeIdRoute
-  EmployeesIndexRoute: typeof EmployeesIndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  SignTokenRoute: typeof SignTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/$': {
-      id: '/$'
+    '/_app/$': {
+      id: '/_app/$'
       path: '/$'
       fullPath: '/$'
-      preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppSplatRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/cases': {
-      id: '/cases'
+    '/_app/cases': {
+      id: '/_app/cases'
       path: '/cases'
       fullPath: '/cases'
-      preLoaderRoute: typeof CasesRouteImport
+      preLoaderRoute: typeof AppCasesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/service-records': {
+      id: '/_app/service-records'
+      path: '/service-records'
+      fullPath: '/service-records'
+      preLoaderRoute: typeof AppServiceRecordsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/employees/': {
-      id: '/employees/'
+    '/_app/admin/accounts': {
+      id: '/_app/admin/accounts'
+      path: '/admin/accounts'
+      fullPath: '/admin/accounts'
+      preLoaderRoute: typeof AppAdminAccountsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/audit': {
+      id: '/_app/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AppAdminAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/company': {
+      id: '/_app/admin/company'
+      path: '/admin/company'
+      fullPath: '/admin/company'
+      preLoaderRoute: typeof AppAdminCompanyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/employee-import': {
+      id: '/_app/admin/employee-import'
+      path: '/admin/employee-import'
+      fullPath: '/admin/employee-import'
+      preLoaderRoute: typeof AppAdminEmployeeImportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/exam-mapping': {
+      id: '/_app/admin/exam-mapping'
+      path: '/admin/exam-mapping'
+      fullPath: '/admin/exam-mapping'
+      preLoaderRoute: typeof AppAdminExamMappingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/login': {
+      id: '/_app/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AppAdminLoginRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/org': {
+      id: '/_app/admin/org'
+      path: '/admin/org'
+      fullPath: '/admin/org'
+      preLoaderRoute: typeof AppAdminOrgRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/rules': {
+      id: '/_app/admin/rules'
+      path: '/admin/rules'
+      fullPath: '/admin/rules'
+      preLoaderRoute: typeof AppAdminRulesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/employees/': {
+      id: '/_app/employees/'
       path: '/employees'
       fullPath: '/employees/'
-      preLoaderRoute: typeof EmployeesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppEmployeesIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/employees/$employeeId': {
-      id: '/employees/$employeeId'
+    '/_app/employees/$employeeId': {
+      id: '/_app/employees/$employeeId'
       path: '/employees/$employeeId'
       fullPath: '/employees/$employeeId'
-      preLoaderRoute: typeof EmployeesEmployeeIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppEmployeesEmployeeIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/exams/import': {
+      id: '/_app/exams/import'
+      path: '/exams/import'
+      fullPath: '/exams/import'
+      preLoaderRoute: typeof AppExamsImportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/ergo': {
+      id: '/_app/programs/ergo'
+      path: '/programs/ergo'
+      fullPath: '/programs/ergo'
+      preLoaderRoute: typeof AppProgramsErgoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/maternal': {
+      id: '/_app/programs/maternal'
+      path: '/programs/maternal'
+      fullPath: '/programs/maternal'
+      preLoaderRoute: typeof AppProgramsMaternalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/notices': {
+      id: '/_app/programs/notices'
+      path: '/programs/notices'
+      fullPath: '/programs/notices'
+      preLoaderRoute: typeof AppProgramsNoticesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/violence': {
+      id: '/_app/programs/violence'
+      path: '/programs/violence'
+      fullPath: '/programs/violence'
+      preLoaderRoute: typeof AppProgramsViolenceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/workload': {
+      id: '/_app/programs/workload'
+      path: '/programs/workload'
+      fullPath: '/programs/workload'
+      preLoaderRoute: typeof AppProgramsWorkloadRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppSplatRoute: typeof AppSplatRoute
+  AppCasesRoute: typeof AppCasesRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppServiceRecordsRoute: typeof AppServiceRecordsRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppAdminAccountsRoute: typeof AppAdminAccountsRoute
+  AppAdminAuditRoute: typeof AppAdminAuditRoute
+  AppAdminCompanyRoute: typeof AppAdminCompanyRoute
+  AppAdminEmployeeImportRoute: typeof AppAdminEmployeeImportRoute
+  AppAdminExamMappingRoute: typeof AppAdminExamMappingRoute
+  AppAdminLoginRoute: typeof AppAdminLoginRoute
+  AppAdminOrgRoute: typeof AppAdminOrgRoute
+  AppAdminRulesRoute: typeof AppAdminRulesRoute
+  AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
+  AppExamsImportRoute: typeof AppExamsImportRoute
+  AppProgramsErgoRoute: typeof AppProgramsErgoRoute
+  AppProgramsMaternalRoute: typeof AppProgramsMaternalRoute
+  AppProgramsNoticesRoute: typeof AppProgramsNoticesRoute
+  AppProgramsViolenceRoute: typeof AppProgramsViolenceRoute
+  AppProgramsWorkloadRoute: typeof AppProgramsWorkloadRoute
+  AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppSplatRoute: AppSplatRoute,
+  AppCasesRoute: AppCasesRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppServiceRecordsRoute: AppServiceRecordsRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppAdminAccountsRoute: AppAdminAccountsRoute,
+  AppAdminAuditRoute: AppAdminAuditRoute,
+  AppAdminCompanyRoute: AppAdminCompanyRoute,
+  AppAdminEmployeeImportRoute: AppAdminEmployeeImportRoute,
+  AppAdminExamMappingRoute: AppAdminExamMappingRoute,
+  AppAdminLoginRoute: AppAdminLoginRoute,
+  AppAdminOrgRoute: AppAdminOrgRoute,
+  AppAdminRulesRoute: AppAdminRulesRoute,
+  AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
+  AppExamsImportRoute: AppExamsImportRoute,
+  AppProgramsErgoRoute: AppProgramsErgoRoute,
+  AppProgramsMaternalRoute: AppProgramsMaternalRoute,
+  AppProgramsNoticesRoute: AppProgramsNoticesRoute,
+  AppProgramsViolenceRoute: AppProgramsViolenceRoute,
+  AppProgramsWorkloadRoute: AppProgramsWorkloadRoute,
+  AppEmployeesIndexRoute: AppEmployeesIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SplatRoute: SplatRoute,
-  CasesRoute: CasesRoute,
-  EmployeesEmployeeIdRoute: EmployeesEmployeeIdRoute,
-  EmployeesIndexRoute: EmployeesIndexRoute,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
+  SignTokenRoute: SignTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

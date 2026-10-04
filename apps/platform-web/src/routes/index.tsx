@@ -1,59 +1,97 @@
-import { Badge, Card, Group, Progress, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { Anchor, Card, Group, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { IconPlus, IconSearch } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { StatCard } from '@yutis/ui';
-import { STATUS_TONE, TENANTS } from '../demo';
+import { useState } from 'react';
+import { tenantsQuery, type Tenant } from '../api';
+import { Footnote, LabelBadge, LoadError, PageLoader, SeatBar } from '../components';
+import { formatCount, formatDate } from '../format';
+import { SUBSCRIPTION_STATUS, TENANT_STATUS } from '../labels';
 import { AnchorLink, ButtonLink } from '../links';
+import { useCan } from '../permissions';
+import { matchesTenant, tenantOverview } from '../tenants';
 
 export const Route = createFileRoute('/')({ component: TenantsPage });
 
 function TenantsPage() {
-  const active = TENANTS.filter(t => t.status === '啟用').length;
-  const trial = TENANTS.filter(t => t.status === '試用').length;
-  const seats = TENANTS.reduce((s, t) => s + t.employees, 0);
+  const { data: tenants, error, refetch } = useQuery(tenantsQuery);
+  const [query, setQuery] = useState('');
+  const shown = tenants?.filter(t => matchesTenant(t, query));
+  const canOnboard = useCan('tenants:write');
+
   return (
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>租戶列表</Title>
-        <ButtonLink to="/$" params={{ _splat: 'tenants/new' }} leftSection={<IconPlus size={16} />}>新增租戶</ButtonLink>
+        {canOnboard && <ButtonLink to="/tenants/new" leftSection={<IconPlus size={16} />}>新增租戶</ButtonLink>}
       </Group>
-      <Card>
-        <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
-          <StatCard tone="lavender" label="啟用中租戶" value={active} />
-          <StatCard tone="blue" label="試用中" value={trial} note="1 家 10/15 到期" />
-          <StatCard tone="mint" label="員工總數" value={seats.toLocaleString('zh-TW')} />
-          <StatCard tone="pink" label="待處理客服授權" value={1} />
-        </SimpleGrid>
-      </Card>
-      <Card>
-        <Table.ScrollContainer minWidth={760}>
-          <Table verticalSpacing="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr><Table.Th>租戶</Table.Th><Table.Th>子網域</Table.Th><Table.Th>狀態</Table.Th><Table.Th>方案</Table.Th><Table.Th>員工數／上限</Table.Th><Table.Th>登入</Table.Th><Table.Th>最後活動</Table.Th></Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {TENANTS.map(t => {
-                const tone = STATUS_TONE[t.status];
-                return (
-                  <Table.Tr key={t.id}>
-                    <Table.Td><AnchorLink to="/tenants/$tenantId" params={{ tenantId: t.id }} fw={600}>{t.name}</AnchorLink></Table.Td>
-                    <Table.Td ff="monospace" fz="sm">{t.subdomain}.care.yutis.com.tw</Table.Td>
-                    <Table.Td><Badge styles={{ root: { background: `var(--yutis-${tone}-weak)`, color: `var(--yutis-${tone})`, textTransform: 'none' } }}>{t.status}</Badge></Table.Td>
-                    <Table.Td>{t.plan}</Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{t.employees.toLocaleString('zh-TW')} / {t.seatLimit.toLocaleString('zh-TW')}</Text>
-                      <Progress value={(t.employees / t.seatLimit) * 100} size="xs" mt={4} w={120} aria-label="人數用量" />
-                    </Table.Td>
-                    <Table.Td>{t.sso}</Table.Td>
-                    <Table.Td>{t.lastActive}</Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      </Card>
-      <Text size="xs" c="dimmed">平台後台只看得到租戶狀態與用量計數，看不到任何員工資料。</Text>
+      {error ? <LoadError error={error} onRetry={() => void refetch()} /> : !tenants ? <PageLoader /> : (
+        <>
+          <Overview tenants={tenants} />
+          <Card>
+            <TextInput aria-label="搜尋租戶" placeholder="搜尋公司名稱或子網域" leftSection={<IconSearch size={16} />} maw={320} mb="sm"
+              value={query} onChange={e => setQuery(e.currentTarget.value)} />
+            <TenantTable tenants={shown ?? []} />
+            {tenants.length === 0
+              ? <Text c="dimmed" ta="center" py="lg">{canOnboard ? '還沒有任何租戶，按「新增租戶」開通第一家。' : '還沒有任何租戶。'}</Text>
+              : shown?.length === 0 && <Text c="dimmed" ta="center" py="lg">沒有符合「{query.trim()}」的租戶。</Text>}
+          </Card>
+        </>
+      )}
+      <Footnote>平台後台只看得到租戶狀態與用量計數，看不到任何員工資料。</Footnote>
     </Stack>
+  );
+}
+
+function Overview({ tenants }: { tenants: Tenant[] }) {
+  const o = tenantOverview(tenants);
+  return (
+    <Card>
+      <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
+        <StatCard tone="lavender" label="啟用中租戶" value={o.active} note={o.trial ? `其中 ${o.trial} 家試用中` : undefined} />
+        <StatCard tone="blue" label="已停用" value={o.suspended} note={o.closed ? `另有 ${o.closed} 家已關閉` : undefined} />
+        <StatCard tone="mint" label="在職員工總數" value={formatCount(o.activeEmployees)} note={`後台帳號 ${formatCount(o.staffAccounts)} 個`} />
+        <StatCard tone="pink" label="超過人數上限" value={o.overSeatLimit} note="只提醒，不阻擋" />
+      </SimpleGrid>
+    </Card>
+  );
+}
+
+function TenantTable({ tenants }: { tenants: Tenant[] }) {
+  if (tenants.length === 0) return null;
+  return (
+    <Table.ScrollContainer minWidth={900}>
+      <Table verticalSpacing="sm" highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>租戶</Table.Th><Table.Th>狀態</Table.Th><Table.Th>方案</Table.Th><Table.Th>員工數／上限</Table.Th>
+            <Table.Th>後台帳號</Table.Th><Table.Th>建立日期</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {tenants.map(t => (
+            <Table.Tr key={t.id}>
+              <Table.Td>
+                <AnchorLink to="/tenants/$tenantId" params={{ tenantId: t.id }} fw={600}>{t.name}</AnchorLink>
+                <Anchor href={t.url} target="_blank" rel="noreferrer" display="block" size="xs" c="dimmed" ff="monospace">{t.url.replace(/^https?:\/\//, '')}</Anchor>
+              </Table.Td>
+              <Table.Td><LabelBadge value={TENANT_STATUS[t.status]} /></Table.Td>
+              <Table.Td>
+                {t.subscription ? (
+                  <Group gap={8} wrap="nowrap">
+                    <Text size="sm">{t.subscription.planName}</Text>
+                    <LabelBadge value={SUBSCRIPTION_STATUS[t.subscription.status]} />
+                  </Group>
+                ) : <Text size="sm" c="dimmed">尚未設定訂閱</Text>}
+              </Table.Td>
+              <Table.Td><SeatBar activeEmployees={t.activeEmployees} seatLimit={t.subscription?.seatLimit ?? null} /></Table.Td>
+              <Table.Td>{formatCount(t.staffAccounts)}</Table.Td>
+              <Table.Td>{formatDate(t.createdAt)}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
   );
 }

@@ -2,7 +2,7 @@
   "name": "@yutis/platform-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 平台管理後台（admin.care.yutis.com.tw）：Yutis 內部營運與客服管理租戶，看不到任何員工健康資料。",
+  "description": "Yutis Care 平台管理後台（admin.care.yutis.net）：Yutis 內部營運與客服管理租戶，看不到任何員工健康資料。",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,6 +19,9 @@
     "@tabler/icons-react": "^3.48.0",
     "@tanstack/react-query": "^5.104.1",
     "@tanstack/react-router": "^1.170.41",
+    "@yutis/api-client": "workspace:*",
+    "@yutis/domain": "workspace:*",
+    "@yutis/sign-in": "workspace:*",
     "@yutis/ui": "workspace:*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

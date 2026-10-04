@@ -2,17 +2,23 @@
   "name": "@yutis/api-client",
   "version": "0.1.0",
   "private": true,
-  "description": "租戶 API 的前端呼叫函式與型別。目前只有 /api/tenant 與 /api/me 的暫定型別；API 骨架完成後改由 OpenAPI 自動產生。",
+  "description": "租戶 API 與平台 API 的前端呼叫函式與型別。型別由 apps/api/openapi.json 與 apps/platform-api/openapi.json 產生（pnpm --filter @yutis/api-client generate）。",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
+    "generate": "node scripts/generate.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }
