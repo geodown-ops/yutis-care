@@ -3,19 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { csvText } from './lists';
 import {
   adviceSummary, ASSESS_COLUMNS, batchLog, burnoutLabel, canSchedule, cbiDraftFrom, cbiResult, emptyCbi, filterAssessments, hasMeasures, interviewBody, interviewDraft,
-  interviewProblems, interviewRows, missingSteps, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, workloadCounts, workloadView,
+  interviewProblems, interviewRows, missingSteps, nextInterviewLabel, noRiskReason, openAssessmentEmployees, readEvaluation, remindable, workloadCounts, workloadView,
   type Assessment, type Interview, type InterviewAdvice,
 } from './workload';
 
 const advice = (p: Partial<InterviewAdvice>): InterviewAdvice => ({ fitness: '一般工作', restrictions: [], suggestion: '', adjustHours: '', changeWork: '', period: '', ...p });
 const iv = (p: Partial<Interview>): Interview => ({
-  id: 'iv', status: '已面談', interviewedOn: '2026-09-20', doctorUserId: null, doctorName: null, workAdvice: null, guidance: null, notes: null, nextOn: null,
-  acknowledgement: null, notices: [], ...p,
+  id: 'iv', status: '已面談', interviewedOn: '2026-09-20', doctorUserId: null, doctorName: null, workAdvice: null, guidance: null, notes: null,
+  nextInterview: null, nextOn: null, acknowledgement: null, notices: [], ...p,
 });
 /** Questionnaires count as missing until their answers are in, as the API reports them. */
 const a = (p: Partial<Assessment>): Assessment => {
   const row: Assessment = {
-    id: 'x', employeeId: 'e', empNo: 'E1', name: '王小明', site: '桃園廠', department: '製造一課', sentOn: '2026-09-06', cbiAnswers: null, personalBurnout: null,
+    id: 'x', employeeId: 'e', empNo: 'E1', name: '王小明', siteId: 'ty', site: '桃園廠', departmentId: 'ty-m1', department: '製造一課', sentOn: '2026-09-06',
+    cbiAnswers: null, personalBurnout: null,
     workBurnout: null, fatigueAt: null, fatigueBy: null, overloadAt: null, reminders: 0, lastRemindedAt: null, overtime1m: null, overtime6mAvg: null,
     workPatterns: [], evaluation: null, riskLevel: null, missing: [], interview: null, ...p,
   };
@@ -67,7 +68,7 @@ describe('lists', () => {
   const list = [
     a({ id: 'low', empNo: 'E1', name: '吳俊傑', personalBurnout: 30, overtime1m: 10, riskLevel: 0 }),
     a({ id: 'high', empNo: 'E2', name: '林志豪', personalBurnout: 70, overtime1m: 62, riskLevel: 2, interview: iv({ workAdvice: advice({ fitness: '工作限制', restrictions: ['縮短工時'] }) }) }),
-    a({ id: 'mid', empNo: 'E3', name: '蔡明宏', personalBurnout: 55, overtime1m: 50, riskLevel: 1, site: '新竹廠', department: '品保課' }),
+    a({ id: 'mid', empNo: 'E3', name: '蔡明宏', personalBurnout: 55, overtime1m: 50, riskLevel: 1, siteId: 'hc', site: '新竹廠', departmentId: 'hc-qa', department: '品保課' }),
     a({ id: 'new', empNo: 'E4', name: '林小美', employeeId: 'e4', sentOn: '2026-10-04' }),
   ];
 
@@ -94,15 +95,16 @@ describe('lists', () => {
     expect(filterAssessments(list, { risk: 'incomplete' }).map(x => x.id)).toEqual(['new']);
     expect(filterAssessments(list, { risk: '1' }).map(x => x.id)).toEqual(['mid']);
     expect(filterAssessments(list, { batch: '2026-09-06', q: '林' }).map(x => x.id)).toEqual(['high']);
-    expect(filterAssessments(list, { org: { site: '新竹廠', department: null } }).map(x => x.id)).toEqual(['mid']);
-    expect(filterAssessments(list, { org: { site: '桃園廠', department: '製造一課' } }).map(x => x.id)).toEqual(['new', 'high', 'low']);
+    expect(filterAssessments(list, { org: { siteId: 'hc', departmentId: null } }).map(x => x.id)).toEqual(['mid']);
+    expect(filterAssessments(list, { org: { siteId: 'ty', departmentId: 'ty-m1' } }).map(x => x.id)).toEqual(['new', 'high', 'low']);
+    expect(filterAssessments(list, { org: { siteId: null, departmentId: 'hc-qa' } }).map(x => x.id)).toEqual(['mid']);
   });
 
   it('lists interviews: open ones first, and only those at elevated risk or with a record', () => {
     expect(interviewRows(list, 'all').map(x => x.id)).toEqual(['mid', 'high']);
     expect(interviewRows(list, 'open').map(x => x.id)).toEqual(['mid']);
     expect(interviewRows(list, 'done').map(x => x.id)).toEqual(['high']);
-    expect(interviewRows(list, 'all', '', { site: '桃園廠', department: null }).map(x => x.id)).toEqual(['high']);
+    expect(interviewRows(list, 'all', '', { siteId: 'ty', departmentId: null }).map(x => x.id)).toEqual(['high']);
   });
 
   it('only schedules people without an interview record', () => {
@@ -201,15 +203,34 @@ describe('interview form', () => {
   it('sends every field, with an empty section or text as null', () => {
     const d = interviewDraft(null, defaults);
     expect(interviewBody({ ...d, status: '拒絕面談', interviewedOn: '' })).toEqual({
-      status: '拒絕面談', interviewedOn: null, doctorUserId: null, workAdvice: null, guidance: null, notes: null, nextOn: null,
+      status: '拒絕面談', interviewedOn: null, doctorUserId: null, workAdvice: null, guidance: null, notes: null, nextInterview: null, nextOn: null,
     });
     expect(interviewBody({
       ...d, ...guidance, seeDoctor: ' 心臟內科 ', fitness: '工作限制', restrictions: [' 避免夜間駕駛 ', ''], adjustHours: '限制加班', period: ' 3 個月 ',
-      suggestion: ' 一個月後回診 ', notes: ' 疲勞中度 ', nextOn: '2026-11-01',
+      suggestion: ' 一個月後回診 ', notes: ' 疲勞中度 ', nextInterview: true, nextOn: '2026-11-01',
     })).toEqual({
       status: '已面談', interviewedOn: '2026-10-04', doctorUserId: null,
       workAdvice: { fitness: '工作限制', restrictions: ['避免夜間駕駛'], suggestion: '一個月後回診', adjustHours: '限制加班', changeWork: '', period: '3 個月' },
-      guidance: { ...guidance, seeDoctor: '心臟內科' }, notes: '疲勞中度', nextOn: '2026-11-01',
+      guidance: { ...guidance, seeDoctor: '心臟內科' }, notes: '疲勞中度', nextInterview: true, nextOn: '2026-11-01',
     });
+  });
+
+  it('asks whether a next interview is planned, next to its date', () => {
+    expect(interviewDraft(iv({ nextInterview: false }), defaults)).toEqual(expect.objectContaining({ nextInterview: false, nextOn: '' }));
+    // Saved before the question existed: a date means one is planned.
+    expect(interviewDraft(iv({ nextInterview: null, nextOn: '2026-11-01' }), defaults)).toEqual(expect.objectContaining({ nextInterview: true, nextOn: '2026-11-01' }));
+    expect(interviewDraft(iv({}), defaults).nextInterview).toBeNull();
+    const d = { ...interviewDraft(null, defaults), fatigue: '無' as const, diagnosis: '無異常' as const, fitness: '一般工作' };
+    // 否 drops any date, and an early date only matters when one is planned.
+    expect(interviewBody({ ...d, nextInterview: false, nextOn: '2026-11-01' })).toEqual(expect.objectContaining({ nextInterview: false, nextOn: null }));
+    expect(interviewProblems({ ...d, nextInterview: false, nextOn: '2026-10-01' })).toEqual([]);
+  });
+
+  it('shows the next interview as a date, not planned, or planned without a date', () => {
+    expect(nextInterviewLabel(null)).toBe('—');
+    expect(nextInterviewLabel({ nextInterview: null, nextOn: null })).toBe('—');
+    expect(nextInterviewLabel({ nextInterview: true, nextOn: '2026-11-01' })).toBe('2026/11/01');
+    expect(nextInterviewLabel({ nextInterview: true, nextOn: null })).toBe('日期未定');
+    expect(nextInterviewLabel({ nextInterview: false, nextOn: null })).toBe('不安排');
   });
 });

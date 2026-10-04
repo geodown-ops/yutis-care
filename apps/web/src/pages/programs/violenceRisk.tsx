@@ -8,7 +8,9 @@ import { Fragment, useState } from 'react';
 import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { CardNote, problemText } from '../states';
-import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
+import { OrgFilterSelects } from './listControls';
+import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
 import { countByRisk, emptyRiskDraft, RISK_TONE, riskBody, riskRows, VIO_QUESTIONS, type RiskAssessment, type RiskDraftRow } from './violence';
 import { riskAssessmentsQuery } from './violenceQueries';
 
@@ -19,14 +21,19 @@ export function RiskBadge({ risk }: { risk: VioRisk | null }) {
 const Count = ({ n, risk }: { n: number; risk: VioRisk }) => (n ? <ToneBadge tone={RISK_TONE[risk]}>{n}</ToneBadge> : <Text span size="sm" c="dimmed">0</Text>);
 
 export function ViolenceRiskTab({ risks }: { risks: UseQueryResult<RiskAssessment[]> }) {
-  const siteName = useSiteName();
+  const names = useOrgNames();
   const sites = useMySites();
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<RiskAssessment | null>(null);
+  const rows = (risks.data ?? []).filter(r => matchOrg(r, org));
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
-        <Text size="sm" c="dimmed">風險等級 = 可能性 × 嚴重性，系統自動計算。</Text>
+        <Group gap="sm">
+          <OrgFilterSelects rows={risks.data ?? []} names={names} value={org} onChange={setOrg} />
+          <Text size="sm" c="dimmed">風險等級 = 可能性 × 嚴重性，系統自動計算。</Text>
+        </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setCreating(true)} disabled={!sites.length}>新增評估</Button>
       </Group>
       {risks.isPending ? <Skeleton h={200} /> : risks.isError ? <CardNote>{problemText(risks.error)}</CardNote> : (
@@ -37,12 +44,12 @@ export function ViolenceRiskTab({ risks }: { risks: UseQueryResult<RiskAssessmen
                 <Table.Tr><Table.Th>評估日期</Table.Th><Table.Th>廠區</Table.Th><Table.Th ta="right">潛在風險</Table.Th><Table.Th ta="center">高度</Table.Th><Table.Th ta="center">中度</Table.Th><Table.Th ta="center">低度</Table.Th><Table.Th /></Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {risks.data.map(r => {
+                {rows.map(r => {
                   const c = countByRisk(riskRows(r.items));
                   return (
                     <Table.Tr key={r.id}>
                       <Table.Td>{dt(r.assessedOn)}</Table.Td>
-                      <Table.Td>{siteName(r.siteId)}</Table.Td>
+                      <Table.Td>{names.site(r.siteId)}</Table.Td>
                       <Table.Td ta="right">{r.items.length} 項</Table.Td>
                       <Table.Td ta="center"><Count n={c['高度風險']} risk="高度風險" /></Table.Td>
                       <Table.Td ta="center"><Count n={c['中度風險']} risk="中度風險" /></Table.Td>
@@ -54,7 +61,7 @@ export function ViolenceRiskTab({ risks }: { risks: UseQueryResult<RiskAssessmen
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-          {risks.data.length === 0 && <CardNote>還沒有不法侵害危害辨識及風險評估。</CardNote>}
+          {rows.length === 0 && <CardNote>{risks.data.length ? '沒有符合條件的評估。' : '還沒有不法侵害危害辨識及風險評估。'}</CardNote>}
         </>
       )}
       <NewRiskModal opened={creating} onClose={() => setCreating(false)} />

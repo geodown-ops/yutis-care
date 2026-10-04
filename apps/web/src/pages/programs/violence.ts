@@ -158,3 +158,31 @@ export function signProgress(sigs: readonly Pick<Signature, 'signedAt' | 'sentAt
 
 export const REVIEW_TONE: Record<Review['status'], 'warn' | 'info' | 'ok'> = { 草稿: 'warn', 簽核中: 'info', 已完成: 'ok' };
 
+/**
+ * What to say after sign-off links are issued (送出簽核 or 重寄). SignLinkDto.emailed is true only when the mail
+ * service really sends (never on the demo site); otherwise the links have to be handed over by hand.
+ */
+export function signLinksText(links: readonly Pick<SignLink, 'emailed'>[]): { text: string; copy: boolean } {
+  const sent = links.filter(l => l.emailed).length;
+  if (!links.length) return { text: '沒有需要簽核的人員。', copy: false };
+  if (sent === links.length) return { text: `已寄簽核信給 ${sent} 位簽核人員。`, copy: false };
+  if (!sent) return { text: `沒有寄出簽核信，請複製下方連結交給 ${links.length} 位簽核人員。`, copy: true };
+  return { text: `已寄簽核信給 ${sent} 位簽核人員；${links.length - sent} 位沒有寄出，請複製連結交給他們。`, copy: true };
+}
+
+/** Labels for the review list's filters, from the names each review carries. */
+export function reviewNames(list: readonly Pick<Review, 'siteId' | 'siteName' | 'departmentId' | 'departmentName'>[]) {
+  const sites = new Map(list.map(r => [r.siteId, r.siteName]));
+  const deps = new Map(list.flatMap(r => (r.departmentId ? [[r.departmentId, r.departmentName ?? '—'] as const] : [])));
+  return { site: (id: string) => sites.get(id) ?? '—', department: (id: string) => deps.get(id) ?? '—' };
+}
+
+/**
+ * Signer name suggestions from GET /api/staff: matched on name or email, so typing part of an address works too.
+ * The option value is the account id (names can repeat); the label is the name.
+ */
+export function staffMatches(staff: readonly { id: string; name: string; email: string }[], search: string, limit = 20): { value: string; label: string }[] {
+  const q = search.trim().toLowerCase();
+  return staff.filter(s => !q || s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)).slice(0, limit).map(s => ({ value: s.id, label: s.name }));
+}
+

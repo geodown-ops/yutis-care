@@ -1,5 +1,5 @@
 /* Shared by the maternal and violence programme pages: who may do what, sites, people and form bits. */
-import { Badge, Select, Text, TextInput, type ModalProps, type TextInputProps } from '@mantine/core';
+import { Badge, Select, Stack, Text, TextInput, type ModalProps, type TextInputProps } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { ApiRequestError, data, type Schemas } from '@yutis/api-client';
@@ -10,7 +10,7 @@ import { canAccess, type Access } from '../../nav';
 import { useMe } from '../../session';
 import { problemText } from '../states';
 import { orgQuery } from './directory';
-import { siteDepartments } from './lists';
+import { siteDepartments, treeNames } from './lists';
 
 /* Mirrors the route decorators in apps/api/src/programs (maternal-violence.controller.ts, advice.controller.ts). */
 /** Maternal cases, interviews and violence incidents (@Clinical). */
@@ -34,6 +34,14 @@ export function useMySites() {
 export function useSiteName() {
   const sites = useMySites();
   return (id: string) => sites.find(s => s.id === id)?.name ?? '—';
+}
+
+/** Site and department names by id from the organisation tree (GET /api/org); my sites' names while it loads. */
+export function useOrgNames() {
+  const org = useQuery(orgQuery);
+  const siteName = useSiteName();
+  const tree = treeNames(org.data ?? []);
+  return { ...tree, site: (id: string) => (tree.site(id) === '—' ? siteName(id) : tree.site(id)) };
 }
 
 export function ToneBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
@@ -60,6 +68,22 @@ export function PersonLink({ employeeId, name, empNo }: { employeeId: string; na
     : <Text span fw={600}>{label}</Text>;
 }
 
+/**
+ * A staff picker's option with the account's work email under the name (GET /api/staff), so two people with the
+ * same name can be told apart. Pass it as a Select or Autocomplete renderOption.
+ */
+export function staffOptionRenderer(emails: ReadonlyMap<string, string>) {
+  return function StaffOption({ option }: { option: { value: string; label?: string } }) {
+    const email = emails.get(option.value);
+    return (
+      <Stack gap={0} style={{ minWidth: 0 }}>
+        <Text size="sm">{option.label ?? option.value}</Text>
+        {email && <Text size="xs" c="dimmed" style={{ overflowWrap: 'anywhere' }}>{email}</Text>}
+      </Stack>
+    );
+  };
+}
+
 /** Forms fill the screen on phones. */
 export function useModalSize(size: ModalProps['size'] = 'lg'): Pick<ModalProps, 'size' | 'fullScreen'> {
   const phone = useMediaQuery('(max-width: 48em)');
@@ -72,14 +96,14 @@ export function saveProblem(err: unknown): string {
     if (err.code === 'validation_failed') return '有欄位格式不正確，請檢查後再送出。';
     if (err.code === 'unknown_assessment') return '找不到所選的環境危害評估，請重新選擇。';
     if (err.code === 'employee_not_found') return '找不到這位員工，可能已被刪除。';
-    if (err.code === 'already_confirmed') return '員工已確認這份紀錄，不需要再寄連結。';
+    if (err.code === 'already_confirmed') return '員工已確認這份紀錄，不需要再產生連結。';
     if (err.code === 'not_a_manager') return '收件人必須是在職的部門主管帳號。';
     if (err.code === 'unknown_department') return '所選部門不屬於這個廠區，請重新選擇。';
     if (err.code === 'unknown_sign_off_role') return '簽核人員的類別必須是租戶設定的簽核角色。';
     if (err.code === 'no_signers') return '請先加入至少一位簽核人員再送出。';
     if (err.code === 'not_draft') return '這份紀錄已送出簽核，不能再修改或刪除。請重新整理。';
     if (err.code === 'not_in_sign_off') return '這份紀錄目前不在簽核中。請重新整理。';
-    if (err.code === 'already_signed') return '這位簽核人員已經簽核，不需要重寄。';
+    if (err.code === 'already_signed') return '這位簽核人員已經簽核，不需要重發連結。';
     if (err.code === 'not_suspected') return '只有疑似有危害的問卷可以列管。';
     if (err.code === 'interview_date_required') return '面談狀態為已面談時，請填面談日期。';
     if (err.code === 'unknown_staff') return '找不到這位醫師的帳號，可能已停用。';

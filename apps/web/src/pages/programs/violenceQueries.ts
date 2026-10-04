@@ -63,7 +63,7 @@ export function useSaveReview() {
   });
 }
 
-/** 送出簽核: one-time links come back once (and are emailed); the review is read again for its new status. */
+/** 送出簽核: one-time links come back once (emailed when the mail service sends); the review is read again for its new status. */
 export function useSubmitReview() {
   const qc = useQueryClient();
   return useMutation({

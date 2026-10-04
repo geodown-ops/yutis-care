@@ -5,7 +5,8 @@ import { data } from '@yutis/api-client';
 import { useState } from 'react';
 import { api } from '../../api';
 import { employeeQuery } from '../../queries';
-import { saveProblem } from '../programs/maternalViolenceCommon';
+import { managerStaffQuery } from '../programs/directory';
+import { saveProblem, staffOptionRenderer } from '../programs/maternalViolenceCommon';
 import { problemText } from '../states';
 import { defaultManager, managerOptions, NOTICE_MAX, sentNoticeStatus, type Manager, type NoticeStatus, type NoticeSubject } from './advice';
 import { managersQuery } from './queries';
@@ -50,6 +51,9 @@ function NotifyForm({ onClose, employee, subjectTable, subjectId, advice: prefil
   managers: Manager[]; departmentId: string | null; empNo?: string;
 }) {
   const [managerId, setManagerId] = useState<string | null>(() => defaultManager(managers, departmentId));
+  // GET /api/programs/managers has no email; the staff list does (same account ids).
+  const staff = useQuery(managerStaffQuery);
+  const renderManager = staffOptionRenderer(new Map((staff.data ?? []).map(s => [s.id, s.email])));
   const [advice, setAdvice] = useState(prefill);
   const [tried, setTried] = useState(false);
   const send = useMutation({
@@ -63,8 +67,8 @@ function NotifyForm({ onClose, employee, subjectTable, subjectId, advice: prefil
   return (
     <Stack gap="md">
       <Text size="sm">{employee.name}{empNo ? `（${empNo}）` : ''}的工作安排建議。</Text>
-      <Select label="部門主管" required placeholder={managers.length ? '選擇主管' : '目前沒有部門主管帳號'} searchable
-        data={managerOptions(managers, departmentId)} value={managerId} onChange={setManagerId}
+      <Select label="部門主管" required allowDeselect={false} placeholder={managers.length ? '選擇主管' : '目前沒有部門主管帳號'} searchable
+        data={managerOptions(managers, departmentId)} value={managerId} onChange={setManagerId} renderOption={renderManager}
         error={tried && !managerId ? '請選擇要通知的主管' : undefined} nothingFoundMessage="找不到這位主管" />
       <Textarea label="建議內容" required autosize minRows={4} maxLength={NOTICE_MAX} value={advice} onChange={e => setAdvice(e.currentTarget.value)}
         description={`${advice.length}／${NOTICE_MAX} 字`} error={tried && !advice.trim() ? '請填寫要給主管的建議' : undefined} />

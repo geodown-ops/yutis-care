@@ -164,14 +164,14 @@ export function burnoutLabel(kind: 'personal' | 'work', score: number): '嚴重'
   return score > high ? '嚴重' : score >= mid ? '中度' : '輕微';
 }
 
-/* Interview form, worded as the prototype's 面談指導結果 and 採取措施建議. */
-export const FITNESS = ['一般工作', '工作限制', '需休假'] as const;
+/*
+ * Interview form, worded as the prototype's 面談指導結果 and 採取措施建議. These answers are the API's enums; 工作區分,
+ * 調整或縮短工作時間 and 變更工作 come from GET /api/programs/options.
+ */
 export const FATIGUE = ['無', '輕度', '中度', '重度'] as const;
 export const MENTAL_CONCERN = ['有', '無'] as const;
 export const DIAGNOSIS = ['無異常', '需觀察或進一步追蹤檢查', '需進行醫療'] as const;
 export const GUIDANCE = ['不需指導', '需健康指導', '需醫療指導'] as const;
-export const ADJUST_HOURS = ['縮短工時', '限制加班', '禁止加班', '調整上下班時間'];
-export const CHANGE_WORK = ['調整為常日班', '變更作業內容', '變更工作場所', '暫停出差'];
 export const INTERVIEW_STATUSES: InterviewStatus[] = ['待安排', '已安排', '已面談', '拒絕面談'];
 
 type G = InterviewGuidance;
@@ -180,7 +180,15 @@ export interface InterviewDraft {
   fatigue: G['fatigue']; mentalConcern: G['mentalConcern']; diagnosis: G['diagnosis']; guidance: G['guidance']; needMeasure: boolean | null;
   seeDoctor: string; special: string;
   fitness: string; adjustHours: string; changeWork: string; period: string; restrictions: string[]; suggestion: string;
-  notes: string; nextOn: string;
+  notes: string;
+  /** 是否安排下次面談: null until answered. */
+  nextInterview: boolean | null; nextOn: string;
+}
+
+/** The 下次面談 column: the date, or whether one is planned at all. */
+export function nextInterviewLabel(iv: Pick<Interview, 'nextInterview' | 'nextOn'> | null): string {
+  if (iv?.nextOn) return iv.nextOn.replaceAll('-', '/');
+  return iv?.nextInterview === false ? '不安排' : iv?.nextInterview ? '日期未定' : '—';
 }
 
 /** The form from the full interview (GET /assessments/{id}, which carries the guidance and notes the list leaves out). */
@@ -193,7 +201,8 @@ export function interviewDraft(iv: Interview | null, defaults: { today: string; 
     needMeasure: g?.needMeasure ?? null, seeDoctor: g?.seeDoctor ?? '', special: g?.special ?? '',
     fitness: w?.fitness ?? '', adjustHours: w?.adjustHours ?? '', changeWork: w?.changeWork ?? '', period: w?.period ?? '',
     restrictions: w?.restrictions ?? [], suggestion: w?.suggestion ?? '',
-    notes: iv?.notes ?? '', nextOn: iv?.nextOn ?? '',
+    // Interviews saved before 是否安排下次面談 existed may have a date without the answer: a date means yes.
+    notes: iv?.notes ?? '', nextInterview: iv?.nextInterview ?? (iv?.nextOn ? true : null), nextOn: iv?.nextOn ?? '',
   };
 }
 
@@ -206,7 +215,7 @@ export function interviewProblems(d: InterviewDraft): string[] {
     if (!d.diagnosis) out.push('請選擇診斷區分');
     if (!d.fitness) out.push('請選擇工作區分');
   }
-  if (d.nextOn && d.interviewedOn && d.nextOn < d.interviewedOn) out.push('下次面談日期不能早於面談日期');
+  if (d.nextInterview !== false && d.nextOn && d.interviewedOn && d.nextOn < d.interviewedOn) out.push('下次面談日期不能早於面談日期');
   return out;
 }
 
@@ -225,7 +234,7 @@ export function interviewBody(d: InterviewDraft): InterviewBody {
   return {
     status: d.status, interviewedOn: d.interviewedOn || null, doctorUserId: d.doctorUserId,
     workAdvice: blank(workAdvice) ? null : workAdvice, guidance: blank(guidance) ? null : guidance,
-    notes: d.notes.trim() || null, nextOn: d.nextOn || null,
+    notes: d.notes.trim() || null, nextInterview: d.nextInterview, nextOn: d.nextInterview === false ? null : d.nextOn || null,
   };
 }
 

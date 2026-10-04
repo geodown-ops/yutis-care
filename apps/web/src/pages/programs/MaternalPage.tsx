@@ -134,7 +134,7 @@ function LogTab({ cases, envs }: { cases: UseQueryResult<MaternalCase[]>; envs: 
                     const last = latestInterview(c);
                     return (
                       <Table.Tr key={c.id}>
-                        <Table.Td style={NOWRAP}><PersonLink employeeId={c.employeeId} name={c.name} /></Table.Td>
+                        <Table.Td style={NOWRAP}><PersonLink employeeId={c.employeeId} name={c.name} empNo={c.empNo} /></Table.Td>
                         <Table.Td style={NOWRAP}>{typeLabel(c.type)} · {dt(c.notifiedOn)}</Table.Td>
                         <Table.Td style={NOWRAP}><LevelBadge level={c.level} /></Table.Td>
                         <Table.Td style={NOWRAP}>{last ? dt(last.interviewedOn) : <Text span size="sm" c="dimmed">未面談</Text>}</Table.Td>

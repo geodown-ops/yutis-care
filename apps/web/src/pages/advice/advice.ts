@@ -68,5 +68,5 @@ export type AckState = 'confirmed' | 'sent' | 'unsent';
 /** 已確認, 已寄出待確認, or no link sent yet. */
 export const ackState = (a: Pick<AckStatus, 'sentAt' | 'confirmedAt'>): AckState => (a.confirmedAt ? 'confirmed' : a.sentAt ? 'sent' : 'unsent');
 /** The employee can confirm in the portal without a link, so 'unsent' is still waiting for them. */
-export const ACK_LABEL: Record<AckState, string> = { confirmed: '已確認', sent: '已寄連結，待確認', unsent: '待確認' };
+export const ACK_LABEL: Record<AckState, string> = { confirmed: '已確認', sent: '已發連結，待確認', unsent: '待確認' };
 export const ACK_TONE: Record<AckState, 'ok' | 'warn' | 'info'> = { confirmed: 'ok', sent: 'warn', unsent: 'info' };

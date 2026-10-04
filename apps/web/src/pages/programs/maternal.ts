@@ -14,7 +14,6 @@ export interface HazardDraft { v: HazardAnswer; note: string }
 
 export const MAT_HAZARDS = ['物理性危害', '化學性危害', '生物性危害', '人因性危害', '工作壓力／職場暴力', '其他'] as const;
 export const HAZARD_ANSWERS: readonly HazardAnswer[] = ['無', '可能有影響', '有'];
-export const SHIFT_TYPES = ['常日班', '輪班', '其他'] as const;
 export const MAT_SELF = ['孕吐或食慾不振', '下背痛', '水腫', '睡眠不足', '情緒低落或焦慮', '有慢性病（高血壓、糖尿病等）', '多胞胎或高危險妊娠', '曾流產或早產'] as const;
 export const FIT_ADVICE = ['可繼續從事目前工作', '可繼續從事工作，但須考量下列條件限制', '不可繼續從事目前工作'] as const;
 export const FIT_LIMITS = ['變更工作場所', '變更職務', '縮減工作時間', '限制夜班', '限制加班', '限制負重或搬運', '其他'] as const;
@@ -52,6 +51,11 @@ export function countByLevel(envs: readonly Pick<EnvAssessment, 'level'>[]): Rec
 /** 產後 is the API's name for the year after birth (產後一年內). */
 export const isPostpartum = (type: MaternalCase['type']) => type === '產後';
 export const typeLabel = (type: MaternalCase['type']) => (isPostpartum(type) ? '產後一年內' : type);
+
+/** The 預產期／分娩日 column: the due date of a pregnancy, the birth date of a 產後 notification. */
+export function keyDate(c: Pick<MaternalCase, 'type' | 'dueDate' | 'birthDate'>): { label: '預產期' | '分娩日期'; date: string | null } {
+  return isPostpartum(c.type) ? { label: '分娩日期', date: c.birthDate } : { label: '預產期', date: c.dueDate };
+}
 
 /**
  * Where the employee is now: pregnant; past the due date (so most likely in the year after birth, which needs its

@@ -1,13 +1,13 @@
 import { NMQ_KEYS } from '@yutis/domain';
 import { describe, expect, it } from 'vitest';
 import {
-  canRunErgo, dispatchTotals, draftMax, emptyNmq, filterSurveys, hazardLabel, hazardParts, nmqBody, nmqDraftFrom, nmqUnanswered, NMQ_ROWS, surveyColumns,
+  canRunErgo, dispatchTotals, draftMax, emptyNmq, filterSurveys, hazardLabel, hazardParts, nmqBody, nmqDraftFrom, nmqUnanswered, NMQ_ROWS, splitMeasures, surveyColumns,
   trackingBody, trackingDraft, trackingProblem, type Dispatch, type Survey,
 } from './ergo';
 import { csvText } from './lists';
 
 const survey = (p: Partial<Survey>): Survey => ({
-  id: 's', employeeId: 'e', empNo: 'E1', name: '王小明', site: '桃園廠', department: '製造一課', status: '未填寫', maxScore: null, suspectedHazard: null,
+  id: 's', employeeId: 'e', empNo: 'E1', name: '王小明', siteId: 'ty', site: '桃園廠', departmentId: 'ty-m1', department: '製造一課', status: '未填寫', maxScore: null, suspectedHazard: null,
   filledAt: null, filledBy: null, answers: null, reminders: 0, lastRemindedAt: null, tracking: null, ...p,
 });
 const allScores = (n: number) => Object.fromEntries(NMQ_KEYS.map(k => [k.key, n]));
@@ -83,6 +83,13 @@ describe('管控追蹤', () => {
     expect(trackingBody({ ...d, measures: ['工作輪調', ' 工作輪調 ', '自訂措施', ''], note: ' 觀察兩週 ', nextOn: '' }))
       .toEqual({ measures: ['工作輪調', '自訂措施'], note: '觀察兩週', nextOn: null, status: '列管中' });
   });
+
+  it('splits the measures into the listed choices and the ones typed in', () => {
+    const listed = ['調整工作檯高度', '工作輪調'];
+    expect(splitMeasures(['工作輪調', '自訂措施', '調整工作檯高度'], listed)).toEqual({ listed: ['工作輪調', '調整工作檯高度'], others: ['自訂措施'] });
+    // Before the options load nothing is listed, so every saved measure stays editable as typed text.
+    expect(splitMeasures(['工作輪調'], [])).toEqual({ listed: [], others: ['工作輪調'] });
+  });
 });
 
 describe('survey list', () => {
@@ -104,10 +111,16 @@ describe('survey list', () => {
     expect(filterSurveys(list, 'all', 'e1').map(s => s.id)).toEqual(['b']);
   });
 
-  it('filters by site and department', () => {
-    const more = [...list, survey({ id: 'd', empNo: 'E4', site: '新竹廠', department: '品保課' })];
-    expect(filterSurveys(more, 'all', '', { site: '新竹廠', department: null }).map(s => s.id)).toEqual(['d']);
-    expect(filterSurveys(more, 'pending', '', { site: '桃園廠', department: '製造一課' }).map(s => s.id)).toEqual(['c']);
+  it('filters by site and department id', () => {
+    const more = [
+      ...list,
+      survey({ id: 'd', empNo: 'E4', siteId: 'hc', site: '新竹廠', departmentId: 'hc-qa', department: '品保課' }),
+      // Same department name in another site: only the id tells them apart.
+      survey({ id: 'e', empNo: 'E5', siteId: 'hc', site: '新竹廠', departmentId: 'hc-m1', department: '製造一課' }),
+    ];
+    expect(filterSurveys(more, 'all', '', { siteId: 'hc', departmentId: null }).map(s => s.id)).toEqual(['d', 'e']);
+    expect(filterSurveys(more, 'pending', '', { siteId: 'ty', departmentId: 'ty-m1' }).map(s => s.id)).toEqual(['c']);
+    expect(filterSurveys(more, 'all', '', { siteId: null, departmentId: 'hc-m1' }).map(s => s.id)).toEqual(['e']);
   });
 
   it('exports the prototype columns with every body part', () => {

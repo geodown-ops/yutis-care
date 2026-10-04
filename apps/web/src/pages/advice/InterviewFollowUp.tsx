@@ -55,9 +55,9 @@ export function NoticeList({ notices }: { notices: readonly NoticeStatus[] }) {
         <Group key={n.id} justify="space-between" gap="xs" wrap="nowrap">
           <div style={{ minWidth: 0 }}>
             <Text size="sm">{n.managerName}</Text>
-            <Text size="xs" c="dimmed">{when(n.sentAt)} 寄出{n.readAt ? ` · ${when(n.readAt)} 已讀` : ''}</Text>
+            <Text size="xs" c="dimmed">{when(n.sentAt)} 送出{n.readAt ? ` · ${when(n.readAt)} 已讀` : ''}</Text>
           </div>
-          <ToneBadge tone={n.readAt ? 'ok' : 'warn'}>{n.readAt ? '已讀' : '未讀'}</ToneBadge>
+          <div style={{ flexShrink: 0 }}><ToneBadge tone={n.readAt ? 'ok' : 'warn'}>{n.readAt ? '已讀' : '未讀'}</ToneBadge></div>
         </Group>
       ))}
     </Stack>
@@ -66,7 +66,7 @@ export function NoticeList({ notices }: { notices: readonly NoticeStatus[] }) {
 
 /**
  * 員工確認 (POST /api/programs/acknowledgements/{id}/link): a one-time link, valid 14 days, emailed when the employee
- * has an address. The link is shown once and never stored; issuing a new one voids the old one.
+ * has an address and the mail service sends. The link is shown once and never stored; issuing a new one voids the old one.
  */
 export function AcknowledgementBox({ ack, onSent }: { ack: AckStatus | null; onSent: (sentAt: string) => void }) {
   const link = useMutation({
@@ -90,12 +90,12 @@ export function AcknowledgementBox({ ack, onSent }: { ack: AckStatus | null; onS
       ) : (
         <Stack gap={6}>
           <Text size="xs" c="dimmed">
-            {state === 'sent' ? `${when(ack.sentAt)} 寄出確認連結。重新寄送會讓舊連結失效。` : '員工可以在員工端確認，也可以寄一次性確認連結（14 天內有效）。'}
+            {state === 'sent' ? `${when(ack.sentAt)} 發出確認連結。重新產生會讓舊連結失效。` : '員工可以在員工端確認，也可以給員工一次性確認連結（14 天內有效）。'}
           </Text>
           {link.data ? <IssuedLink url={link.data.url} expiresAt={link.data.expiresAt} emailed={link.data.emailed} /> : (
             <div>
               <Button size="compact-xs" variant="default" loading={link.isPending} onClick={() => link.mutate(ack.id)}>
-                {state === 'sent' ? '重新寄送確認連結' : '寄送確認連結'}
+                {state === 'sent' ? '重新產生確認連結' : '產生確認連結'}
               </Button>
             </div>
           )}
@@ -119,9 +119,11 @@ function IssuedLink({ url, expiresAt, emailed }: { url: string; expiresAt: strin
           )}
         </CopyButton>
       </Group>
-      <Text size="xs" c={emailed ? 'dimmed' : 'var(--yutis-warn)'}>
-        {emailed ? '已寄通知信給員工（信中不含健康內容）。' : '員工沒有 Email，請用其他方式把連結交給員工。'}連結只顯示這一次，有效至 {when(expiresAt)}。
+      {/* emailed is true only when the mail service sends and the employee has an address (never on the demo site). */}
+      <Text size="xs" c={emailed ? 'dimmed' : 'var(--yutis-warn)'} fw={emailed ? undefined : 600}>
+        {emailed ? '已寄確認信給員工（信中不含健康內容）。' : '沒有寄出確認信，請複製連結交給員工。'}
       </Text>
+      <Text size="xs" c="dimmed">連結只顯示這一次，有效至 {when(expiresAt)}。</Text>
     </Stack>
   );
 }

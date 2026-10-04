@@ -7,22 +7,29 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { todayIso } from '../../cases';
 import { CardNote, problemText } from '../states';
-import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useSiteName } from './maternalViolenceCommon';
+import { OrgFilterSelects } from './listControls';
+import { matchOrg, NO_ORG_FILTER, type OrgFilter } from './lists';
+import { DateField, dt, Kv, saveProblem, ToneBadge, useModalSize, useMySites, useOrgNames, useSiteName } from './maternalViolenceCommon';
 import { CHECKLIST_GROUPS, checklistBody, type Checklist, type ChecklistKind } from './violence';
 import { checklistsQuery } from './violenceQueries';
 
 const TITLE: Record<ChecklistKind, string> = { 作業場所: '作業場所檢點表', 人力: '人力配置檢點表' };
 
 export function ViolenceChecklistTab({ kind, checklists }: { kind: ChecklistKind; checklists: UseQueryResult<Checklist[]> }) {
-  const siteName = useSiteName();
+  const names = useOrgNames();
   const sites = useMySites();
+  const [org, setOrg] = useState<OrgFilter>(NO_ORG_FILTER);
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Checklist | null>(null);
-  const rows = (checklists.data ?? []).filter(c => c.kind === kind);
+  const ofKind = (checklists.data ?? []).filter(c => c.kind === kind);
+  const rows = ofKind.filter(c => matchOrg(c, org));
   return (
     <Card>
       <Group justify="space-between" gap="sm" mb="sm">
-        <Text size="sm" c="dimmed">{CHECKLIST_GROUPS[kind].map(g => g.name).join('、')}</Text>
+        <Group gap="sm">
+          <OrgFilterSelects rows={ofKind} names={names} value={org} onChange={setOrg} />
+          <Text size="sm" c="dimmed">{CHECKLIST_GROUPS[kind].map(g => g.name).join('、')}</Text>
+        </Group>
         <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setCreating(true)} disabled={!sites.length}>新增{TITLE[kind]}</Button>
       </Group>
       {checklists.isPending ? <Skeleton h={200} /> : checklists.isError ? <CardNote>{problemText(checklists.error)}</CardNote> : (
@@ -38,7 +45,7 @@ export function ViolenceChecklistTab({ kind, checklists }: { kind: ChecklistKind
                   return (
                     <Table.Tr key={c.id}>
                       <Table.Td>{dt(c.checkedOn)}</Table.Td>
-                      <Table.Td>{siteName(c.siteId)}</Table.Td>
+                      <Table.Td>{names.site(c.siteId)}</Table.Td>
                       <Table.Td ta="right">{c.items.length} 項</Table.Td>
                       <Table.Td>{bad ? <ToneBadge tone="warn">{bad} 項</ToneBadge> : <ToneBadge tone="ok">無</ToneBadge>}</Table.Td>
                       <Table.Td ta="right"><Button variant="default" size="xs" onClick={() => setViewing(c)}>檢視</Button></Table.Td>
@@ -48,7 +55,7 @@ export function ViolenceChecklistTab({ kind, checklists }: { kind: ChecklistKind
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-          {rows.length === 0 && <CardNote>還沒有{TITLE[kind]}。</CardNote>}
+          {rows.length === 0 && <CardNote>{ofKind.length ? '沒有符合條件的檢點表。' : `還沒有${TITLE[kind]}。`}</CardNote>}
         </>
       )}
       <NewChecklistModal kind={kind} opened={creating} onClose={() => setCreating(false)} />
