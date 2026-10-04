@@ -1,0 +1,153 @@
+/* Tenant figures and checks the platform admin works out from the API's tenant rows. */
+import { isValidTenantSlug, RESERVED_SUBDOMAINS } from '@yutis/domain';
+import type { Subscription, SubscriptionStatus, Tenant, TenantDetail, Usage } from './api';
+import { emailProblem, textProblem, withoutEmpty, type Problems } from './forms';
+
+export interface TenantOverview {
+  active: number;
+  suspended: number;
+  closed: number;
+  /** Active tenants whose current subscription is a trial. */
+  trial: number;
+  /** In-service employees across active and suspended tenants. */
+  activeEmployees: number;
+  staffAccounts: number;
+  /** Tenants with more in-service employees than their seat limit (a reminder; nothing is blocked). */
+  overSeatLimit: number;
+}
+
+export function tenantOverview(tenants: readonly Tenant[]): TenantOverview {
+  const open = tenants.filter(t => t.status !== 'closed');
+  return {
+    active: tenants.filter(t => t.status === 'active').length,
+    suspended: tenants.filter(t => t.status === 'suspended').length,
+    closed: tenants.length - open.length,
+    trial: tenants.filter(t => t.status === 'active' && t.subscription?.status === 'trial').length,
+    activeEmployees: open.reduce((sum, t) => sum + t.activeEmployees, 0),
+    staffAccounts: open.reduce((sum, t) => sum + t.staffAccounts, 0),
+    overSeatLimit: open.filter(t => t.overSeatLimit).length,
+  };
+}
+
+/** Usage summed over every tenant, for the usage page's tiles. */
+export function usageTotals(rows: readonly Usage[]): Pick<Usage, 'activeEmployees' | 'staffAccounts' | 'examsInMonth' | 'smsSent'> {
+  const sum = (k: 'activeEmployees' | 'staffAccounts' | 'examsInMonth' | 'smsSent') => rows.reduce((s, r) => s + r[k], 0);
+  return { activeEmployees: sum('activeEmployees'), staffAccounts: sum('staffAccounts'), examsInMonth: sum('examsInMonth'), smsSent: sum('smsSent') };
+}
+
+/** Name or subdomain contains the query (case-insensitive). */
+export function matchesTenant(t: Pick<Tenant, 'name' | 'subdomain'>, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || t.name.toLowerCase().includes(q) || t.subdomain.includes(q);
+}
+
+/** Seat use for a progress bar: percent is capped at 100 and null when there is no limit. */
+export function seatUsage(activeEmployees: number, seatLimit: number | null): { percent: number | null; over: boolean } {
+  if (seatLimit == null || seatLimit <= 0) return { percent: null, over: false };
+  return { percent: Math.min(100, (activeEmployees / seatLimit) * 100), over: activeEmployees > seatLimit };
+}
+
+/** Onboarding steps the tenant still lacks, in plain Chinese; empty when it is fully set up. */
+export function pendingSetup(t: Pick<TenantDetail, 'encryptionKeyReady' | 'signInTenantReady'>): string[] {
+  return [
+    ...(t.encryptionKeyReady ? [] : ['租戶金鑰（Cloud KMS）尚未建立']),
+    ...(t.signInTenantReady ? [] : ['登入租戶（Identity Platform）尚未建立']),
+  ];
+}
+
+/** What the API does with a typed subdomain before checking it (OnboardTenant: trim, lower-case). */
+export const normalizeSubdomain = (value: string) => value.trim().toLowerCase();
+
+/**
+ * demo.care.yutis.com.tw is the separate marketing demo site, so onboarding refuses it although `isValidTenantSlug`
+ * accepts it. Mirrors DEMO_SITE_SUBDOMAIN in apps/platform-api/src/tenants/onboarding.ts until @yutis/domain has it.
+ */
+export const DEMO_SITE_SUBDOMAIN = 'demo';
+
+/**
+ * Why a new tenant cannot have this subdomain, or null if onboarding accepts it: `isValidTenantSlug` (one lower-case
+ * DNS label of letters, digits and inner hyphens, at most 63, not reserved for the platform) and not the demo site.
+ */
+export function subdomainProblem(slug: string): string | null {
+  if (slug === DEMO_SITE_SUBDOMAIN) return `「${slug}」是展示網站使用的網址，請換一個`;
+  if (isValidTenantSlug(slug)) return null;
+  if (!slug) return '請輸入子網域';
+  if (RESERVED_SUBDOMAINS.has(slug)) return `「${slug}」是平台保留的名稱，請換一個`;
+  if (/[^a-z0-9-]/.test(slug)) return '只能使用小寫英文字母、數字和連字號（-）';
+  if (slug.startsWith('-') || slug.endsWith('-')) return '開頭和結尾不能是連字號';
+  if (slug.length > 63) return '最多 63 個字元';
+  return '子網域格式不正確';
+}
+
+/** Seat limit as a NumberInput holds it: '' means no limit. */
+export type SeatLimitInput = number | string;
+
+const seatLimitValue = (v: SeatLimitInput): number | null => (v === '' ? null : Number(v));
+const seatLimitProblem = (v: SeatLimitInput) => {
+  const n = seatLimitValue(v);
+  return n != null && (!Number.isInteger(n) || n <= 0) ? '人數上限要是正整數，不限人數請留空' : undefined;
+};
+const termProblem = (startsOn: string, endsOn: string) => (endsOn && startsOn && endsOn < startsOn ? '結束日不能早於開始日' : undefined);
+
+/** PUT /platform-api/tenants/{id}/subscription, as a form. Dates are YYYY-MM-DD; endsOn '' means open-ended. */
+export interface SubscriptionForm {
+  planCode: string;
+  status: SubscriptionStatus;
+  seatLimit: SeatLimitInput;
+  startsOn: string;
+  endsOn: string;
+}
+
+export const subscriptionToForm = (s: Subscription | null, today: string): SubscriptionForm => ({
+  planCode: s?.planCode ?? '', status: s?.status ?? 'trial', seatLimit: s?.seatLimit ?? '', startsOn: s?.startsOn ?? today, endsOn: s?.endsOn ?? '',
+});
+
+export const subscriptionBody = (f: SubscriptionForm) => ({
+  planCode: f.planCode, status: f.status, seatLimit: seatLimitValue(f.seatLimit), startsOn: f.startsOn, endsOn: f.endsOn || null,
+});
+
+export const subscriptionProblems = (f: SubscriptionForm): Problems<SubscriptionForm> => withoutEmpty({
+  planCode: f.planCode ? undefined : '請選擇方案',
+  seatLimit: seatLimitProblem(f.seatLimit),
+  startsOn: f.startsOn ? undefined : '請選擇開始日',
+  endsOn: termProblem(f.startsOn, f.endsOn),
+});
+
+/** POST /platform-api/tenants, as a form. A new tenant starts on a trial or a paid subscription only. */
+export interface NewTenantForm {
+  name: string;
+  subdomain: string;
+  planCode: string;
+  subscriptionStatus: 'trial' | 'active';
+  seatLimit: SeatLimitInput;
+  startsOn: string;
+  endsOn: string;
+  adminName: string;
+  adminEmail: string;
+}
+
+export const emptyNewTenantForm = (today: string): NewTenantForm => ({
+  name: '', subdomain: '', planCode: '', subscriptionStatus: 'trial', seatLimit: '', startsOn: today, endsOn: '', adminName: '', adminEmail: '',
+});
+
+export const newTenantBody = (f: NewTenantForm) => ({
+  name: f.name.trim(),
+  subdomain: normalizeSubdomain(f.subdomain),
+  planCode: f.planCode,
+  subscriptionStatus: f.subscriptionStatus,
+  seatLimit: seatLimitValue(f.seatLimit),
+  startsOn: f.startsOn,
+  endsOn: f.endsOn || null,
+  admin: { name: f.adminName.trim(), email: f.adminEmail.trim().toLowerCase() },
+});
+
+export const newTenantProblems = (f: NewTenantForm): Problems<NewTenantForm> => withoutEmpty({
+  name: textProblem(f.name, '公司名稱', 100),
+  subdomain: subdomainProblem(normalizeSubdomain(f.subdomain)) ?? undefined,
+  planCode: f.planCode ? undefined : '請選擇方案',
+  seatLimit: seatLimitProblem(f.seatLimit),
+  startsOn: f.startsOn ? undefined : '請選擇開始日',
+  endsOn: termProblem(f.startsOn, f.endsOn),
+  adminName: textProblem(f.adminName, '姓名', 100),
+  adminEmail: emailProblem(f.adminEmail),
+});
