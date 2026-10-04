@@ -31,8 +31,9 @@ export const NAV: NavGroup[] = [
     { path: '/exams/import', label: '健檢匯入', icon: IconFileImport, access: { feature: 'employees', data: 'health' } },
   ] },
   { label: '職業衛生計畫', items: [
-    { path: '/programs/ergo', label: '人因性危害', icon: IconStretching, access: PROGRAMS },
-    { path: '/programs/workload', label: '異常工作負荷', icon: IconClockExclamation, access: PROGRAMS },
+    // Ergonomics is clinical only; for workload HR gets the work advice and managers the notices sent to them.
+    { path: '/programs/ergo', label: '人因性危害', icon: IconStretching, access: { feature: 'programs', data: 'health', roles: ['職護', '職醫'] } },
+    { path: '/programs/workload', label: '異常工作負荷', icon: IconClockExclamation, access: { feature: 'programs', roles: ['職護', '職醫', '人資', '部門主管'] } },
     { path: '/programs/maternal', label: '母性健康保護', icon: IconBabyCarriage, access: PROGRAMS },
     { path: '/programs/violence', label: '不法侵害預防', icon: IconShieldCheck, access: PROGRAMS },
     { path: '/service-records', label: '勞工健康服務', icon: IconStethoscope, access: { feature: 'service-records', roles: ['職護', '職醫', '職安衛人員'] } },

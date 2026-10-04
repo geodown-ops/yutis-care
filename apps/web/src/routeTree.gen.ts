@@ -16,6 +16,8 @@ import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppCasesRouteImport } from './routes/_app/cases'
 import { Route as AppEmployeesIndexRouteImport } from './routes/_app/employees.index'
 import { Route as AppEmployeesEmployeeIdRouteImport } from './routes/_app/employees.$employeeId'
+import { Route as AppProgramsErgoRouteImport } from './routes/_app/programs.ergo'
+import { Route as AppProgramsWorkloadRouteImport } from './routes/_app/programs.workload'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -51,6 +53,16 @@ const AppEmployeesEmployeeIdRoute = AppEmployeesEmployeeIdRouteImport.update({
   path: '/employees/$employeeId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProgramsErgoRoute = AppProgramsErgoRouteImport.update({
+  id: '/programs/ergo',
+  path: '/programs/ergo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProgramsWorkloadRoute = AppProgramsWorkloadRouteImport.update({
+  id: '/programs/workload',
+  path: '/programs/workload',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -58,6 +70,8 @@ export interface FileRoutesByFullPath {
   '/$': typeof AppSplatRoute
   '/cases': typeof AppCasesRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/programs/ergo': typeof AppProgramsErgoRoute
+  '/programs/workload': typeof AppProgramsWorkloadRoute
   '/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -66,6 +80,8 @@ export interface FileRoutesByTo {
   '/cases': typeof AppCasesRoute
   '/': typeof AppIndexRoute
   '/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/programs/ergo': typeof AppProgramsErgoRoute
+  '/programs/workload': typeof AppProgramsWorkloadRoute
   '/employees': typeof AppEmployeesIndexRoute
 }
 export interface FileRoutesById {
@@ -76,14 +92,31 @@ export interface FileRoutesById {
   '/_app/cases': typeof AppCasesRoute
   '/_app/': typeof AppIndexRoute
   '/_app/employees/$employeeId': typeof AppEmployeesEmployeeIdRoute
+  '/_app/programs/ergo': typeof AppProgramsErgoRoute
+  '/_app/programs/workload': typeof AppProgramsWorkloadRoute
   '/_app/employees/': typeof AppEmployeesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/$' | '/cases' | '/employees/$employeeId' | '/employees/'
+    | '/'
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/employees/$employeeId'
+    | '/programs/ergo'
+    | '/programs/workload'
+    | '/employees/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/$' | '/cases' | '/' | '/employees/$employeeId' | '/employees'
+  to:
+    | '/login'
+    | '/$'
+    | '/cases'
+    | '/'
+    | '/employees/$employeeId'
+    | '/programs/ergo'
+    | '/programs/workload'
+    | '/employees'
   id:
     | '__root__'
     | '/_app'
@@ -92,6 +125,8 @@ export interface FileRouteTypes {
     | '/_app/cases'
     | '/_app/'
     | '/_app/employees/$employeeId'
+    | '/_app/programs/ergo'
+    | '/_app/programs/workload'
     | '/_app/employees/'
   fileRoutesById: FileRoutesById
 }
@@ -151,6 +186,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEmployeesEmployeeIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/programs/ergo': {
+      id: '/_app/programs/ergo'
+      path: '/programs/ergo'
+      fullPath: '/programs/ergo'
+      preLoaderRoute: typeof AppProgramsErgoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/programs/workload': {
+      id: '/_app/programs/workload'
+      path: '/programs/workload'
+      fullPath: '/programs/workload'
+      preLoaderRoute: typeof AppProgramsWorkloadRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -159,6 +208,8 @@ interface AppRouteChildren {
   AppCasesRoute: typeof AppCasesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppEmployeesEmployeeIdRoute: typeof AppEmployeesEmployeeIdRoute
+  AppProgramsErgoRoute: typeof AppProgramsErgoRoute
+  AppProgramsWorkloadRoute: typeof AppProgramsWorkloadRoute
   AppEmployeesIndexRoute: typeof AppEmployeesIndexRoute
 }
 
@@ -167,6 +218,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCasesRoute: AppCasesRoute,
   AppIndexRoute: AppIndexRoute,
   AppEmployeesEmployeeIdRoute: AppEmployeesEmployeeIdRoute,
+  AppProgramsErgoRoute: AppProgramsErgoRoute,
+  AppProgramsWorkloadRoute: AppProgramsWorkloadRoute,
   AppEmployeesIndexRoute: AppEmployeesIndexRoute,
 }
 
