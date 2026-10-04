@@ -1,6 +1,6 @@
 # 複製成 terraform.tfvars（不提交）後填入。
 project_id            = "yutis-care-prod"
-# 可進入平台管理後台的 Google Workspace 帳號或群組（Identity-Aware Proxy）
+# 可進入平台管理後台的 Google Workspace 帳號或群組（Identity-Aware Proxy；platform_sign_in = true 時不用）
 platform_staff        = ["group:care-ops@yutis.com.tw"]
 # 第一次部署時取得「營運」角色的帳號（也要在 platform_staff 內）
 platform_admin_emails = ["someone@yutis.com.tw"]
@@ -9,3 +9,5 @@ alert_email           = "ops@yutis.com.tw"
 # domain                = "care.yutis.com.tw"
 # 寄件者；先在 Resend 驗證網域、把 API 金鑰加入 resend-api-key 密鑰後再填，空白則只記錄不寄出
 # email_from            = "Yutis Care <noreply@care.yutis.com.tw>"
+# 專案不在 Google Workspace 組織內（個人 Gmail 建立）時設 true：平台人員改用 Google 登入，不經 IAP
+# platform_sign_in      = true

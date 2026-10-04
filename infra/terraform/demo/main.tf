@@ -9,6 +9,9 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = "asia-east1"
+  # With a person's credentials (Cloud Shell), APIs such as API Keys and Identity Toolkit need a quota project.
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 variable "project_id" {

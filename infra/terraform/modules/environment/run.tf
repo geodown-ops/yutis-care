@@ -176,7 +176,7 @@ resource "google_cloud_run_v2_service" "platform_api" {
   name                 = "platform-api"
   location             = var.region
   ingress              = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
-  invoker_iam_disabled = true # Identity-Aware Proxy at the load balancer; the API verifies the IAP JWT itself
+  invoker_iam_disabled = true # IAP (or Google sign-in) is checked by the API itself: the IAP JWT or the ID token
   deletion_protection  = false
   depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s]
 
@@ -224,9 +224,18 @@ resource "google_cloud_run_v2_service" "platform_api" {
         name  = "KMS_KEY_RING"
         value = google_kms_key_ring.tenants.id
       }
-      env {
-        name  = "IAP_AUDIENCE"
-        value = "/projects/${data.google_project.this.number}/global/backendServices/${google_compute_backend_service.platform_api[0].generated_id}"
+      dynamic "env" {
+        for_each = local.platform_iap ? {
+          IAP_AUDIENCE = "/projects/${data.google_project.this.number}/global/backendServices/${google_compute_backend_service.platform_api[0].generated_id}"
+          } : {
+          PLATFORM_SIGN_IN_PROJECT_ID  = var.project_id
+          PLATFORM_SIGN_IN_API_KEY     = nonsensitive(google_apikeys_key.browser[0].key_string) # a public browser key
+          PLATFORM_SIGN_IN_AUTH_DOMAIN = "${var.project_id}.firebaseapp.com"
+        }
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name = "PLATFORM_DATABASE_URL"

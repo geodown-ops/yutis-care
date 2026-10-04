@@ -36,6 +36,14 @@
 
 ## 第一次建立（由有專案擁有者權限的人執行）
 
+正式站最簡單的方式：在 GCP 主控台右上角打開 Cloud Shell（>_），貼上
+
+```bash
+git clone https://github.com/geodown-ops/yutis-care.git && cd yutis-care && bash infra/bootstrap-production.sh <專案 ID>
+```
+
+它會檢查帳單、建立狀態 bucket 與 `terraform.tfvars`（目前登入的帳號是第一位營運人員），再執行 `terraform apply`（先列出計畫，輸入 `yes` 才建立）。專案不在 Google Workspace 組織內時，平台管理後台自動改用 Google 登入（`platform_sign_in`），這時要在 Identity Platform → 提供者 啟用 Google。下面是手動的做法。
+
 ```bash
 gcloud auth application-default login
 

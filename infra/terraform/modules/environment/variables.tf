@@ -40,6 +40,12 @@ variable "platform_host" {
   default     = null
 }
 
+variable "platform_sign_in" {
+  description = "Platform staff sign in with Google through Identity Platform instead of passing Identity-Aware Proxy (for a project outside a Google Workspace organization, where IAP's Google-managed client admits no one). The platform API still admits only active platform_users."
+  type        = bool
+  default     = false
+}
+
 variable "platform_staff" {
   description = "Who may pass Identity-Aware Proxy to the platform back office, e.g. [\"group:ops@yutis.com.tw\"] or [\"user:a@yutis.com.tw\"]."
   type        = list(string)

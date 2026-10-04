@@ -9,6 +9,9 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = "asia-east1"
+  # With a person's credentials (Cloud Shell), APIs such as API Keys and Identity Toolkit need a quota project.
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 variable "project_id" {
@@ -16,7 +19,15 @@ variable "project_id" {
 }
 
 variable "platform_staff" {
-  type = list(string)
+  description = "Who may pass Identity-Aware Proxy (ignored with platform_sign_in)."
+  type        = list(string)
+  default     = []
+}
+
+variable "platform_sign_in" {
+  description = "Platform staff sign in with Google instead of IAP: set true when the project has no Google Workspace organization."
+  type        = bool
+  default     = false
 }
 
 variable "platform_admin_emails" {
@@ -51,6 +62,7 @@ module "env" {
   web_api_mode       = "live"
 
   platform_staff        = var.platform_staff
+  platform_sign_in      = var.platform_sign_in
   platform_admin_emails = var.platform_admin_emails
 
   database_tier              = "db-custom-2-7680"
