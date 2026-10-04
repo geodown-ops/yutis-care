@@ -1,6 +1,7 @@
 /*
- * Names any staff screen needs to fill pickers and label rows: who the active staff are, and the organisation tree.
- * No contact details or health data; editing stays with tenant admins (/api/admin/users, /api/admin/org).
+ * Names any staff screen needs to fill pickers and label rows: who the active staff are (with their work email, for
+ * sign-off signers), and the organisation tree. No health data; editing stays with tenant admins (/api/admin/users,
+ * /api/admin/org).
  */
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { mySiteIds } from './programs/common.js';
 class StaffMemberDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() name!: string;
+  @ApiProperty({ description: '公司 Email（例如帶入簽核人員）' }) email!: string;
   @ApiProperty({ enum: staffRoleEnum.enumValues }) role!: StaffRole;
 }
 
@@ -53,7 +55,7 @@ export class DirectoryController {
   @ApiOkResponse({ type: [StaffMemberDto] })
   async staff(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<StaffMemberDto[]> {
     const { roles } = parse(StaffQuery, query);
-    return ctx.tx.select({ id: users.id, name: users.name, role: users.role }).from(users)
+    return ctx.tx.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users)
       .where(and(eq(users.active, true), roles.length ? inArray(users.role, roles) : undefined)).orderBy(asc(users.name));
   }
 

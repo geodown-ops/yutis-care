@@ -1,5 +1,6 @@
 /* Records an employee is asked to confirm (員工確認), shared by the portal and the emailed one-time links. */
 import { ApiProperty } from '@nestjs/swagger';
+import { EMPLOYEE_LANGS, isEmployeeLang, type EmployeeLang } from '@yutis/domain';
 import { employeeAcknowledgements, employees, interviews, maternalInterviews, type Tx } from '@yutis/db';
 import { eq } from 'drizzle-orm';
 import { acknowledgementTitle } from '../portal/titles.js';
@@ -23,6 +24,7 @@ export class AcknowledgementContentDto {
 export class AcknowledgementDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ example: '母性健康保護面談紀錄', description: '依員工的員工端語言' }) title!: string;
+  @ApiProperty({ enum: EMPLOYEE_LANGS, description: '員工端語言：畫面文字用這個語言' }) lang!: EmployeeLang;
   @ApiProperty({ type: AcknowledgementContentDto, nullable: true, description: '要確認的內容（不含醫護內部紀錄）；找不到原始紀錄時為 null' })
   content!: AcknowledgementContentDto | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) confirmedAt!: Date | null;
@@ -46,5 +48,6 @@ export async function acknowledgementDocument(tx: Tx, ack: typeof employeeAcknow
       agreedArrangement: advice ? [advice.suggestion, advice.period && `措施期間：${advice.period}`].filter(Boolean).join('；') || null : null,
     } : null;
   }
-  return { id: ack.id, title: acknowledgementTitle(ack.subjectTable, employee?.lang ?? 'zh'), content, confirmedAt: ack.confirmedAt, comment: ack.comment };
+  const lang = employee && isEmployeeLang(employee.lang) ? employee.lang : 'zh';
+  return { id: ack.id, title: acknowledgementTitle(ack.subjectTable, lang), lang, content, confirmedAt: ack.confirmedAt, comment: ack.comment };
 }

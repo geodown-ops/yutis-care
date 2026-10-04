@@ -36,7 +36,9 @@ class WorkAdviceDto {
   @ApiProperty({ type: [String], description: '工作限制' }) restrictions!: string[];
 }
 const NOTICE_PROGRAMMES = { interviews: '異常工作負荷', maternal_interviews: '母性健康保護' } as const;
-type NoticeProgramme = (typeof NOTICE_PROGRAMMES)[keyof typeof NOTICE_PROGRAMMES];
+/** What a 部門主管 sees instead of the programme: naming 母性健康保護 would tell them an employee may be pregnant. */
+const MANAGER_PROGRAMME = '工作調整';
+type NoticeProgramme = (typeof NOTICE_PROGRAMMES)[keyof typeof NOTICE_PROGRAMMES] | typeof MANAGER_PROGRAMME;
 const noticeProgramme = (subjectTable: string): NoticeProgramme => NOTICE_PROGRAMMES[subjectTable as keyof typeof NOTICE_PROGRAMMES];
 
 class NoticeDto {
@@ -44,7 +46,11 @@ class NoticeDto {
   @ApiProperty({ format: 'uuid' }) employeeId!: string;
   @ApiProperty() empNo!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ enum: Object.values(NOTICE_PROGRAMMES), description: '建議來自哪個計畫的面談' }) programme!: NoticeProgramme;
+  @ApiProperty({
+    enum: [...Object.values(NOTICE_PROGRAMMES), MANAGER_PROGRAMME],
+    description: `建議來自哪個計畫的面談。部門主管看到的一律是「${MANAGER_PROGRAMME}」，不透露計畫（例如母性健康保護會讓主管知道員工可能懷孕）。`,
+  })
+  programme!: NoticeProgramme;
   @ApiProperty() advice!: string;
   @ApiProperty({ type: String, format: 'date-time' }) sentAt!: Date;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) readAt!: Date | null;
@@ -64,7 +70,7 @@ class UnreadNoticesDto {
 class LinkDto {
   @ApiProperty({ description: '寄給員工的一次性連結（只回傳這一次，不儲存）' }) url!: string;
   @ApiProperty({ type: String, format: 'date-time' }) expiresAt!: Date;
-  @ApiProperty({ description: '已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工' }) emailed!: boolean;
+  @ApiProperty({ description: '會寄通知信給員工（寄信服務已設定，且員工有 Email）；false 時請用其他方式把連結交給員工' }) emailed!: boolean;
 }
 
 const CreateNotice = z.object({
@@ -162,7 +168,7 @@ export class AdviceController {
       await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'manager_notices', subjectId: r.n.id, employeeId: r.n.employeeId, dataCategory: 'work' })));
     }
     return rows.map(r => ({
-      id: r.n.id, employeeId: r.n.employeeId, empNo: r.empNo, name: r.name, programme: noticeProgramme(r.n.subjectTable),
+      id: r.n.id, employeeId: r.n.employeeId, empNo: r.empNo, name: r.name, programme: MANAGER_PROGRAMME,
       advice: r.n.advice, sentAt: r.n.createdAt, readAt: r.n.readAt,
     }));
   }
@@ -200,6 +206,6 @@ export class AdviceController {
         to: employee.email, acknowledgementId: id, name: employee.name, lang: employee.lang, tenantName: ctx.tenant.name, url, days: SIGN_LINK_DAYS,
       }));
     }
-    return { url, expiresAt, emailed: Boolean(employee.email) };
+    return { url, expiresAt, emailed: Boolean(employee.email) && this.notifier.delivers };
   }
 }

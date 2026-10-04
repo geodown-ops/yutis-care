@@ -45,7 +45,10 @@ class TaskDto {
   @ApiProperty({ format: 'uuid', description: '問卷、評估或確認的 id' }) id!: string;
   @ApiProperty({ description: '依員工端語言；問卷發放名稱照原文' }) title!: string;
   @ApiProperty({ type: String, format: 'date', nullable: true }) dueOn!: string | null;
+  @ApiProperty({ description: '有尚未送出的草稿' }) hasDraft!: boolean;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true, description: '草稿最後儲存時間' }) draftSavedAt!: Date | null;
 }
+type TaskBase = Omit<TaskDto, 'hasDraft' | 'draftSavedAt'>;
 class DraftDto {
   @ApiProperty({ type: 'object', additionalProperties: true, description: '尚未送出的作答，格式由前端決定' }) answers!: Record<string, unknown>;
   @ApiProperty({ type: String, format: 'date-time' }) savedAt!: Date;
@@ -143,12 +146,18 @@ export class PortalController {
       .innerJoin(ergoDispatches, eq(ergoDispatches.id, ergoSurveys.dispatchId)).where(and(eq(ergoSurveys.employeeId, id), eq(ergoSurveys.status, '未填寫')));
     const wl = await ctx.tx.select().from(workloadAssessments).where(eq(workloadAssessments.employeeId, id)).orderBy(desc(workloadAssessments.sentOn));
     const acks = await ctx.tx.select().from(employeeAcknowledgements).where(and(eq(employeeAcknowledgements.employeeId, id), isNull(employeeAcknowledgements.confirmedAt)));
+    const drafts = await ctx.tx.select({ kind: portalDrafts.taskKind, taskId: portalDrafts.taskId, savedAt: portalDrafts.updatedAt }).from(portalDrafts)
+      .where(eq(portalDrafts.employeeId, id));
+    const withDraft = (t: TaskBase): TaskDto => {
+      const savedAt = drafts.find(d => d.kind === t.kind && d.taskId === t.id)?.savedAt ?? null;
+      return { ...t, hasDraft: savedAt !== null, draftSavedAt: savedAt };
+    };
     return [
       ...nmq.map(s => ({ kind: 'nmq' as const, id: s.id, title: nmqTitle(s.name, lang), dueOn: s.dueOn })),
       ...wl.filter(a => !a.fatigueAt).map(a => ({ kind: 'cbi' as const, id: a.id, title: taskTitle('cbi', lang), dueOn: null })),
       ...wl.filter(a => !a.overloadAt).map(a => ({ kind: 'overload' as const, id: a.id, title: taskTitle('overload', lang), dueOn: null })),
       ...acks.map(a => ({ kind: 'acknowledgement' as const, id: a.id, title: acknowledgementTitle(a.subjectTable, lang), dueOn: null })),
-    ];
+    ].map(withDraft);
   }
 
   @Get('tasks/:kind/:id') @EmployeeOnly()
@@ -156,10 +165,11 @@ export class PortalController {
   @ApiParam({ name: 'kind', enum: TASK_KINDS }) @ApiOkResponse({ type: TaskDetailDto })
   async task(@Ctx() ctx: RequestContext, @Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string): Promise<TaskDetailDto> {
     const task = await this.ownTask(ctx, taskKind(kind), id);
-    if (task.kind === 'acknowledgement') return { ...task, draft: null };
-    const [draft] = await ctx.tx.select({ answers: portalDrafts.answers, savedAt: portalDrafts.updatedAt }).from(portalDrafts)
+    if (task.kind === 'acknowledgement') return { ...task, hasDraft: false, draftSavedAt: null, draft: null };
+    const [row] = await ctx.tx.select({ answers: portalDrafts.answers, savedAt: portalDrafts.updatedAt }).from(portalDrafts)
       .where(and(eq(portalDrafts.employeeId, me(ctx).employeeId), eq(portalDrafts.taskKind, task.kind), eq(portalDrafts.taskId, id)));
-    return { ...task, draft: draft && !task.done ? { answers: draft.answers as Record<string, unknown>, savedAt: draft.savedAt } : null };
+    const draft = row && !task.done ? { answers: row.answers as Record<string, unknown>, savedAt: row.savedAt } : null;
+    return { ...task, hasDraft: draft !== null, draftSavedAt: draft?.savedAt ?? null, draft };
   }
 
   @Put('tasks/:kind/:id/draft') @EmployeeOnly()
@@ -278,7 +288,7 @@ export class PortalController {
   }
 
   /** The signed-in employee's task, in their language, and whether it is done; someone else's is not found. */
-  private async ownTask(ctx: RequestContext, kind: TaskKind, id: string): Promise<TaskDto & { done: boolean }> {
+  private async ownTask(ctx: RequestContext, kind: TaskKind, id: string): Promise<TaskBase & { done: boolean }> {
     const { employeeId, lang } = me(ctx);
     if (kind === 'nmq') {
       const [s] = await ctx.tx.select({ name: ergoDispatches.name, dueOn: ergoDispatches.dueOn, status: ergoSurveys.status }).from(ergoSurveys)

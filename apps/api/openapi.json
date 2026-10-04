@@ -1680,7 +1680,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StaffAccountDto"
+                  "$ref": "#/components/schemas/InvitedStaffDto"
                 }
               }
             }
@@ -1862,6 +1862,86 @@
           }
         ],
         "summary": "修改後台人員：角色、負責廠區、停用",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/employees": {
+      "get": {
+        "description": "依姓名或工號找員工，只回傳 id、工號與姓名，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。",
+        "operationId": "EmployeesController_search",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "最多幾筆（1–50，預設 20）",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "姓名或工號的一部分",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeNameDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "找員工（租戶管理員）",
         "tags": [
           "admin"
         ]
@@ -2236,6 +2316,74 @@
           }
         ],
         "summary": "新增健檢醫院的欄位對照",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/exam-mappings/{id}/template": {
+      "get": {
+        "description": "欄位名稱與這家醫院的對照相同；粗體為必填。可提供給健檢醫院。",
+        "operationId": "ExamSettingsController_mappingTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "依健檢匯入對照產生的空白檔（.xlsx）",
         "tags": [
           "admin"
         ]
@@ -6339,7 +6487,7 @@
     },
     "/api/programs/workload/assessments/{id}/interview": {
       "put": {
-        "description": "面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。",
+        "description": "面談指導結果與面談紀錄加密；工作安排建議（工作區分、採取措施建議）可通知人資與主管。沒傳的欄位保留原值，傳 null 才清除。回應含面談指導結果與面談紀錄。狀態為已安排且有日期（interviewedOn）時，寄信通知員工面談日期（改期會再寄一次；信中不提是哪個計畫）。",
         "operationId": "WorkloadController_interview",
         "parameters": [
           {
@@ -6544,6 +6692,12 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "nextInterview": {
+                    "type": [
+                      "boolean",
+                      "null"
                     ]
                   },
                   "nextOn": {
@@ -8853,6 +9007,64 @@
           }
         ],
         "summary": "產生員工確認連結",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
+    "/api/programs/options": {
+      "get": {
+        "description": "與雛形相同的固定選項；各租戶目前相同。",
+        "operationId": "OptionsController_options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgrammeOptionsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "四大計畫表單的選項",
         "tags": [
           "programs"
         ]
@@ -12053,6 +12265,10 @@
           "name": {
             "type": "string"
           },
+          "email": {
+            "type": "string",
+            "description": "公司 Email（例如帶入簽核人員）"
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -12068,6 +12284,7 @@
         "required": [
           "id",
           "name",
+          "email",
           "role"
         ]
       },
@@ -12563,6 +12780,98 @@
           "signedInBefore",
           "lastSignInAt",
           "siteIds"
+        ]
+      },
+      "InvitedStaffDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "職護",
+              "職醫",
+              "職安衛人員",
+              "人資",
+              "部門主管",
+              "租戶管理員"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "qualification": {
+            "type": "string",
+            "nullable": true,
+            "description": "勞工健康服務人員資格"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "signedInBefore": {
+            "type": "boolean",
+            "description": "已用公司帳號（SSO）登入過；未登入過表示邀請尚未接受"
+          },
+          "lastSignInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "siteIds": {
+            "description": "負責廠區",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role",
+          "phone",
+          "qualification",
+          "active",
+          "signedInBefore",
+          "lastSignInAt",
+          "siteIds",
+          "emailed"
+        ]
+      },
+      "EmployeeNameDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "empNo",
+          "name"
         ]
       },
       "SeatsDto": {
@@ -14019,9 +14328,17 @@
           "name": {
             "type": "string"
           },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "site": {
             "type": "string",
             "example": "桃園廠"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
           },
           "department": {
             "type": "string",
@@ -14092,7 +14409,9 @@
           "employeeId",
           "empNo",
           "name",
+          "siteId",
           "site",
+          "departmentId",
           "department",
           "status",
           "maxScore",
@@ -14384,10 +14703,16 @@
             "nullable": true,
             "description": "面談紀錄（醫療資料，加密儲存）；列表不帶，只有單筆查詢 GET /assessments/{id} 才有"
           },
+          "nextInterview": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "是否安排下次面談；未填為 null"
+          },
           "nextOn": {
             "type": "string",
             "format": "date",
-            "nullable": true
+            "nullable": true,
+            "description": "下次面談預定日期"
           },
           "acknowledgement": {
             "nullable": true,
@@ -14416,6 +14741,7 @@
           "workAdvice",
           "guidance",
           "notes",
+          "nextInterview",
           "nextOn",
           "acknowledgement",
           "notices"
@@ -14438,9 +14764,17 @@
           "name": {
             "type": "string"
           },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "site": {
             "type": "string",
             "example": "桃園廠"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
           },
           "department": {
             "type": "string",
@@ -14552,7 +14886,9 @@
           "employeeId",
           "empNo",
           "name",
+          "siteId",
           "site",
+          "departmentId",
           "department",
           "sentOn",
           "cbiAnswers",
@@ -14583,8 +14919,18 @@
             "type": "string",
             "format": "uuid"
           },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "area": {
             "type": "string"
+          },
+          "shiftType": {
+            "type": "string",
+            "nullable": true,
+            "example": "輪班"
           },
           "assessedOn": {
             "type": "string",
@@ -14607,7 +14953,9 @@
         "required": [
           "id",
           "siteId",
+          "departmentId",
           "area",
+          "shiftType",
           "assessedOn",
           "hazards",
           "level"
@@ -14681,8 +15029,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "empNo": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "員工目前所屬部門"
           },
           "type": {
             "type": "string",
@@ -14699,7 +15055,14 @@
           "dueDate": {
             "type": "string",
             "format": "date",
-            "nullable": true
+            "nullable": true,
+            "description": "預產期"
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "分娩日（產後）"
           },
           "weeks": {
             "type": "number",
@@ -14731,10 +15094,13 @@
         "required": [
           "id",
           "employeeId",
+          "empNo",
           "name",
+          "departmentId",
           "type",
           "notifiedOn",
           "dueDate",
+          "birthDate",
           "weeks",
           "level",
           "detail",
@@ -15057,13 +15423,18 @@
           "url": {
             "type": "string",
             "description": "一次性簽核連結（只回傳這一次，不儲存）；同時寄給簽核人員"
+          },
+          "emailed": {
+            "type": "boolean",
+            "description": "簽核信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出，請把連結另外交給簽核人員"
           }
         },
         "required": [
           "signatureId",
           "role",
           "name",
-          "url"
+          "url",
+          "emailed"
         ]
       },
       "WorkAdviceDto": {
@@ -15160,9 +15531,10 @@
             "type": "string",
             "enum": [
               "異常工作負荷",
-              "母性健康保護"
+              "母性健康保護",
+              "工作調整"
             ],
-            "description": "建議來自哪個計畫的面談"
+            "description": "建議來自哪個計畫的面談。部門主管看到的一律是「工作調整」，不透露計畫（例如母性健康保護會讓主管知道員工可能懷孕）。"
           },
           "advice": {
             "type": "string"
@@ -15213,13 +15585,76 @@
           },
           "emailed": {
             "type": "boolean",
-            "description": "已寄通知信給員工；員工沒有 Email 時為 false，請用其他方式把連結交給員工"
+            "description": "會寄通知信給員工（寄信服務已設定，且員工有 Email）；false 時請用其他方式把連結交給員工"
           }
         },
         "required": [
           "url",
           "expiresAt",
           "emailed"
+        ]
+      },
+      "ProgrammeOptionsDto": {
+        "type": "object",
+        "properties": {
+          "workPatterns": {
+            "description": "工作型態（過勞評估，可複選）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workloadFitness": {
+            "description": "工作區分（過勞面談）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "adjustHours": {
+            "description": "調整或縮短工作時間（過勞面談）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "changeWork": {
+            "description": "變更工作（過勞面談）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ergoMeasures": {
+            "description": "改善措施（人因列管）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "specialOperations": {
+            "description": "特別危害健康作業類別",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shiftTypes": {
+            "description": "作業型態（母性作業環境評估）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "workPatterns",
+          "workloadFitness",
+          "adjustHours",
+          "changeWork",
+          "ergoMeasures",
+          "specialOperations",
+          "shiftTypes"
         ]
       },
       "ProfileDto": {
@@ -15288,13 +15723,25 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "hasDraft": {
+            "type": "boolean",
+            "description": "有尚未送出的草稿"
+          },
+          "draftSavedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "草稿最後儲存時間"
           }
         },
         "required": [
           "kind",
           "id",
           "title",
-          "dueOn"
+          "dueOn",
+          "hasDraft",
+          "draftSavedAt"
         ]
       },
       "DraftDto": {
@@ -15342,6 +15789,16 @@
             "format": "date",
             "nullable": true
           },
+          "hasDraft": {
+            "type": "boolean",
+            "description": "有尚未送出的草稿"
+          },
+          "draftSavedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "草稿最後儲存時間"
+          },
           "done": {
             "type": "boolean",
             "description": "已填寫或已確認"
@@ -15362,6 +15819,8 @@
           "id",
           "title",
           "dueOn",
+          "hasDraft",
+          "draftSavedAt",
           "done",
           "draft"
         ]
@@ -15449,6 +15908,17 @@
             "example": "母性健康保護面談紀錄",
             "description": "依員工的員工端語言"
           },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en",
+              "ja",
+              "vi",
+              "th"
+            ],
+            "description": "員工端語言：畫面文字用這個語言"
+          },
           "content": {
             "nullable": true,
             "description": "要確認的內容（不含醫護內部紀錄）；找不到原始紀錄時為 null",
@@ -15472,6 +15942,7 @@
         "required": [
           "id",
           "title",
+          "lang",
           "content",
           "confirmedAt",
           "comment"
@@ -15889,6 +16360,17 @@
           "title": {
             "type": "string"
           },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en",
+              "ja",
+              "vi",
+              "th"
+            ],
+            "description": "畫面語言：員工確認依員工帳號的語言，簽核一律為 zh"
+          },
           "content": {
             "nullable": true,
             "oneOf": [
@@ -15920,6 +16402,7 @@
           "kind",
           "document",
           "title",
+          "lang",
           "content",
           "confirmedAt",
           "comment"

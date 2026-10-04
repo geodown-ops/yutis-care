@@ -31,6 +31,10 @@ class StaffAccountDto {
   @ApiProperty({ type: [String], format: 'uuid', description: '負責廠區' }) siteIds!: string[];
 }
 
+class InvitedStaffDto extends StaffAccountDto {
+  @ApiProperty({ description: '邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方' }) emailed!: boolean;
+}
+
 const InviteStaff = z.object({
   email: z.email().toLowerCase(),
   name: z.string().trim().min(1).max(100),
@@ -70,9 +74,9 @@ export class UsersController {
     description: '指定角色與負責廠區，並寄邀請信（含登入網址）給對方；對方以公司帳號（SSO）或本地帳號第一次登入時綁定。只有被邀請的人能登入。',
   })
   @ApiBody({ schema: openApiSchema(InviteStaff) })
-  @ApiCreatedResponse({ type: StaffAccountDto })
+  @ApiCreatedResponse({ type: InvitedStaffDto })
   @ApiConflictResponse({ description: '此 Email 已有帳號（account_exists）', type: ApiErrorDto })
-  async invite(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<StaffAccountDto> {
+  async invite(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<InvitedStaffDto> {
     const input = parse(InviteStaff, body);
     await assertSites(ctx, input.siteIds);
     const [existing] = await ctx.tx.select({ id: users.id }).from(users).where(eq(sql`lower(${users.email})`, input.email));
@@ -92,7 +96,7 @@ export class UsersController {
     await this.notifier.email(ctx, staffInvitationEmail({
       to: input.email, userId: created.id, name: input.name, tenantName: ctx.tenant.name, url: `${tenantOrigin(this.config, ctx.tenant.slug)}/`,
     }));
-    return toDto(created, input.siteIds);
+    return { ...toDto(created, input.siteIds), emailed: this.notifier.delivers };
   }
 
   @Patch(':id')

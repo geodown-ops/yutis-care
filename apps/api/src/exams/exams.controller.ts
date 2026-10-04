@@ -19,8 +19,8 @@ import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { decryptOptional, encryptOptional, TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { parse } from '../core/validation.js';
-import { ExamMappingDto, type ExamMappingInput } from '../admin/exam-settings.controller.js';
-import { ImportIssueDto, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue } from '../admin/excel.js';
+import { ExamMappingDto, sendExamTemplate, type ExamMappingInput } from '../admin/exam-settings.controller.js';
+import { ImportIssueDto, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, XLSX_MIME, type ImportIssue } from '../admin/excel.js';
 import { currentRuleSet, ruleSetVersions } from './rules.js';
 
 const ExamAccess = () => StaffOnly({ data: 'health', feature: 'employees' });
@@ -133,14 +133,8 @@ export class ExamsController {
   @ApiOperation({ summary: '依健檢匯入對照產生的空白檔（.xlsx）', description: '欄位名稱與這家醫院的對照相同；粗體為必填。' })
   @ApiProduces(XLSX_MIME)
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
-  async template(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
-    const [row] = await ctx.tx.select().from(examImportMappings).where(eq(examImportMappings.id, id));
-    if (!row) throw new NotFoundException({ code: 'mapping_not_found', message: 'No such import mapping' });
-    const { columns: c, items } = row.mapping as Omit<ExamMappingInput, 'clinic'>;
-    const required = [c.empNo ?? c.nationalId!, c.examDate];
-    const optional = [c.empNo && c.nationalId, c.kind, c.smoker, c.history, c.symptoms, c.workNote, c.specialHazard, c.specialLevel, ...Object.values(items)]
-      .filter((h): h is string => Boolean(h) && !required.includes(h!));
-    return sendXlsx(reply, `${row.clinic}健檢匯入範本.xlsx`, await templateWorkbook([{ name: '健檢結果', required, optional: [...new Set(optional)] }]));
+  template(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendExamTemplate(ctx, id, reply);
   }
 
   @Get('exams/batches')

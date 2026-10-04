@@ -3,11 +3,12 @@
  * is immutable once published; changing the standard means publishing a new version. Stored results keep the version
  * they were graded with, so a past grade can always be explained.
  */
-import { Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
-import { ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Post, Put, Res } from '@nestjs/common';
+import { ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { examImportMappings, gradingRules, gradingRuleSets } from '@yutis/db';
 import { EXAM_ITEMS } from '@yutis/domain';
 import { asc, desc, eq, sql } from 'drizzle-orm';
+import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
 import { recordAudit } from '../core/audit.js';
@@ -15,6 +16,7 @@ import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { pgErrorCode } from '../core/pg.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { loadRuleSet } from '../exams/rules.js';
+import { sendXlsx, templateWorkbook, XLSX_MIME } from './excel.js';
 
 const itemCodes = [...new Set(EXAM_ITEMS.map(i => i.code))] as [string, ...string[]];
 const header = z.string().trim().min(1).max(100);
@@ -34,6 +36,17 @@ export class ExamMappingDto {
   @ApiProperty({ example: '仁安健康管理診所' }) clinic!: string;
   @ApiProperty({ type: 'object', additionalProperties: true, description: '欄位對照：columns（工號或身分證字號、檢查日期…）與 items（項目代碼 → Excel 欄名）' })
   mapping!: Omit<ExamMappingInput, 'clinic'>;
+}
+
+/** An empty workbook with a clinic's column names (required ones bold), for staff and tenant admins alike. */
+export async function sendExamTemplate(ctx: RequestContext, id: string, reply: FastifyReply): Promise<Buffer> {
+  const [row] = await ctx.tx.select().from(examImportMappings).where(eq(examImportMappings.id, id));
+  if (!row) throw new NotFoundException({ code: 'mapping_not_found', message: 'No such import mapping' });
+  const { columns: c, items } = row.mapping as Omit<ExamMappingInput, 'clinic'>;
+  const required = [c.empNo ?? c.nationalId!, c.examDate];
+  const optional = [c.empNo && c.nationalId, c.kind, c.smoker, c.history, c.symptoms, c.workNote, c.specialHazard, c.specialLevel, ...Object.values(items)]
+    .filter((h): h is string => Boolean(h) && !required.includes(h!));
+  return sendXlsx(reply, `${row.clinic}健檢匯入範本.xlsx`, await templateWorkbook([{ name: '健檢結果', required, optional: [...new Set(optional)] }]));
 }
 
 const Level = z.union([
@@ -80,6 +93,13 @@ export class ExamSettingsController {
       if (pgErrorCode(error) === '23505') throw new ConflictException({ code: 'duplicate', message: `A mapping for ${clinic} already exists` });
       throw error;
     }
+  }
+
+  @Get('exam-mappings/:id/template') @TenantAdmin()
+  @ApiOperation({ summary: '依健檢匯入對照產生的空白檔（.xlsx）', description: '欄位名稱與這家醫院的對照相同；粗體為必填。可提供給健檢醫院。' })
+  @ApiProduces(XLSX_MIME) @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  mappingTemplate(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) reply: FastifyReply): Promise<Buffer> {
+    return sendExamTemplate(ctx, id, reply);
   }
 
   @Put('exam-mappings/:id') @TenantAdmin() @ApiOperation({ summary: '修改欄位對照' })
