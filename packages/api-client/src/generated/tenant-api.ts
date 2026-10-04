@@ -2335,6 +2335,11 @@ export interface components {
             id: string;
             empNo: string;
             name: string;
+            /**
+             * @description 目前的在職狀態
+             * @enum {string}
+             */
+            status: "在職" | "留停" | "離職";
         };
         AuditEntryDto: {
             id: number;
@@ -3138,11 +3143,21 @@ export interface components {
             id: string;
             /** Format: date */
             occurredOn: string;
+            /**
+             * @description 發生時間（HH:MM）
+             * @example 14:35
+             */
+            occurredTime: string | null;
             /** Format: uuid */
             siteId: string;
             /** Format: uuid */
             departmentId: string | null;
             departmentName: string | null;
+            /**
+             * @description 發生地點
+             * @example 客服中心 1F 服務櫃台
+             */
+            place: string | null;
             /** @example 語言暴力 */
             type: string;
             /**
@@ -3150,12 +3165,29 @@ export interface components {
              * @description 受害者是本公司員工時
              */
             victimEmployeeId: string | null;
+            /**
+             * @description 受害者人員類別
+             * @enum {string|null}
+             */
+            victimKind: "內部人員" | "外部人員" | null;
+            /**
+             * @description 加害者人員類別
+             * @enum {string|null}
+             */
+            perpetratorKind: "內部人員" | "外部人員" | null;
             /** @description 後續協助 */
             followUps: string[];
             /** @enum {string} */
             status: "處理中" | "結案";
-            /** @description 事件經過與處理（加密儲存） */
+            /** @description 雙方姓名或特徵、關係、事件經過與處理（加密儲存） */
             detail: string | null;
+            /**
+             * Format: date-time
+             * @description 受理時間（通報建立時）
+             */
+            receivedAt: string;
+            /** @description 受理人（建立通報的人員） */
+            receiverName: string | null;
         };
         ViolenceReviewItemDto: {
             /** @example 辨識及評估危害 */
@@ -8102,13 +8134,21 @@ export interface operations {
                 "application/json": {
                     /** Format: date */
                     occurredOn: string;
+                    /** @default null */
+                    occurredTime?: string | null;
                     /** Format: uuid */
                     siteId: string;
                     /** @default null */
                     departmentId?: string | null;
+                    /** @default null */
+                    place?: string | null;
                     type: string;
                     /** @default null */
                     victimEmployeeId?: string | null;
+                    /** @default null */
+                    victimKind?: ("內部人員" | "外部人員") | null;
+                    /** @default null */
+                    perpetratorKind?: ("內部人員" | "外部人員") | null;
                     /** @default null */
                     detail?: string | null;
                     /** @default [] */
@@ -8168,11 +8208,15 @@ export interface operations {
                 "application/json": {
                     /** Format: date */
                     occurredOn?: string;
+                    occurredTime?: string | null;
                     /** Format: uuid */
                     siteId?: string;
                     departmentId?: string | null;
+                    place?: string | null;
                     type?: string;
                     victimEmployeeId?: string | null;
+                    victimKind?: ("內部人員" | "外部人員") | null;
+                    perpetratorKind?: ("內部人員" | "外部人員") | null;
                     detail?: string | null;
                     followUps?: string[];
                     /** @enum {string} */
