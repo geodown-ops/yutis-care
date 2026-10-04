@@ -11,7 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as AnnouncementsRouteImport } from './routes/announcements'
+import { Route as PlatformUsersRouteImport } from './routes/platform-users'
+import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as UsageRouteImport } from './routes/usage'
 import { Route as TenantsTenantIdRouteImport } from './routes/tenants.$tenantId'
+import { Route as TenantsNewRouteImport } from './routes/tenants.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +28,110 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnnouncementsRoute = AnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformUsersRoute = PlatformUsersRouteImport.update({
+  id: '/platform-users',
+  path: '/platform-users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsageRoute = UsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TenantsTenantIdRoute = TenantsTenantIdRouteImport.update({
   id: '/tenants/$tenantId',
   path: '/tenants/$tenantId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantsNewRoute = TenantsNewRouteImport.update({
+  id: '/tenants/new',
+  path: '/tenants/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/platform-users': typeof PlatformUsersRoute
+  '/templates': typeof TemplatesRoute
+  '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
+  '/tenants/new': typeof TenantsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/platform-users': typeof PlatformUsersRoute
+  '/templates': typeof TemplatesRoute
+  '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
+  '/tenants/new': typeof TenantsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/platform-users': typeof PlatformUsersRoute
+  '/templates': typeof TemplatesRoute
+  '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
+  '/tenants/new': typeof TenantsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/tenants/$tenantId'
+  fullPaths:
+    | '/'
+    | '/$'
+    | '/announcements'
+    | '/platform-users'
+    | '/templates'
+    | '/usage'
+    | '/tenants/$tenantId'
+    | '/tenants/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/tenants/$tenantId'
-  id: '__root__' | '/' | '/$' | '/tenants/$tenantId'
+  to:
+    | '/'
+    | '/$'
+    | '/announcements'
+    | '/platform-users'
+    | '/templates'
+    | '/usage'
+    | '/tenants/$tenantId'
+    | '/tenants/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/$'
+    | '/announcements'
+    | '/platform-users'
+    | '/templates'
+    | '/usage'
+    | '/tenants/$tenantId'
+    | '/tenants/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  AnnouncementsRoute: typeof AnnouncementsRoute
+  PlatformUsersRoute: typeof PlatformUsersRoute
+  TemplatesRoute: typeof TemplatesRoute
+  UsageRoute: typeof UsageRoute
   TenantsTenantIdRoute: typeof TenantsTenantIdRoute
+  TenantsNewRoute: typeof TenantsNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,11 +150,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/announcements': {
+      id: '/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform-users': {
+      id: '/platform-users'
+      path: '/platform-users'
+      fullPath: '/platform-users'
+      preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usage': {
+      id: '/usage'
+      path: '/usage'
+      fullPath: '/usage'
+      preLoaderRoute: typeof UsageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tenants/$tenantId': {
       id: '/tenants/$tenantId'
       path: '/tenants/$tenantId'
       fullPath: '/tenants/$tenantId'
       preLoaderRoute: typeof TenantsTenantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tenants/new': {
+      id: '/tenants/new'
+      path: '/tenants/new'
+      fullPath: '/tenants/new'
+      preLoaderRoute: typeof TenantsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -88,7 +198,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  AnnouncementsRoute: AnnouncementsRoute,
+  PlatformUsersRoute: PlatformUsersRoute,
+  TemplatesRoute: TemplatesRoute,
+  UsageRoute: UsageRoute,
   TenantsTenantIdRoute: TenantsTenantIdRoute,
+  TenantsNewRoute: TenantsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
