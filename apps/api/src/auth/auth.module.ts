@@ -13,6 +13,8 @@ export class AuthModule {
   static register(options: Pick<ApiConfig, 'devSignIn' | 'identityPlatform'>): DynamicModule {
     return {
       module: AuthModule,
+      // Tenant admins send sign-in links from AdminModule.
+      global: true,
       controllers: [MeController, AuthController],
       providers: [
         SessionService,

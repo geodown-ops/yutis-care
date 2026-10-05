@@ -12,6 +12,7 @@ import { createApp } from '../src/app.js';
 import { XLSX_MIME } from '../src/admin/excel.js';
 import { loadConfig } from '../src/config.js';
 import { RESEND_ENDPOINT } from '../src/core/mail.js';
+import { IDENTITY_VERIFIER, type IdentityVerifier } from '../src/auth/identity.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 let db: TestDatabase;
@@ -222,6 +223,43 @@ describe('staff accounts', () => {
     await owner.update(users).set({ role: '租戶管理員' }).where(eq(users.id, ids.admin));
     expect((await call('acme', 'PATCH', `/api/admin/users/${second.id}`, { cookie, body: { active: false } })).statusCode).toBe(200);
   });
+  it("emails a one-time sign-in link from this system's address, at most once a minute, and only to active staff", async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [nurse] = await owner.select().from(users).where(eq(users.email, 'nurse@acme.test'));
+    const url = `/api/admin/users/${nurse!.id}/sign-in-link`;
+    expect((await call('acme', 'POST', url, { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    // Local sign-in has no email links: nothing is sent and the page falls back to the sign-in service.
+    resendCalls.splice(0);
+    expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+    expect(resendCalls).toEqual([]);
+
+    const identity = app.get<IdentityVerifier>(IDENTITY_VERIFIER);
+    const link = vi.spyOn(identity, 'signInLink').mockResolvedValue('https://auth.example/__/auth/action?mode=signIn&oobCode=abc');
+    try {
+      const res = await call('acme', 'POST', url, { cookie });
+      expect(res.json()).toEqual({ sent: true });
+      expect(link).toHaveBeenCalledWith(expect.objectContaining({ slug: 'acme' }), 'nurse@acme.test', 'http://acme.care.test/login');
+      const body = JSON.parse(String(resendCalls.splice(0)[0]!.init.body));
+      expect(body).toMatchObject({ to: ['nurse@acme.test'], subject: 'care.test 登入信（Acme）' });
+      expect(body.text).toContain('這是 care.test 登入信，請點選連結後輸入您的 email 登入');
+      expect(body.text).toContain('oobCode=abc');
+      const [row] = await owner.select().from(notifications).where(eq(notifications.template, 'staff_sign_in_link'));
+      expect(row).toMatchObject({ status: 'sent', params: { userId: nurse!.id } });
+      expect(JSON.stringify(row)).not.toContain('oobCode');
+      expect((await call('acme', 'POST', url, { cookie })).statusCode).toBe(429);
+
+      // Identity Platform refusing (e.g. a missing permission) falls back instead of failing.
+      await owner.update(notifications).set({ createdAt: new Date(Date.now() - 120_000) }).where(eq(notifications.id, row!.id));
+      link.mockRejectedValueOnce(new Error('403 PERMISSION_DENIED'));
+      expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+
+      await owner.update(users).set({ active: false }).where(eq(users.id, nurse!.id));
+      expect((await call('acme', 'POST', url, { cookie })).json()).toMatchObject({ code: 'account_inactive' });
+    } finally {
+      link.mockRestore();
+      await owner.update(users).set({ active: true }).where(eq(users.id, nurse!.id));
+    }
+  });
 });
 
 describe('employee import', () => {
@@ -312,6 +350,60 @@ describe('employee import', () => {
     const set = (await call('acme', 'POST', '/api/admin/employees/import?commit=true', { cookie, xlsx: await xlsx({ 員工: [header, row('E101', { 語言: 'en' })] }) })).json();
     expect(set).toMatchObject({ committed: true, update: 1 });
     expect((await owner.select().from(employees).where(e101))[0]!.lang).toBe('en');
+  });
+});
+
+describe('employee master by hand', () => {
+  const base = () => ({ empNo: 'H001', name: '手動新增', sex: '男', birthDate: '1985-06-01', siteId: ids.s1, departmentId: '' });
+  let dept = '';
+  beforeAll(async () => {
+    dept = (await owner.select().from(departments).where(eq(departments.siteId, ids.s1)))[0]!.id;
+  });
+
+  it('is for tenant admins only', async () => {
+    const nurse = await signIn('acme', 'nurse@acme.test');
+    expect((await call('acme', 'GET', '/api/admin/employees/records', { cookie: nurse })).statusCode).toBe(403);
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie: nurse, body: { ...base(), departmentId: dept } })).statusCode).toBe(403);
+  });
+
+  it('adds one employee with the legal entity of the site, refuses duplicates, and audits', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const res = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), departmentId: dept, email: 'H001@Acme.test', nationalId: 'c123456789', specialOperations: ['噪音'] } });
+    expect(res.statusCode, res.body).toBe(201);
+    const created = res.json();
+    expect(created).toMatchObject({ empNo: 'H001', status: '在職', lang: 'zh', email: 'h001@acme.test', nationalIdMasked: 'C1•••••789', specialOperations: ['噪音'], title: null });
+    expect(JSON.stringify(created)).not.toContain('23456789');
+    const [row] = await owner.select().from(employees).where(eq(employees.id, created.id));
+    const [site] = await owner.select().from(sites).where(eq(sites.id, ids.s1));
+    expect(row!.legalEntityId).toBe(site!.legalEntityId);
+    expect(row!.nationalIdHash).toMatch(/^[0-9a-f]{64}$/);
+
+    const again = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), departmentId: dept } });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().code).toBe('emp_no_taken');
+    const sameId = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H002', departmentId: dept, nationalId: 'C123456789' } });
+    expect(sameId.json()).toMatchObject({ code: 'national_id_taken' });
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H003', departmentId: ids.s1 } })).json().code).toBe('unknown_department');
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H004', departmentId: dept, birthDate: '1985/06/01' } })).statusCode).toBe(400);
+    expect((await audits('employees')).some(a => a.subjectId === created.id && a.action === 'create' && a.actorUserId === ids.admin)).toBe(true);
+  });
+
+  it('changes only the fields given, clears a national ID with null, and lists the master', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'H001')));
+    const res = await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { title: '組長', status: '留停', nationalId: null } });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ name: '手動新增', title: '組長', status: '留停', nationalIdMasked: null, email: 'h001@acme.test' });
+    expect((await owner.select().from(employees).where(eq(employees.id, e!.id)))[0]!.nationalIdHash).toBeNull();
+    expect((await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { empNo: 'E001' } })).json().code).toBe('emp_no_taken');
+    expect((await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { empNo: 'H001' } })).statusCode).toBe(200);
+
+    const page = (await call('acme', 'GET', '/api/admin/employees/records?q=H00', { cookie })).json();
+    expect(page.total).toBe(1);
+    expect(page.items[0]).toMatchObject({ empNo: 'H001', siteId: ids.s1, departmentId: dept });
+    const globexAdmin = await signIn('globex', 'admin@globex.test');
+    expect((await call('globex', 'GET', '/api/admin/employees/records', { cookie: globexAdmin })).json()).toEqual({ total: 0, items: [] });
+    expect((await call('globex', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie: globexAdmin, body: { title: 'x' } })).statusCode).toBe(404);
   });
 });
 

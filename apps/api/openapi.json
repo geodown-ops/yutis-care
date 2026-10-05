@@ -1867,6 +1867,83 @@
         ]
       }
     },
+    "/api/admin/users/{id}/sign-in-link": {
+      "post": {
+        "description": "以本系統的寄件地址寄一次性 Email 登入連結（連結由登入服務產生）。寄信服務未設定、租戶沒有開啟 Email 登入或無法產生連結時回 sent=false，不寄信。同一人一分鐘內只能寄一次。",
+        "operationId": "UsersController_sendSignInLink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInLinkResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "帳號已停用（account_inactive）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "寄登入連結給後台人員",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/employees": {
       "get": {
         "description": "依姓名或工號找員工，或用 ids 查指定的員工；只回傳 id、工號、姓名與在職狀態，供稽核查詢選員工用；含離職員工。回傳的每位員工都記入稽核。",
@@ -1951,6 +2028,525 @@
           }
         ],
         "summary": "找員工（租戶管理員）",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "與匯入相同的規則；法人依廠區決定，部門需屬於該廠區。超過人數上限不阻擋。",
+        "operationId": "EmployeesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "empNo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "sex": {
+                    "type": "string",
+                    "enum": [
+                      "男",
+                      "女"
+                    ]
+                  },
+                  "birthDate": {
+                    "type": "string"
+                  },
+                  "siteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "shift": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "examCategory": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "specialOperations": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    }
+                  },
+                  "lang": {
+                    "type": "string"
+                  },
+                  "hireDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "phone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "在職",
+                      "留停",
+                      "離職"
+                    ]
+                  },
+                  "nationalId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "empNo",
+                  "name",
+                  "sex",
+                  "birthDate",
+                  "siteId",
+                  "departmentId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeRecordDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "新增一位員工",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/employees/records": {
+      "get": {
+        "description": "所有廠區的員工主檔，依工號排序；q 比對姓名或工號。每位列出的員工都記入稽核。",
+        "operationId": "EmployeesController_records",
+        "parameters": [
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "略過的筆數，預設 0",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每頁筆數，預設 50，最多 200",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "在職",
+                "留停",
+                "離職"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "siteId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "姓名或工號的一部分",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeRecordPageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "員工主檔（租戶管理員）",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/employees/{id}": {
+      "patch": {
+        "description": "只改有給的欄位；換廠區時要一起給部門。nationalId 給 null 會移除身分證字號。",
+        "operationId": "EmployeesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "empNo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "sex": {
+                    "type": "string",
+                    "enum": [
+                      "男",
+                      "女"
+                    ]
+                  },
+                  "birthDate": {
+                    "type": "string"
+                  },
+                  "siteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "departmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "shift": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "examCategory": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "specialOperations": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    }
+                  },
+                  "lang": {
+                    "type": "string"
+                  },
+                  "hireDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "phone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "在職",
+                      "留停",
+                      "離職"
+                    ]
+                  },
+                  "nationalId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeRecordDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登入或登入已逾時",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "網址不是任何租戶的子網域（unknown_tenant）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "修改一位員工",
         "tags": [
           "admin"
         ]
@@ -13031,6 +13627,18 @@
           "emailed"
         ]
       },
+      "SignInLinkResultDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean",
+            "description": "已由本系統寄出登入連結；false 表示本系統無法寄（寄信服務未設定或無法產生連結），前端可改用登入服務自己寄"
+          }
+        },
+        "required": [
+          "sent"
+        ]
+      },
       "EmployeeNameDto": {
         "type": "object",
         "properties": {
@@ -13059,6 +13667,140 @@
           "empNo",
           "name",
           "status"
+        ]
+      },
+      "EmployeeRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "empNo": {
+            "type": "string",
+            "description": "工號"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sex": {
+            "type": "string",
+            "enum": [
+              "男",
+              "女"
+            ]
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "legalEntityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "shift": {
+            "type": "string",
+            "nullable": true
+          },
+          "examCategory": {
+            "type": "string",
+            "nullable": true,
+            "description": "健檢類別"
+          },
+          "specialOperations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en",
+              "ja",
+              "vi",
+              "th"
+            ],
+            "description": "員工端語言"
+          },
+          "hireDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "在職",
+              "留停",
+              "離職"
+            ]
+          },
+          "nationalIdMasked": {
+            "type": "string",
+            "nullable": true,
+            "description": "遮罩後的身分證字號；系統不存完整號碼"
+          }
+        },
+        "required": [
+          "id",
+          "empNo",
+          "name",
+          "sex",
+          "birthDate",
+          "legalEntityId",
+          "siteId",
+          "departmentId",
+          "title",
+          "shift",
+          "examCategory",
+          "specialOperations",
+          "lang",
+          "hireDate",
+          "email",
+          "phone",
+          "status",
+          "nationalIdMasked"
+        ]
+      },
+      "EmployeeRecordPageDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "符合條件的總人數"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmployeeRecordDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "items"
         ]
       },
       "SeatsDto": {

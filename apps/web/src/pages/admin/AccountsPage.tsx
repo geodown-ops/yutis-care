@@ -1,11 +1,12 @@
 import { ActionIcon, Alert, Badge, Button, Card, CopyButton, Group, Modal, MultiSelect, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Tooltip } from '@mantine/core';
-import { IconCheck, IconCopy, IconMailCheck, IconMailOff, IconSearch, IconUserPlus } from '@tabler/icons-react';
+import { IconCheck, IconCopy, IconMailCheck, IconMailOff, IconSearch, IconSend, IconUserPlus } from '@tabler/icons-react';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { data, STAFF_ROLES, type StaffRole } from '@yutis/api-client';
+import { data, STAFF_ROLES, type IdentityPlatformConfig, type StaffRole } from '@yutis/api-client';
+import { sendEmailLinkTo, signInProblem } from '@yutis/sign-in';
 import { StatCard, type TileTone } from '@yutis/ui';
 import { useState, type FormEvent } from 'react';
 import { api } from '../../api';
-import { useMe } from '../../session';
+import { useMe, useTenant } from '../../session';
 import { CardNote } from '../states';
 import {
   accountFormProblems, accountToForm, countByRole, emptyAccountForm, filterAccounts, inactiveCount, inviteBody, inviteNotice, signInText, SITE_ROLES, updateBody,
@@ -32,6 +33,9 @@ type Status = 'active' | 'inactive' | 'all';
 /** 帳號與權限: back-office staff, their role and responsible sites. Only invited people can sign in. */
 export function AccountsPage() {
   const me = useMe();
+  const tenant = useTenant();
+  // Sign-in links come from the tenant's email-link sign-in, so they work even where the system sends no email.
+  const linkSignIn = tenant.loginMethods.includes('email_otp') ? tenant.identityPlatform : null;
   const { data: accounts } = useSuspenseQuery(staffAccountsQuery);
   const { data: tree } = useSuspenseQuery(orgQuery);
   const [q, setQ] = useState('');
@@ -63,7 +67,7 @@ export function AccountsPage() {
             data={[{ value: 'active', label: '啟用' }, { value: 'inactive', label: '停用' }, { value: 'all', label: '全部' }]} />
           <Text size="sm" c="dimmed" ml="auto">共 {rows.length} 人</Text>
         </Group>
-        <Table.ScrollContainer minWidth={1080}>
+        <Table.ScrollContainer minWidth={1240}>
           <Table verticalSpacing="sm" highlightOnHover>
             <Table.Thead>
               <Table.Tr><Table.Th>姓名</Table.Th><Table.Th>角色</Table.Th><Table.Th>Email</Table.Th><Table.Th>電話</Table.Th><Table.Th>負責廠區</Table.Th><Table.Th>資格／證照</Table.Th><Table.Th>登入</Table.Th><Table.Th>狀態</Table.Th><Table.Th /></Table.Tr>
@@ -83,7 +87,12 @@ export function AccountsPage() {
                     <Table.Td fz="sm" c={a.qualification ? undefined : 'dimmed'} maw={220}>{a.qualification ?? '—'}</Table.Td>
                     <Table.Td fz="sm" c={a.lastSignInAt ? undefined : 'dimmed'} style={{ whiteSpace: 'nowrap' }}>{signInText(a)}</Table.Td>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}>{a.active ? <ToneBadge tone="ok">啟用</ToneBadge> : <ToneBadge tone="muted">停用</ToneBadge>}</Table.Td>
-                    <Table.Td><Button size="compact-sm" variant="default" onClick={() => setEditing(a)} aria-label={`編輯 ${a.name}`}>編輯</Button></Table.Td>
+                    <Table.Td>
+                      <Group gap={6} wrap="nowrap" justify="flex-end">
+                        {linkSignIn && a.active && <SendLinkButton cfg={linkSignIn} account={a} />}
+                        <Button size="compact-sm" variant="default" onClick={() => setEditing(a)} aria-label={`編輯 ${a.name}`}>編輯</Button>
+                      </Group>
+                    </Table.Td>
                   </Table.Tr>
                 );
               })}
@@ -97,6 +106,30 @@ export function AccountsPage() {
         {editing && <AccountFormView key={editing === 'new' ? 'new' : editing.id} account={editing === 'new' ? null : editing} tree={tree} isSelf={editing !== 'new' && editing.id === me.id} onDone={() => setEditing(null)} />}
       </Modal>
     </Stack>
+  );
+}
+
+/**
+ * Emails a member a one-time sign-in link to this site's login page. The system sends it from its own address when it
+ * can (POST …/sign-in-link); otherwise the sign-in service sends its own email.
+ */
+function SendLinkButton({ cfg, account }: { cfg: IdentityPlatformConfig; account: StaffAccount }) {
+  const send = useMutation({
+    mutationFn: async () => {
+      const { sent } = await data(api.POST('/api/admin/users/{id}/sign-in-link', { params: { path: { id: account.id } } }));
+      if (!sent) await sendEmailLinkTo(cfg, account.email, `${window.location.origin}/login`);
+    },
+  });
+  // signInProblem reads both the API's 429 and the sign-in service's own rate limit.
+  const failed = send.isError ? (signInProblem(send.error) === 'tooMany' ? '剛剛才寄過，請稍後再試' : '寄送失敗，請再試一次') : null;
+  return (
+    <Tooltip label={failed ?? (send.isSuccess ? `已寄到 ${account.email}` : `寄一次性登入連結到 ${account.email}`)} withArrow>
+      <Button size="compact-sm" variant="light" color={failed ? 'red' : send.isSuccess ? 'green' : undefined}
+        leftSection={send.isSuccess ? <IconCheck size={14} /> : <IconSend size={14} />} loading={send.isPending}
+        onClick={() => send.mutate()} aria-label={`重新寄發登入連結給 ${account.name}`}>
+        {send.isSuccess ? '已寄出' : '重新寄發登入連結'}
+      </Button>
+    </Tooltip>
   );
 }
 

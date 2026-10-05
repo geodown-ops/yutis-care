@@ -50,9 +50,17 @@ const EMAIL_KEY = 'yutis.signInEmail';
 
 /** Emails a one-time sign-in link that opens `continueUrl` (this app's /login). Remembers the address on this device. */
 export async function sendEmailLink(cfg: IdentityPlatformConfig, email: string, continueUrl: string): Promise<void> {
+  await sendEmailLinkTo(cfg, email, continueUrl);
+  try { localStorage.setItem(EMAIL_KEY, email); } catch { /* private mode: the page asks for the address again */ }
+}
+
+/**
+ * Emails someone else a sign-in link (a tenant admin re-sending one to a colleague). Remembers nothing on this
+ * device, so the colleague's sign-in page asks for their address when they open the link.
+ */
+export async function sendEmailLinkTo(cfg: IdentityPlatformConfig, email: string, continueUrl: string): Promise<void> {
   const { auth, fa } = await load(cfg);
   await fa.sendSignInLinkToEmail(auth, email, { url: continueUrl, handleCodeInApp: true });
-  try { localStorage.setItem(EMAIL_KEY, email); } catch { /* private mode: the page asks for the address again */ }
 }
 
 /** Whether this URL is an Identity Platform email sign-in link, without loading Firebase. */

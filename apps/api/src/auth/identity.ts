@@ -28,6 +28,11 @@ export interface IdentityVerifier {
   /** What the browser's sign-in SDK needs for this tenant; null when it does not use Identity Platform. */
   signInConfig(tenant: TenantSummary): Promise<IdentityPlatformSignIn | null>;
   verify(token: string, tenant: TenantSummary): Promise<VerifiedIdentity | undefined>;
+  /**
+   * A one-time email sign-in link for `email` that opens `continueUrl`, for this system to send in its own email;
+   * the provider sends nothing. Null when the tenant has no email-link sign-in this system can create links for.
+   */
+  signInLink(tenant: TenantSummary, email: string, continueUrl: string): Promise<string | null>;
 }
 
 /** An identity provider configured on the tenant's Identity Platform tenant (a SAML or OIDC SSO, Google, Microsoft). */
@@ -60,6 +65,10 @@ export class UnconfiguredIdentityVerifier implements IdentityVerifier {
   async verify(): Promise<VerifiedIdentity | undefined> {
     throw new ServiceUnavailableException({ code: 'sign_in_unavailable', message: 'Sign-in is not configured' });
   }
+
+  async signInLink(): Promise<null> {
+    return null;
+  }
 }
 
 /** Local development only (AUTH_DEV_SIGN_IN=true): the "token" is the email address or phone number itself. */
@@ -77,6 +86,10 @@ export class DevIdentityVerifier implements IdentityVerifier {
     if (!value) return undefined;
     return value.includes('@') ? { issuer: 'dev', subject: value, email: value } : { issuer: 'dev', subject: value, phone: value };
   }
+
+  async signInLink(): Promise<null> {
+    return null;
+  }
 }
 
 const SECURETOKEN_JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -88,7 +101,7 @@ export interface IdentityPlatformOptions {
   /** Browser API key and auth domain of the project (Identity Platform → Application setup details). */
   apiKey: string;
   authDomain: string;
-  /** Access tokens for the Identity Toolkit admin API (reading each tenant's providers). */
+  /** Access tokens for the Identity Toolkit admin API (reading each tenant's providers, creating sign-in links). */
   tokens: { get(): Promise<string> };
   fetchFn?: Fetch;
   /** Public keys of the token signer; tests pass a local key set. */
@@ -147,6 +160,24 @@ export class IdentityPlatformVerifier implements IdentityVerifier {
     const email = payload.email_verified === true && typeof payload.email === 'string' ? payload.email : undefined;
     const phone = typeof payload.phone_number === 'string' ? payload.phone_number : undefined;
     return { issuer: `${this.issuer}/${tenant.idpTenantId}`, subject: payload.sub, email, phone };
+  }
+
+  /**
+   * Asks Identity Platform for the link it would email (`returnOobLink`), so the email can come from this system's own
+   * domain. Needs the firebaseauth.users.sendEmail permission; throws when Identity Platform refuses.
+   */
+  async signInLink(tenant: TenantSummary, email: string, continueUrl: string): Promise<string | null> {
+    if (!tenant.idpTenantId || !(await this.tenantSettings(tenant.idpTenantId)).emailLink) return null;
+    const url = `https://identitytoolkit.googleapis.com/v1/projects/${this.options.projectId}/tenants/${tenant.idpTenantId}/accounts:sendOobCode`;
+    const res = await this.fetchFn(url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${await this.options.tokens.get()}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ requestType: 'EMAIL_SIGNIN', email, continueUrl, canHandleCodeInApp: true, returnOobLink: true, tenantId: tenant.idpTenantId }),
+    });
+    if (!res.ok) throw new Error(`Identity Platform refused a sign-in link: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    const { oobLink } = await res.json() as { oobLink?: string };
+    if (!oobLink) throw new Error('Identity Platform returned no sign-in link');
+    return oobLink;
   }
 
   /** The tenant's providers and switches, cached for a few minutes. On an admin API error: no providers, logged. */
