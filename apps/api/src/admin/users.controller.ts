@@ -178,7 +178,7 @@ export class UsersController {
     }
     if (!url) return { sent: false };
     await this.notifier.email(ctx, staffSignInLinkEmail({
-      to: account.email, userId: id, name: account.name, tenantName: ctx.tenant.name, site: this.config.tenantBaseDomain, url,
+      to: account.email, userId: id, name: account.name, tenantName: ctx.tenant.name, site: `${ctx.tenant.slug}.${this.config.tenantBaseDomain}`, url,
     }));
     return { sent: true };
   }

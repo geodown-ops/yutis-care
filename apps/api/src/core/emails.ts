@@ -21,7 +21,7 @@ export function staffInvitationEmail(i: { to: string; userId: string; name: stri
   };
 }
 
-/** A one-time sign-in link a tenant admin sent a staff member (e.g. when the invitation went missing). Wording by Yutis. */
+/** A one-time sign-in link a tenant admin sent a staff member (e.g. when the invitation went missing). Wording by Yutis; `site` is the tenant's own host. */
 export function staffSignInLinkEmail(i: { to: string; userId: string; name: string; tenantName: string; site: string; url: string }): Email {
   return {
     to: i.to, template: 'staff_sign_in_link', params: { userId: i.userId },
