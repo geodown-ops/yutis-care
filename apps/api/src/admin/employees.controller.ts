@@ -3,12 +3,13 @@
  * Exceeding the subscription's seat limit only warns; it never blocks an import. After a committed import the
  * month's `active_employees` usage counter is set to the number of current employees. National ID numbers (身分證字號)
  * are never stored in full: only a per-tenant keyed fingerprint, used to match clinic files, and a masked form for display.
+ * Admins can also list the master and add or change one employee at a time (員工主檔), with the same rules.
  */
-import { Body, Controller, Get, HttpCode, Inject, Post, Query, Res } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import { ApiBody, ApiConflictResponse, ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProduces, ApiProperty, ApiQuery, ApiTags, ApiUnprocessableEntityResponse } from '@nestjs/swagger';
 import { currentSubscriptionFirst, departments, employees, legalEntities, sites, tenantSubscriptions, usageCounters } from '@yutis/db';
 import { EMPLOYEE_LANGS, isEmployeeLang } from '@yutis/domain';
-import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
@@ -16,7 +17,8 @@ import { recordAudit, type AuditEntry } from '../core/audit.js';
 import { Ctx, staff, type RequestContext } from '../core/context.js';
 import { TENANT_CRYPTO, type TenantCrypto } from '../core/crypto.js';
 import { ApiErrorDto } from '../core/errors.js';
-import { parse } from '../core/validation.js';
+import { pgErrorCode } from '../core/pg.js';
+import { openApiSchema, parse } from '../core/validation.js';
 import { ImportIssueDto, isEmail, isIsoDate, readSheet, readWorkbook, refuseIfInvalid, sendXlsx, templateWorkbook, XLSX_MIME, type ImportIssue } from './excel.js';
 import { ImportQuery } from './org.controller.js';
 import { contains } from '../employees/employees.controller.js';
@@ -63,6 +65,67 @@ const EmployeeSearch = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+class EmployeeRecordDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ description: '工號' }) empNo!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: ['男', '女'] }) sex!: '男' | '女';
+  @ApiProperty({ format: 'date' }) birthDate!: string;
+  @ApiProperty({ format: 'uuid' }) legalEntityId!: string;
+  @ApiProperty({ format: 'uuid' }) siteId!: string;
+  @ApiProperty({ format: 'uuid' }) departmentId!: string;
+  @ApiProperty({ type: String, nullable: true }) title!: string | null;
+  @ApiProperty({ type: String, nullable: true }) shift!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: '健檢類別' }) examCategory!: string | null;
+  @ApiProperty({ type: [String] }) specialOperations!: string[];
+  @ApiProperty({ enum: EMPLOYEE_LANGS, description: '員工端語言' }) lang!: string;
+  @ApiProperty({ type: String, format: 'date', nullable: true }) hireDate!: string | null;
+  @ApiProperty({ type: String, nullable: true }) email!: string | null;
+  @ApiProperty({ type: String, nullable: true }) phone!: string | null;
+  @ApiProperty({ enum: STATUSES }) status!: (typeof STATUSES)[number];
+  @ApiProperty({ type: String, nullable: true, description: '遮罩後的身分證字號；系統不存完整號碼' }) nationalIdMasked!: string | null;
+}
+
+class EmployeeRecordPageDto {
+  @ApiProperty({ description: '符合條件的總人數' }) total!: number;
+  @ApiProperty({ type: [EmployeeRecordDto] }) items!: EmployeeRecordDto[];
+}
+
+const RecordQuery = z.object({
+  q: z.string().trim().max(50).optional(),
+  siteId: z.uuid().optional(),
+  status: z.enum(STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const isoDate = z.string().refine(isIsoDate, '日期格式應為 YYYY-MM-DD');
+const optionalText = (max: number) => z.string().trim().max(max).transform(v => v || null).nullable();
+/** One employee, as the admin types it; the same rules as a row of the import sheet. 法人 follows from the 廠區. */
+const EmployeeFields = z.object({
+  empNo: z.string().trim().min(1).max(50),
+  name: z.string().trim().min(1).max(100),
+  sex: z.enum(['男', '女']),
+  birthDate: isoDate,
+  siteId: z.uuid(),
+  departmentId: z.uuid(),
+  title: optionalText(100),
+  shift: optionalText(50),
+  examCategory: optionalText(50),
+  specialOperations: z.array(z.string().trim().min(1).max(50)).max(30),
+  lang: z.string().refine(isEmployeeLang, `應為 ${EMPLOYEE_LANGS.join('、')} 之一`),
+  hireDate: isoDate.nullable(),
+  email: z.string().trim().toLowerCase().max(200).refine(v => !v || isEmail(v), 'Email 格式錯誤').transform(v => v || null).nullable(),
+  phone: optionalText(40),
+  status: z.enum(STATUSES),
+  /** The full number, only to fingerprint and mask it; null removes it. Never stored or returned. */
+  nationalId: z.string().trim().toUpperCase().refine(v => !v || NATIONAL_ID.test(v), '身分證字號格式錯誤').transform(v => v || null).nullable(),
+});
+const CreateEmployee = EmployeeFields.partial({
+  title: true, shift: true, examCategory: true, specialOperations: true, lang: true, hireDate: true, email: true, phone: true, status: true, nationalId: true,
+}).strict();
+const UpdateEmployee = EmployeeFields.partial().strict();
+
 type EmployeeValues = Omit<typeof employees.$inferInsert, 'id' | 'tenantId' | 'empNo' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'nationalIdHash' | 'nationalIdMasked'>;
 const COMPARED: (keyof EmployeeValues)[] = [
   'name', 'sex', 'birthDate', 'legalEntityId', 'siteId', 'departmentId', 'title', 'shift', 'examCategory', 'specialOperations', 'lang', 'hireDate', 'email', 'phone', 'status',
@@ -93,6 +156,109 @@ export class EmployeesController {
       await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'employees', subjectId: r.id, employeeId: r.id, dataCategory: 'identity', reason: 'admin employee search' })));
     }
     return rows;
+  }
+
+  @Get('records')
+  @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
+  @ApiOperation({ summary: '員工主檔（租戶管理員）', description: '所有廠區的員工主檔，依工號排序；q 比對姓名或工號。每位列出的員工都記入稽核。' })
+  @ApiQuery({ name: 'q', required: false, type: String, description: '姓名或工號的一部分' })
+  @ApiQuery({ name: 'siteId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({ name: 'status', required: false, enum: STATUSES })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '每頁筆數，預設 50，最多 200' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: '略過的筆數，預設 0' })
+  @ApiOkResponse({ type: EmployeeRecordPageDto })
+  async records(@Ctx() ctx: RequestContext, @Query() query: unknown): Promise<EmployeeRecordPageDto> {
+    const q = parse(RecordQuery, query);
+    const where: SQL[] = [];
+    if (q.siteId) where.push(eq(employees.siteId, q.siteId));
+    if (q.status) where.push(eq(employees.status, q.status));
+    if (q.q) where.push(or(ilike(employees.name, contains(q.q)), ilike(employees.empNo, contains(q.q)))!);
+    const [{ total }] = await ctx.tx.select({ total: count() }).from(employees).where(and(...where)) as [{ total: number }];
+    const rows = await ctx.tx.select().from(employees).where(and(...where)).orderBy(asc(employees.empNo)).limit(q.limit).offset(q.offset);
+    if (rows.length) {
+      await recordAudit(ctx, rows.map((r): AuditEntry => ({ action: 'read', subjectTable: 'employees', subjectId: r.id, employeeId: r.id, dataCategory: 'identity', reason: 'admin employee master' })));
+    }
+    return { total, items: rows.map(toRecord) };
+  }
+
+  @Post()
+  @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
+  @ApiOperation({ summary: '新增一位員工', description: '與匯入相同的規則；法人依廠區決定，部門需屬於該廠區。超過人數上限不阻擋。' })
+  @ApiBody({ schema: openApiSchema(CreateEmployee) })
+  @ApiCreatedResponse({ type: EmployeeRecordDto })
+  @ApiConflictResponse({ description: '工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken）', type: ApiErrorDto })
+  async create(@Ctx() ctx: RequestContext, @Body() body: unknown): Promise<EmployeeRecordDto> {
+    const input = parse(CreateEmployee, body);
+    const org = await this.placement(ctx, input.siteId, input.departmentId);
+    const nationalId = await this.nationalId(ctx, input.nationalId ?? null);
+    await this.assertUnique(ctx, input.empNo, nationalId?.nationalIdHash);
+    const created = await this.write(ctx, () => ctx.tx.insert(employees).values({
+      tenantId: ctx.tenant.id, empNo: input.empNo, name: input.name, sex: input.sex, birthDate: input.birthDate, ...org,
+      title: input.title ?? null, shift: input.shift ?? null, examCategory: input.examCategory ?? null, specialOperations: input.specialOperations ?? [],
+      lang: input.lang ?? 'zh', hireDate: input.hireDate ?? null, email: input.email ?? null, phone: input.phone ?? null, status: input.status ?? '在職',
+      ...(nationalId ?? {}), createdBy: staff(ctx).userId,
+    }).returning());
+    await recordAudit(ctx, { action: 'create', subjectTable: 'employees', subjectId: created.id, employeeId: created.id, dataCategory: 'identity', reason: 'employee added by hand' });
+    await afterEmployeeChange(ctx, [created.id]);
+    return toRecord(created);
+  }
+
+  @Patch(':id')
+  @StaffOnly({ feature: 'tenant-admin', data: 'identity' })
+  @ApiOperation({ summary: '修改一位員工', description: '只改有給的欄位；換廠區時要一起給部門。nationalId 給 null 會移除身分證字號。' })
+  @ApiBody({ schema: openApiSchema(UpdateEmployee) })
+  @ApiOkResponse({ type: EmployeeRecordDto })
+  @ApiConflictResponse({ description: '工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken）', type: ApiErrorDto })
+  async update(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<EmployeeRecordDto> {
+    const input = parse(UpdateEmployee, body);
+    const [current] = await ctx.tx.select().from(employees).where(eq(employees.id, id));
+    if (!current) throw new NotFoundException({ code: 'employee_not_found', message: 'No such employee' });
+    const { siteId, departmentId, nationalId: rawId, ...fields } = input;
+    const org = siteId || departmentId ? await this.placement(ctx, siteId ?? current.siteId, departmentId ?? current.departmentId) : {};
+    const nationalId = rawId === undefined ? {} : (await this.nationalId(ctx, rawId)) ?? { nationalIdHash: null, nationalIdMasked: null };
+    await this.assertUnique(ctx, input.empNo, 'nationalIdHash' in nationalId ? nationalId.nationalIdHash : undefined, id);
+    const updated = await this.write(ctx, () => ctx.tx.update(employees)
+      .set({ ...fields, ...org, ...nationalId, updatedAt: new Date(), updatedBy: staff(ctx).userId }).where(eq(employees.id, id)).returning());
+    const changed = Object.keys(input).map(k => (k === 'nationalId' ? '身分證字號' : k)).join(', ');
+    await recordAudit(ctx, { action: 'update', subjectTable: 'employees', subjectId: id, employeeId: id, dataCategory: 'identity', reason: `changed ${changed}` });
+    await afterEmployeeChange(ctx, [id]);
+    return toRecord(updated);
+  }
+
+  /** The legal entity of a site, after checking the department belongs to it. */
+  private async placement(ctx: RequestContext, siteId: string, departmentId: string) {
+    const [site] = await ctx.tx.select({ legalEntityId: sites.legalEntityId }).from(sites).where(eq(sites.id, siteId));
+    if (!site) throw new BadRequestException({ code: 'unknown_site', message: 'No such site' });
+    const [dept] = await ctx.tx.select({ id: departments.id }).from(departments).where(and(eq(departments.id, departmentId), eq(departments.siteId, siteId)));
+    if (!dept) throw new BadRequestException({ code: 'unknown_department', message: 'The department is not in this site' });
+    return { legalEntityId: site.legalEntityId, siteId, departmentId };
+  }
+
+  private async nationalId(ctx: RequestContext, id: string | null) {
+    if (!id) return null;
+    return { nationalIdHash: await this.crypto.fingerprint(ctx.tenant.id, id), nationalIdMasked: maskNationalId(id) };
+  }
+
+  private async assertUnique(ctx: RequestContext, empNo: string | undefined, nationalIdHash: string | null | undefined, self?: string) {
+    const others = self ? ne(employees.id, self) : undefined;
+    if (empNo && (await ctx.tx.select({ id: employees.id }).from(employees).where(and(eq(employees.empNo, empNo), others))).length) {
+      throw new ConflictException({ code: 'emp_no_taken', message: `工號 ${empNo} 已有員工` });
+    }
+    if (nationalIdHash) {
+      const [owner] = await ctx.tx.select({ empNo: employees.empNo }).from(employees).where(and(eq(employees.nationalIdHash, nationalIdHash), others));
+      if (owner) throw new ConflictException({ code: 'national_id_taken', message: `身分證字號已屬於工號 ${owner.empNo}` });
+    }
+  }
+
+  /** Runs an insert or update, turning a unique-key race into the same 409 the checks give. */
+  private async write(ctx: RequestContext, run: () => Promise<(typeof employees.$inferSelect)[]>): Promise<typeof employees.$inferSelect> {
+    try {
+      const [row] = await run();
+      return row!;
+    } catch (error) {
+      if (pgErrorCode(error) === '23505') throw new ConflictException({ code: 'emp_no_taken', message: '工號或身分證字號已有員工' });
+      throw error;
+    }
   }
 
   @Get('import-template')
@@ -214,11 +380,7 @@ export class EmployeesController {
         audits.push({ action: 'update', subjectTable: 'employees', subjectId: id, employeeId: id, dataCategory: 'identity', reason: 'employee import' });
       }
       if (audits.length) await recordAudit(ctx, audits);
-      const [{ active }] = await ctx.tx.select({ active: sql<number>`count(*)::int` }).from(employees).where(eq(employees.status, '在職')) as [{ active: number }];
-      await ctx.tx.insert(usageCounters)
-        .values({ tenantId: ctx.tenant.id, period: sql`date_trunc('month', current_date)::date`, metric: 'active_employees', quantity: active })
-        .onConflictDoUpdate({ target: [usageCounters.tenantId, usageCounters.period, usageCounters.metric], set: { quantity: active, updatedAt: new Date() } });
-      await raiseAgeEvents(ctx);
+      const active = await afterEmployeeChange(ctx);
       report.committed = true;
       report.seats.activeEmployees = active;
     } else {
@@ -230,4 +392,22 @@ export class EmployeesController {
     report.seats.overLimit = report.seats.seatLimit !== null && report.seats.activeEmployees > report.seats.seatLimit;
     return report;
   }
+}
+
+/** After employees change: the month's `active_employees` usage is the current headcount, and age events are raised. */
+async function afterEmployeeChange(ctx: RequestContext, employeeIds?: string[]): Promise<number> {
+  const [{ active }] = await ctx.tx.select({ active: sql<number>`count(*)::int` }).from(employees).where(eq(employees.status, '在職')) as [{ active: number }];
+  await ctx.tx.insert(usageCounters)
+    .values({ tenantId: ctx.tenant.id, period: sql`date_trunc('month', current_date)::date`, metric: 'active_employees', quantity: active })
+    .onConflictDoUpdate({ target: [usageCounters.tenantId, usageCounters.period, usageCounters.metric], set: { quantity: active, updatedAt: new Date() } });
+  await raiseAgeEvents(ctx, employeeIds);
+  return active;
+}
+
+function toRecord(e: typeof employees.$inferSelect): EmployeeRecordDto {
+  return {
+    id: e.id, empNo: e.empNo, name: e.name, sex: e.sex, birthDate: e.birthDate, legalEntityId: e.legalEntityId, siteId: e.siteId, departmentId: e.departmentId,
+    title: e.title, shift: e.shift, examCategory: e.examCategory, specialOperations: e.specialOperations, lang: e.lang, hireDate: e.hireDate,
+    email: e.email, phone: e.phone, status: e.status, nationalIdMasked: e.nationalIdMasked,
+  };
 }

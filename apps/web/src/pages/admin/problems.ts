@@ -15,6 +15,10 @@ const BY_CODE: Record<string, string> = {
   import_invalid: '檔案有錯誤，沒有匯入任何資料。請修正下列問題後重新上傳。',
   not_found: '找不到這筆資料，可能已被其他人刪除。請重新整理。',
   account_not_found: '找不到這個帳號，可能已被其他人變更。請重新整理。',
+  emp_no_taken: '這個工號已經有員工了。',
+  national_id_taken: '這個身分證字號已屬於其他員工。',
+  unknown_department: '這個部門不屬於所選的廠區，請重新選擇。',
+  employee_not_found: '找不到這位員工，請重新整理。',
 };
 
 /** `overrides` replaces the text for codes that mean something narrower on one screen (e.g. duplicate). */

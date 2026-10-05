@@ -4,7 +4,7 @@
  * convenience only; the API enforces permissions.
  */
 import {
-  IconAdjustmentsHorizontal, IconArrowsExchange, IconBabyCarriage, IconBell, IconBuilding, IconChartBar, IconClipboardHeart,
+  IconAddressBook, IconAdjustmentsHorizontal, IconArrowsExchange, IconBabyCarriage, IconBell, IconBuilding, IconChartBar, IconClipboardHeart,
   IconClockExclamation, IconFileImport, IconHistory, IconLayoutDashboard, IconLogin2, IconShieldCheck,
   IconSitemap, IconStethoscope, IconStretching, IconUserPlus, IconUsers, IconUserShield,
 } from '@tabler/icons-react';
@@ -43,6 +43,7 @@ export const NAV: NavGroup[] = [
     { path: '/admin/company', label: '公司資料與品牌', icon: IconBuilding, access: ADMIN },
     { path: '/admin/login', label: '登入設定', icon: IconLogin2, access: ADMIN },
     { path: '/admin/org', label: '組織架構', icon: IconSitemap, access: ADMIN },
+    { path: '/admin/employees', label: '員工主檔', icon: IconAddressBook, access: ADMIN },
     { path: '/admin/employee-import', label: '員工匯入', icon: IconUserPlus, access: ADMIN },
     { path: '/admin/accounts', label: '帳號與權限', icon: IconUserShield, access: ADMIN },
     { path: '/admin/rules', label: '分級標準、片語、簽核角色', icon: IconAdjustmentsHorizontal, access: ADMIN },

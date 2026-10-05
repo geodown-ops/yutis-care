@@ -315,6 +315,60 @@ describe('employee import', () => {
   });
 });
 
+describe('employee master by hand', () => {
+  const base = () => ({ empNo: 'H001', name: '手動新增', sex: '男', birthDate: '1985-06-01', siteId: ids.s1, departmentId: '' });
+  let dept = '';
+  beforeAll(async () => {
+    dept = (await owner.select().from(departments).where(eq(departments.siteId, ids.s1)))[0]!.id;
+  });
+
+  it('is for tenant admins only', async () => {
+    const nurse = await signIn('acme', 'nurse@acme.test');
+    expect((await call('acme', 'GET', '/api/admin/employees/records', { cookie: nurse })).statusCode).toBe(403);
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie: nurse, body: { ...base(), departmentId: dept } })).statusCode).toBe(403);
+  });
+
+  it('adds one employee with the legal entity of the site, refuses duplicates, and audits', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const res = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), departmentId: dept, email: 'H001@Acme.test', nationalId: 'c123456789', specialOperations: ['噪音'] } });
+    expect(res.statusCode, res.body).toBe(201);
+    const created = res.json();
+    expect(created).toMatchObject({ empNo: 'H001', status: '在職', lang: 'zh', email: 'h001@acme.test', nationalIdMasked: 'C1•••••789', specialOperations: ['噪音'], title: null });
+    expect(JSON.stringify(created)).not.toContain('23456789');
+    const [row] = await owner.select().from(employees).where(eq(employees.id, created.id));
+    const [site] = await owner.select().from(sites).where(eq(sites.id, ids.s1));
+    expect(row!.legalEntityId).toBe(site!.legalEntityId);
+    expect(row!.nationalIdHash).toMatch(/^[0-9a-f]{64}$/);
+
+    const again = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), departmentId: dept } });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().code).toBe('emp_no_taken');
+    const sameId = await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H002', departmentId: dept, nationalId: 'C123456789' } });
+    expect(sameId.json()).toMatchObject({ code: 'national_id_taken' });
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H003', departmentId: ids.s1 } })).json().code).toBe('unknown_department');
+    expect((await call('acme', 'POST', '/api/admin/employees', { cookie, body: { ...base(), empNo: 'H004', departmentId: dept, birthDate: '1985/06/01' } })).statusCode).toBe(400);
+    expect((await audits('employees')).some(a => a.subjectId === created.id && a.action === 'create' && a.actorUserId === ids.admin)).toBe(true);
+  });
+
+  it('changes only the fields given, clears a national ID with null, and lists the master', async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'H001')));
+    const res = await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { title: '組長', status: '留停', nationalId: null } });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ name: '手動新增', title: '組長', status: '留停', nationalIdMasked: null, email: 'h001@acme.test' });
+    expect((await owner.select().from(employees).where(eq(employees.id, e!.id)))[0]!.nationalIdHash).toBeNull();
+    expect((await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { empNo: 'E001' } })).json().code).toBe('emp_no_taken');
+    expect((await call('acme', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie, body: { empNo: 'H001' } })).statusCode).toBe(200);
+
+    const page = (await call('acme', 'GET', '/api/admin/employees/records?q=H00', { cookie })).json();
+    expect(page.total).toBe(1);
+    expect(page.items[0]).toMatchObject({ empNo: 'H001', siteId: ids.s1, departmentId: dept });
+    const globexAdmin = await signIn('globex', 'admin@globex.test');
+    expect((await call('globex', 'GET', '/api/admin/employees/records', { cookie: globexAdmin })).json()).toEqual({ total: 0, items: [] });
+    expect((await call('globex', 'PATCH', `/api/admin/employees/${e!.id}`, { cookie: globexAdmin, body: { title: 'x' } })).statusCode).toBe(404);
+  });
+});
+
 describe('phrases and audit search', () => {
   it('lets tenant admins list the phrases they maintain', async () => {
     const cookie = await signIn('acme', 'admin@acme.test');

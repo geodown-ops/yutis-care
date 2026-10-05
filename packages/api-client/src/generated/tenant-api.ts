@@ -348,11 +348,55 @@ export interface paths {
          */
         get: operations["EmployeesController_search"];
         put?: never;
+        /**
+         * 新增一位員工
+         * @description 與匯入相同的規則；法人依廠區決定，部門需屬於該廠區。超過人數上限不阻擋。
+         */
+        post: operations["EmployeesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/employees/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 員工主檔（租戶管理員）
+         * @description 所有廠區的員工主檔，依工號排序；q 比對姓名或工號。每位列出的員工都記入稽核。
+         */
+        get: operations["EmployeesController_records"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/admin/employees/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 修改一位員工
+         * @description 只改有給的欄位；換廠區時要一起給部門。nationalId 給 null 會移除身分證字號。
+         */
+        patch: operations["EmployeesController_update"];
         trace?: never;
     };
     "/api/admin/employees/import-template": {
@@ -2260,6 +2304,46 @@ export interface components {
              * @enum {string}
              */
             status: "在職" | "留停" | "離職";
+        };
+        EmployeeRecordDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description 工號 */
+            empNo: string;
+            name: string;
+            /** @enum {string} */
+            sex: "男" | "女";
+            /** Format: date */
+            birthDate: string;
+            /** Format: uuid */
+            legalEntityId: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            departmentId: string;
+            title: string | null;
+            shift: string | null;
+            /** @description 健檢類別 */
+            examCategory: string | null;
+            specialOperations: string[];
+            /**
+             * @description 員工端語言
+             * @enum {string}
+             */
+            lang: "zh" | "en" | "ja" | "vi" | "th";
+            /** Format: date */
+            hireDate: string | null;
+            email: string | null;
+            phone: string | null;
+            /** @enum {string} */
+            status: "在職" | "留停" | "離職";
+            /** @description 遮罩後的身分證字號；系統不存完整號碼 */
+            nationalIdMasked: string | null;
+        };
+        EmployeeRecordPageDto: {
+            /** @description 符合條件的總人數 */
+            total: number;
+            items: components["schemas"]["EmployeeRecordDto"][];
         };
         SeatsDto: {
             /** @description 匯入後的在職員工數 */
@@ -4912,6 +4996,223 @@ export interface operations {
             };
             /** @description 網址不是任何租戶的子網域（unknown_tenant） */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    EmployeesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    empNo: string;
+                    name: string;
+                    /** @enum {string} */
+                    sex: "男" | "女";
+                    birthDate: string;
+                    /** Format: uuid */
+                    siteId: string;
+                    /** Format: uuid */
+                    departmentId: string;
+                    title?: string | null;
+                    shift?: string | null;
+                    examCategory?: string | null;
+                    specialOperations?: string[];
+                    lang?: string;
+                    hireDate?: string | null;
+                    email?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    status?: "在職" | "留停" | "離職";
+                    nationalId?: string | null;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeRecordDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    EmployeesController_records: {
+        parameters: {
+            query?: {
+                /** @description 略過的筆數，預設 0 */
+                offset?: number;
+                /** @description 每頁筆數，預設 50，最多 200 */
+                limit?: number;
+                status?: "在職" | "留停" | "離職";
+                siteId?: string;
+                /** @description 姓名或工號的一部分 */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeRecordPageDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    EmployeesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    empNo?: string;
+                    name?: string;
+                    /** @enum {string} */
+                    sex?: "男" | "女";
+                    birthDate?: string;
+                    /** Format: uuid */
+                    siteId?: string;
+                    /** Format: uuid */
+                    departmentId?: string;
+                    title?: string | null;
+                    shift?: string | null;
+                    examCategory?: string | null;
+                    specialOperations?: string[];
+                    lang?: string;
+                    hireDate?: string | null;
+                    email?: string | null;
+                    phone?: string | null;
+                    /** @enum {string} */
+                    status?: "在職" | "留停" | "離職";
+                    nationalId?: string | null;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeRecordDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 工號已存在（emp_no_taken）或身分證字號已屬於其他員工（national_id_taken） */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

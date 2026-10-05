@@ -21,6 +21,7 @@ import { Route as AppAdminAccountsRouteImport } from './routes/_app/admin.accoun
 import { Route as AppAdminAuditRouteImport } from './routes/_app/admin.audit'
 import { Route as AppAdminCompanyRouteImport } from './routes/_app/admin.company'
 import { Route as AppAdminEmployeeImportRouteImport } from './routes/_app/admin.employee-import'
+import { Route as AppAdminEmployeesRouteImport } from './routes/_app/admin.employees'
 import { Route as AppAdminExamMappingRouteImport } from './routes/_app/admin.exam-mapping'
 import { Route as AppAdminLoginRouteImport } from './routes/_app/admin.login'
 import { Route as AppAdminOrgRouteImport } from './routes/_app/admin.org'
@@ -91,6 +92,11 @@ const AppAdminCompanyRoute = AppAdminCompanyRouteImport.update({
 const AppAdminEmployeeImportRoute = AppAdminEmployeeImportRouteImport.update({
   id: '/admin/employee-import',
   path: '/admin/employee-import',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminEmployeesRoute = AppAdminEmployeesRouteImport.update({
+  id: '/admin/employees',
+  path: '/admin/employees',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAdminExamMappingRoute = AppAdminExamMappingRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AppAdminAuditRoute
   '/admin/company': typeof AppAdminCompanyRoute
   '/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/admin/employees': typeof AppAdminEmployeesRoute
   '/admin/exam-mapping': typeof AppAdminExamMappingRoute
   '/admin/login': typeof AppAdminLoginRoute
   '/admin/org': typeof AppAdminOrgRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/admin/audit': typeof AppAdminAuditRoute
   '/admin/company': typeof AppAdminCompanyRoute
   '/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/admin/employees': typeof AppAdminEmployeesRoute
   '/admin/exam-mapping': typeof AppAdminExamMappingRoute
   '/admin/login': typeof AppAdminLoginRoute
   '/admin/org': typeof AppAdminOrgRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/_app/admin/audit': typeof AppAdminAuditRoute
   '/_app/admin/company': typeof AppAdminCompanyRoute
   '/_app/admin/employee-import': typeof AppAdminEmployeeImportRoute
+  '/_app/admin/employees': typeof AppAdminEmployeesRoute
   '/_app/admin/exam-mapping': typeof AppAdminExamMappingRoute
   '/_app/admin/login': typeof AppAdminLoginRoute
   '/_app/admin/org': typeof AppAdminOrgRoute
@@ -245,6 +254,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/company'
     | '/admin/employee-import'
+    | '/admin/employees'
     | '/admin/exam-mapping'
     | '/admin/login'
     | '/admin/org'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/company'
     | '/admin/employee-import'
+    | '/admin/employees'
     | '/admin/exam-mapping'
     | '/admin/login'
     | '/admin/org'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/_app/admin/audit'
     | '/_app/admin/company'
     | '/_app/admin/employee-import'
+    | '/_app/admin/employees'
     | '/_app/admin/exam-mapping'
     | '/_app/admin/login'
     | '/_app/admin/org'
@@ -402,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminEmployeeImportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/employees': {
+      id: '/_app/admin/employees'
+      path: '/admin/employees'
+      fullPath: '/admin/employees'
+      preLoaderRoute: typeof AppAdminEmployeesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin/exam-mapping': {
       id: '/_app/admin/exam-mapping'
       path: '/admin/exam-mapping'
@@ -499,6 +518,7 @@ interface AppRouteChildren {
   AppAdminAuditRoute: typeof AppAdminAuditRoute
   AppAdminCompanyRoute: typeof AppAdminCompanyRoute
   AppAdminEmployeeImportRoute: typeof AppAdminEmployeeImportRoute
+  AppAdminEmployeesRoute: typeof AppAdminEmployeesRoute
   AppAdminExamMappingRoute: typeof AppAdminExamMappingRoute
   AppAdminLoginRoute: typeof AppAdminLoginRoute
   AppAdminOrgRoute: typeof AppAdminOrgRoute
@@ -523,6 +543,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminAuditRoute: AppAdminAuditRoute,
   AppAdminCompanyRoute: AppAdminCompanyRoute,
   AppAdminEmployeeImportRoute: AppAdminEmployeeImportRoute,
+  AppAdminEmployeesRoute: AppAdminEmployeesRoute,
   AppAdminExamMappingRoute: AppAdminExamMappingRoute,
   AppAdminLoginRoute: AppAdminLoginRoute,
   AppAdminOrgRoute: AppAdminOrgRoute,

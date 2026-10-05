@@ -83,3 +83,22 @@ const xlsx = (file: File, commit: boolean) => ({
 export const importOrg = (file: File, commit: boolean) => data(api.POST('/api/admin/org/import', xlsx(file, commit)));
 
 export const importEmployees = (file: File, commit: boolean) => data(api.POST('/api/admin/employees/import', xlsx(file, commit)));
+
+export interface EmployeeRecordSearch { q: string; siteId: string | null; status: '在職' | '留停' | '離職' | null; page: number }
+export const EMPLOYEE_PAGE_SIZE = 50;
+
+/**
+ * One page of the employee master (員工主檔). Every employee listed is audited, so the same page is not read again on
+ * window focus or reconnect; a save invalidates ['admin', 'employee-records'].
+ */
+export const employeeRecordsQuery = (s: EmployeeRecordSearch) => queryOptions({
+  queryKey: ['admin', 'employee-records', s],
+  queryFn: () => data(api.GET('/api/admin/employees/records', { params: { query: {
+    ...(s.q ? { q: s.q } : {}), ...(s.siteId ? { siteId: s.siteId } : {}), ...(s.status ? { status: s.status } : {}),
+    limit: EMPLOYEE_PAGE_SIZE, offset: (s.page - 1) * EMPLOYEE_PAGE_SIZE,
+  } } })),
+  placeholderData: keepPreviousData,
+  staleTime: 5 * 60_000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
