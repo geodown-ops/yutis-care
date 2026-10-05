@@ -1,18 +1,20 @@
 /*
  * Staff accounts (帳號與權限): tenant admins invite staff with a role and the sites they are responsible for, change
  * them, or deactivate them. Only invited people can sign in (see AuthController); deactivating ends their sessions.
+ * Admins can also email someone a one-time sign-in link from this system's own address.
  */
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Inject, Logger, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { sessions, sites, staffRoleEnum, users, userSiteScopes } from '@yutis/db';
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { notifications, sessions, sites, staffRoleEnum, users, userSiteScopes } from '@yutis/db';
+import { and, asc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { StaffOnly } from '../auth/access.js';
+import { IDENTITY_VERIFIER, type IdentityVerifier } from '../auth/identity.js';
 import { tenantOrigin, type ApiConfig } from '../config.js';
 import { recordAudit } from '../core/audit.js';
 import { Ctx, staff, type RequestContext, type StaffRole } from '../core/context.js';
 import { API_CONFIG } from '../core/database.js';
-import { staffInvitationEmail } from '../core/emails.js';
+import { staffInvitationEmail, staffSignInLinkEmail } from '../core/emails.js';
 import { ApiErrorDto } from '../core/errors.js';
 import { Notifier } from '../core/mail.js';
 import { pgErrorCode } from '../core/pg.js';
@@ -35,6 +37,13 @@ class InvitedStaffDto extends StaffAccountDto {
   @ApiProperty({ description: '邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方' }) emailed!: boolean;
 }
 
+class SignInLinkResultDto {
+  @ApiProperty({ description: '已由本系統寄出登入連結；false 表示本系統無法寄（寄信服務未設定或無法產生連結），前端可改用登入服務自己寄' }) sent!: boolean;
+}
+
+/** One sign-in link per person per minute, so a double click or an impatient admin does not flood a mailbox. */
+const SIGN_IN_LINK_INTERVAL = '1 minute';
+
 const InviteStaff = z.object({
   email: z.email().toLowerCase(),
   name: z.string().trim().min(1).max(100),
@@ -55,7 +64,13 @@ const UpdateStaff = z.object({
 @ApiTags('admin')
 @Controller('admin/users')
 export class UsersController {
-  constructor(@Inject(API_CONFIG) private readonly config: ApiConfig, private readonly notifier: Notifier) {}
+  private readonly logger = new Logger(UsersController.name);
+
+  constructor(
+    @Inject(API_CONFIG) private readonly config: ApiConfig,
+    private readonly notifier: Notifier,
+    @Inject(IDENTITY_VERIFIER) private readonly identity: IdentityVerifier,
+  ) {}
 
   @Get()
   @StaffOnly({ feature: 'tenant-admin' })
@@ -132,6 +147,40 @@ export class UsersController {
     await recordAudit(ctx, { action: 'update', subjectTable: 'users', subjectId: id, dataCategory: 'identity', reason: `changed ${Object.keys(input).join(', ')}` });
     const scopes = await ctx.tx.select({ siteId: userSiteScopes.siteId }).from(userSiteScopes).where(eq(userSiteScopes.userId, id));
     return toDto(updated, scopes.map(s => s.siteId));
+  }
+
+  @Post(':id/sign-in-link')
+  @HttpCode(200)
+  @StaffOnly({ feature: 'tenant-admin' })
+  @ApiOperation({
+    summary: '寄登入連結給後台人員',
+    description: '以本系統的寄件地址寄一次性 Email 登入連結（連結由登入服務產生）。寄信服務未設定、租戶沒有開啟 Email 登入或無法產生連結時回 sent=false，不寄信。同一人一分鐘內只能寄一次。',
+  })
+  @ApiOkResponse({ type: SignInLinkResultDto })
+  @ApiConflictResponse({ description: '帳號已停用（account_inactive）', type: ApiErrorDto })
+  async sendSignInLink(@Ctx() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string): Promise<SignInLinkResultDto> {
+    const [account] = await ctx.tx.select().from(users).where(eq(users.id, id));
+    if (!account) throw new NotFoundException({ code: 'account_not_found', message: 'No such account' });
+    if (!account.active) throw new ConflictException({ code: 'account_inactive', message: 'The account is deactivated' });
+    if (!this.notifier.delivers) return { sent: false };
+    const [recent] = await ctx.tx.select({ id: notifications.id }).from(notifications).where(and(
+      eq(notifications.template, 'staff_sign_in_link'), sql`${notifications.params}->>'userId' = ${id}`,
+      gt(notifications.createdAt, sql`now() - ${SIGN_IN_LINK_INTERVAL}::interval`),
+    )).limit(1);
+    if (recent) throw new HttpException({ code: 'too_many_requests', message: 'A sign-in link was sent a moment ago' }, 429);
+    let url: string | null;
+    try {
+      url = await this.identity.signInLink(ctx.tenant, account.email, `${tenantOrigin(this.config, ctx.tenant.slug)}/login`);
+    } catch (error) {
+      // E.g. the API's service account lacks the permission yet: the browser can still have the sign-in service send it.
+      this.logger.warn(`Could not create a sign-in link: ${error instanceof Error ? error.message : String(error)}`);
+      return { sent: false };
+    }
+    if (!url) return { sent: false };
+    await this.notifier.email(ctx, staffSignInLinkEmail({
+      to: account.email, userId: id, name: account.name, tenantName: ctx.tenant.name, site: this.config.tenantBaseDomain, url,
+    }));
+    return { sent: true };
   }
 }
 

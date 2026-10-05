@@ -12,6 +12,7 @@ import { createApp } from '../src/app.js';
 import { XLSX_MIME } from '../src/admin/excel.js';
 import { loadConfig } from '../src/config.js';
 import { RESEND_ENDPOINT } from '../src/core/mail.js';
+import { IDENTITY_VERIFIER, type IdentityVerifier } from '../src/auth/identity.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
 
 let db: TestDatabase;
@@ -221,6 +222,43 @@ describe('staff accounts', () => {
     expect((await call('acme', 'PATCH', `/api/admin/users/${second.id}`, { cookie: other, body: { active: false } })).json()).toMatchObject({ code: 'cannot_change_self' });
     await owner.update(users).set({ role: '租戶管理員' }).where(eq(users.id, ids.admin));
     expect((await call('acme', 'PATCH', `/api/admin/users/${second.id}`, { cookie, body: { active: false } })).statusCode).toBe(200);
+  });
+  it("emails a one-time sign-in link from this system's address, at most once a minute, and only to active staff", async () => {
+    const cookie = await signIn('acme', 'admin@acme.test');
+    const [nurse] = await owner.select().from(users).where(eq(users.email, 'nurse@acme.test'));
+    const url = `/api/admin/users/${nurse!.id}/sign-in-link`;
+    expect((await call('acme', 'POST', url, { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
+    // Local sign-in has no email links: nothing is sent and the page falls back to the sign-in service.
+    resendCalls.splice(0);
+    expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+    expect(resendCalls).toEqual([]);
+
+    const identity = app.get<IdentityVerifier>(IDENTITY_VERIFIER);
+    const link = vi.spyOn(identity, 'signInLink').mockResolvedValue('https://auth.example/__/auth/action?mode=signIn&oobCode=abc');
+    try {
+      const res = await call('acme', 'POST', url, { cookie });
+      expect(res.json()).toEqual({ sent: true });
+      expect(link).toHaveBeenCalledWith(expect.objectContaining({ slug: 'acme' }), 'nurse@acme.test', 'http://acme.care.test/login');
+      const body = JSON.parse(String(resendCalls.splice(0)[0]!.init.body));
+      expect(body).toMatchObject({ to: ['nurse@acme.test'], subject: 'care.test 登入信（Acme）' });
+      expect(body.text).toContain('這是 care.test 登入信，請點選連結後輸入您的 email 登入');
+      expect(body.text).toContain('oobCode=abc');
+      const [row] = await owner.select().from(notifications).where(eq(notifications.template, 'staff_sign_in_link'));
+      expect(row).toMatchObject({ status: 'sent', params: { userId: nurse!.id } });
+      expect(JSON.stringify(row)).not.toContain('oobCode');
+      expect((await call('acme', 'POST', url, { cookie })).statusCode).toBe(429);
+
+      // Identity Platform refusing (e.g. a missing permission) falls back instead of failing.
+      await owner.update(notifications).set({ createdAt: new Date(Date.now() - 120_000) }).where(eq(notifications.id, row!.id));
+      link.mockRejectedValueOnce(new Error('403 PERMISSION_DENIED'));
+      expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+
+      await owner.update(users).set({ active: false }).where(eq(users.id, nurse!.id));
+      expect((await call('acme', 'POST', url, { cookie })).json()).toMatchObject({ code: 'account_inactive' });
+    } finally {
+      link.mockRestore();
+      await owner.update(users).set({ active: true }).where(eq(users.id, nurse!.id));
+    }
   });
 });
 

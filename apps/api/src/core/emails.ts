@@ -21,6 +21,22 @@ export function staffInvitationEmail(i: { to: string; userId: string; name: stri
   };
 }
 
+/** A one-time sign-in link a tenant admin sent a staff member (e.g. when the invitation went missing). Wording by Yutis. */
+export function staffSignInLinkEmail(i: { to: string; userId: string; name: string; tenantName: string; site: string; url: string }): Email {
+  return {
+    to: i.to, template: 'staff_sign_in_link', params: { userId: i.userId },
+    subject: `${i.site} 登入信（${i.tenantName}）`,
+    text: [
+      `${i.name} 您好：`,
+      '',
+      `這是 ${i.site} 登入信，請點選連結後輸入您的 email 登入：`,
+      i.url,
+      '',
+      '這個連結只能使用一次，請不要轉寄給別人。如果您不認識這封信，可以忽略它。',
+    ].join('\n'),
+  };
+}
+
 /** A sign-off link for one signer (附表八, violence-prevention review). */
 export function signatureEmail(s: {
   to: string; signatureId: string; signerName: string; role: string; tenantName: string; title: string; siteName: string; on: string; url: string; days: number;

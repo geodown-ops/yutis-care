@@ -81,6 +81,24 @@ resource "google_project_iam_member" "api_identity" {
   member  = google_service_account.run["api"].member
 }
 
+# Tenant admins re-send sign-in links from the system's own address: the API asks Identity Platform for the link
+# (sendOobCode with returnOobLink) and emails it itself. Only this one permission, not identityplatform.admin.
+resource "google_project_iam_custom_role" "sign_in_links" {
+  count       = var.identity_platform ? 1 : 0
+  project     = var.project_id
+  role_id     = "yutisSignInLinks"
+  title       = "Yutis Care sign-in links"
+  description = "Create email sign-in links for the tenant API to send itself."
+  permissions = ["firebaseauth.users.sendEmail"]
+}
+
+resource "google_project_iam_member" "api_sign_in_links" {
+  count   = var.identity_platform ? 1 : 0
+  project = var.project_id
+  role    = google_project_iam_custom_role.sign_in_links[0].id
+  member  = google_service_account.run["api"].member
+}
+
 resource "google_project_iam_member" "platform_identity" {
   count   = local.platform && var.identity_platform ? 1 : 0
   project = var.project_id

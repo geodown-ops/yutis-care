@@ -109,10 +109,19 @@ export function AccountsPage() {
   );
 }
 
-/** Emails a member a one-time sign-in link to this site's login page (sent by the sign-in service, not by the system). */
+/**
+ * Emails a member a one-time sign-in link to this site's login page. The system sends it from its own address when it
+ * can (POST …/sign-in-link); otherwise the sign-in service sends its own email.
+ */
 function SendLinkButton({ cfg, account }: { cfg: IdentityPlatformConfig; account: StaffAccount }) {
-  const send = useMutation({ mutationFn: () => sendEmailLinkTo(cfg, account.email, `${window.location.origin}/login`) });
-  const failed = send.isError ? (signInProblem(send.error) === 'tooMany' ? '寄送太頻繁，請稍後再試' : '寄送失敗，請再試一次') : null;
+  const send = useMutation({
+    mutationFn: async () => {
+      const { sent } = await data(api.POST('/api/admin/users/{id}/sign-in-link', { params: { path: { id: account.id } } }));
+      if (!sent) await sendEmailLinkTo(cfg, account.email, `${window.location.origin}/login`);
+    },
+  });
+  // signInProblem reads both the API's 429 and the sign-in service's own rate limit.
+  const failed = send.isError ? (signInProblem(send.error) === 'tooMany' ? '剛剛才寄過，請稍後再試' : '寄送失敗，請再試一次') : null;
   return (
     <Tooltip label={failed ?? (send.isSuccess ? `已寄到 ${account.email}` : `寄一次性登入連結到 ${account.email}`)} withArrow>
       <Button size="compact-sm" variant="light" color={failed ? 'red' : send.isSuccess ? 'green' : undefined}

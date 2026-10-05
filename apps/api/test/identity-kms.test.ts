@@ -31,9 +31,14 @@ describe('IdentityPlatformVerifier', async () => {
     '/defaultSupportedIdpConfigs': { defaultSupportedIdpConfigs: [{ name: `projects/${PROJECT}/tenants/acme-1/defaultSupportedIdpConfigs/microsoft.com`, enabled: true }] },
   };
   const calls: string[] = [];
-  const fetchFn: Fetch = async input => {
+  const posted: unknown[] = [];
+  const fetchFn: Fetch = async (input, init) => {
     const url = String(input);
     calls.push(url);
+    if (url === `https://identitytoolkit.googleapis.com/v1/projects/${PROJECT}/tenants/acme-1/accounts:sendOobCode`) {
+      posted.push({ auth: (init?.headers as Record<string, string>).authorization, body: JSON.parse(String(init?.body)) });
+      return Response.json({ email: 'nurse@acme.test', oobLink: 'https://yutis-care-prod.firebaseapp.com/__/auth/action?mode=signIn&oobCode=abc' });
+    }
     const path = url.replace(`https://identitytoolkit.googleapis.com/v2/projects/${PROJECT}/tenants/acme-1`, '');
     return path in admin ? Response.json(admin[path]) : new Response('not found', { status: 404 });
   };
@@ -71,6 +76,15 @@ describe('IdentityPlatformVerifier', async () => {
     expect(calls).toHaveLength(4);
     expect(await verifier.signInConfig(tenant(null))).toBeNull();
     expect(await verifier.loginMethods(tenant(null))).toEqual([]);
+  });
+
+  it('asks Identity Platform for a sign-in link without having it send the email', async () => {
+    expect(await verifier.signInLink(tenant('acme-1'), 'nurse@acme.test', 'https://acme.care.test/login'))
+      .toBe('https://yutis-care-prod.firebaseapp.com/__/auth/action?mode=signIn&oobCode=abc');
+    expect(posted).toEqual([{ auth: 'Bearer token', body: {
+      requestType: 'EMAIL_SIGNIN', email: 'nurse@acme.test', continueUrl: 'https://acme.care.test/login', canHandleCodeInApp: true, returnOobLink: true, tenantId: 'acme-1',
+    } }]);
+    expect(await verifier.signInLink(tenant(null), 'nurse@acme.test', 'https://acme.care.test/login')).toBeNull();
   });
 });
 

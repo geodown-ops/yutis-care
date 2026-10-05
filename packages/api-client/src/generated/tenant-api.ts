@@ -335,6 +335,26 @@ export interface paths {
         patch: operations["UsersController_update"];
         trace?: never;
     };
+    "/api/admin/users/{id}/sign-in-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 寄登入連結給後台人員
+         * @description 以本系統的寄件地址寄一次性 Email 登入連結（連結由登入服務產生）。寄信服務未設定、租戶沒有開啟 Email 登入或無法產生連結時回 sent=false，不寄信。同一人一分鐘內只能寄一次。
+         */
+        post: operations["UsersController_sendSignInLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/employees": {
         parameters: {
             query?: never;
@@ -2293,6 +2313,10 @@ export interface components {
             siteIds: string[];
             /** @description 邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方 */
             emailed: boolean;
+        };
+        SignInLinkResultDto: {
+            /** @description 已由本系統寄出登入連結；false 表示本系統無法寄（寄信服務未設定或無法產生連結），前端可改用登入服務自己寄 */
+            sent: boolean;
         };
         EmployeeNameDto: {
             /** Format: uuid */
@@ -4943,6 +4967,63 @@ export interface operations {
             };
             /** @description 網址不是任何租戶的子網域（unknown_tenant） */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    UsersController_sendSignInLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInLinkResultDto"];
+                };
+            };
+            /** @description 未登入或登入已逾時 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 帳號已停用（account_inactive） */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
