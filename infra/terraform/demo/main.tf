@@ -35,7 +35,6 @@ module "env" {
   tenant_base_domain = "care.yutis.net"
   platform_host      = null
   # The front ends' own fictional data and role switcher, until the screens are connected to the API.
-  web_api_mode = "demo"
 
   database_tier              = "db-g1-small"
   database_high_availability = false

@@ -96,7 +96,7 @@ terraform apply
 
 ## 示範站
 
-- 前端目前用畫面內建的虛構資料與角色切換（`WEB_API_MODE=demo`），不需要後端就能完整展示；畫面串接 API 後改成 `live`，就會改用示範站資料庫裡的虛構示範租戶。
+- 目前示範站在 Railway（`https://demo.care.yutis.net`），前端接示範站資料庫裡的虛構示範租戶，登入頁有一鍵示範帳號。租戶由網址的子網域決定，所以一定要用 `demo.care.yutis.net` 開，Railway 的 `*.up.railway.app` 網址找不到租戶。
 - 示範租戶的子網域就是 `demo`，所以正式站的平台後台不允許開通名為 `demo` 的租戶。
 - 每晚 04:00 由 Cloud Scheduler 執行 `release` 工作並帶 `RESET_DEMO_DATABASE=true`，清空後重新載入虛構資料（原型 `prototype/data.js` 的員工、健檢、四大計畫、事件與個案）。這個重置只在 `DEMO_SITE=true` 而且資料庫裡沒有其他租戶時才會執行，正式站不可能被重置。
 - 示範站可以不用密碼登入（例如 `nurse@demo.test`），請不要在示範站輸入任何真實個人資料。
@@ -106,6 +106,12 @@ terraform apply
 - **登入**：每個租戶在 Identity Platform 有自己的登入租戶，平台後台開通時自動建立，並把 `{租戶}.care.yutis.net` 加入授權網域。第一位租戶管理員會收到 Identity Platform 寄出的登入連結信（開到 `{租戶}.care.yutis.net/login`）。客戶要用公司帳號登入（Entra ID、Google Workspace、其他 SAML／OIDC）時，在 GCP 主控台 → Identity Platform → 租戶 → 該租戶 → 新增提供者；登入頁會自動出現那個按鈕。租戶 API 會確認 ID token 來自這個子網域自己的登入租戶。
 - 邀請信的寄件名稱與內容在 Identity Platform → 設定 → 範本（建議改成中文、寄件者名稱 Yutis Care）。
 - **加密**：每個租戶一把 Cloud KMS 金鑰（開通時建立，每 90 天自動輪替）。租戶第一次寫入加密欄位時，租戶 API 產生資料金鑰並用 KMS 包裝存在 `tenant_keys`；之後每個程式只向 KMS 解開一次。銷毀租戶的 KMS 金鑰，該租戶的加密資料就再也無法讀取。
+
+## 換網域
+
+1. 在 Cloud Shell 改 `terraform.tfvars` 的 `domain`，重跑 `terraform apply`，再依新的 `dns_records` 設定 DNS（憑證會重新簽發）。
+2. **Identity Platform 的授權網域不會跟著改**（Terraform 刻意不管這份清單，因為平台後台開通租戶時會自動加入租戶網址）。請到 Firebase 主控台 → Authentication → Settings → Authorized domains 加入新的 `admin.<網域>` 與 `<網域>`，並刪掉舊網域。已開通的租戶網址也要逐一換成新網域。
+3. 示範站的自訂網域（Railway web 服務）與 API 的 `TENANT_BASE_DOMAIN` 也要一起改。
 
 ## 正式營運前還沒完成的
 

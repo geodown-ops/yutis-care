@@ -1,8 +1,5 @@
 # The three front ends on one nginx: tenant back office at /, employee portal at /me/, platform back office on admin.*.
-# VITE_API=live calls the API; anything else builds the self-contained demo (fictional data, role switcher).
 FROM node:22-bookworm-slim AS build
-ARG VITE_API=demo
-ENV VITE_API=$VITE_API
 RUN corepack enable
 WORKDIR /src
 COPY . .

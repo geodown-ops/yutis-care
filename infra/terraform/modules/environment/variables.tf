@@ -64,12 +64,6 @@ variable "demo_site" {
   default     = false
 }
 
-variable "web_api_mode" {
-  description = "live: the front ends call the API. demo: self-contained front ends with built-in fictional data. Used by the deploy workflow when building the web image."
-  type        = string
-  default     = "live"
-}
-
 variable "database_tier" {
   description = "Cloud SQL machine tier."
   type        = string

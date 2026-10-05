@@ -31,7 +31,6 @@ output "github_variables" {
     GCP_WORKLOAD_IDENTITY = google_iam_workload_identity_pool_provider.github.name
     GCP_DEPLOYER          = google_service_account.deployer.email
     IMAGE_REGISTRY        = local.registry
-    WEB_API_MODE          = var.web_api_mode
     DEPLOY_PLATFORM_API   = tostring(local.platform)
   }
 }
