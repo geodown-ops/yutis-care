@@ -90,7 +90,7 @@ export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = S
             onSubmit={email => {
               setBusy('email');
               setProblem(null);
-              sendEmailLink(cfg, email, emailLinkUrl).then(() => setSentTo(email), (err: unknown) => setProblem(signInProblem(err))).finally(() => setBusy(null));
+              sendEmailLink(api, cfg, as, email, emailLinkUrl).then(() => setSentTo(email), (err: unknown) => setProblem(signInProblem(err))).finally(() => setBusy(null));
             }} />);
     }
     if (methods.has('password') && idp) {

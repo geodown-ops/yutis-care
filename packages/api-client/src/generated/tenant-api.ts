@@ -95,6 +95,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/email-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登入頁：寄一次性 Email 登入連結
+         * @description 以本系統的寄件地址寄登入連結給這個租戶的後台人員（as=staff）或在職員工（as=employee）。不存在的帳號不寄信但一樣回 sent=true；同一人一分鐘一封、一天十封。寄信服務未設定或無法產生連結時回 sent=false。
+         */
+        post: operations["AuthController_emailLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/sign-in": {
         parameters: {
             query?: never;
@@ -346,7 +366,7 @@ export interface paths {
         put?: never;
         /**
          * 寄登入連結給後台人員
-         * @description 以本系統的寄件地址寄一次性 Email 登入連結（連結由登入服務產生）。寄信服務未設定、租戶沒有開啟 Email 登入或無法產生連結時回 sent=false，不寄信。同一人一分鐘內只能寄一次。
+         * @description 以本系統的寄件地址寄一次性 Email 登入連結（連結由登入服務產生）。寄信服務未設定、租戶沒有開啟 Email 登入或無法產生連結時回 sent=false，不寄信。同一人一分鐘內只能寄一次，一天最多十次。
          */
         post: operations["UsersController_sendSignInLink"];
         delete?: never;
@@ -2221,6 +2241,10 @@ export interface components {
             /** @description 員工端語言：zh、en、ja、vi、th */
             lang: string;
         };
+        EmailLinkResultDto: {
+            /** @description true：系統已處理（有這個帳號就寄出；沒有帳號也回 true，不透露帳號是否存在）。false：系統無法寄，登入頁改由登入服務自己寄。 */
+            sent: boolean;
+        };
         OrgDepartmentDto: {
             /** Format: uuid */
             id: string;
@@ -2321,7 +2345,7 @@ export interface components {
              * @description 沒寄的原因：寄信服務未設定（email_not_configured）、租戶沒有可產生連結的 Email 登入（no_email_link）、登入服務拒絕產生連結，例如權限未設定（link_refused）
              * @enum {string}
              */
-            reason?: "email_not_configured" | "no_email_link" | "link_refused";
+            reason?: "email_not_configured" | "no_email_link" | "link_refused" | "too_many";
         };
         EmployeeNameDto: {
             /** Format: uuid */
@@ -3964,6 +3988,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 網址不是任何租戶的子網域（unknown_tenant） */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    AuthController_emailLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    /** @enum {string} */
+                    as: "staff" | "employee";
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailLinkResultDto"];
                 };
             };
             /** @description 租戶已停用（tenant_inactive）、跨來源請求（cross_origin）或沒有權限 */

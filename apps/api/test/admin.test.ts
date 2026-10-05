@@ -407,6 +407,63 @@ describe('employee master by hand', () => {
   });
 });
 
+describe('email link from the login page', () => {
+  const ask = (email: string, as: 'staff' | 'employee') => call('acme', 'POST', '/api/auth/email-link', { body: { email, as } });
+
+  it('falls back to the sign-in service when the system cannot create links', async () => {
+    resendCalls.splice(0);
+    expect((await ask('hr@acme.test', 'staff')).json()).toEqual({ sent: false });
+    expect(resendCalls).toEqual([]);
+    expect((await call('acme', 'POST', '/api/auth/email-link', { body: { email: 'not an email', as: 'staff' } })).statusCode).toBe(400);
+  });
+
+  it("emails staff and employees our own link, and answers the same whether or not there is an account", async () => {
+    const identity = app.get<IdentityVerifier>(IDENTITY_VERIFIER);
+    const link = vi.spyOn(identity, 'signInLink').mockResolvedValue('https://auth.example/__/auth/action?mode=signIn&oobCode=xyz');
+    const [e] = await owner.select().from(employees).where(and(eq(employees.tenantId, ids.acme), eq(employees.empNo, 'H001')));
+    await owner.update(employees).set({ lang: 'ja' }).where(eq(employees.id, e!.id));
+    try {
+      resendCalls.splice(0);
+      expect((await ask('HR@acme.test', 'staff')).json()).toEqual({ sent: true });
+      expect(link).toHaveBeenLastCalledWith(expect.objectContaining({ slug: 'acme' }), 'hr@acme.test', 'http://acme.care.test/login');
+      const staffMail = JSON.parse(String(resendCalls.splice(0)[0]!.init.body));
+      expect(staffMail).toMatchObject({ from: 'Yutis Care <noreply@care.test>', to: ['hr@acme.test'], subject: 'Acme單次登入授權' });
+      expect(staffMail.text).toContain('這是 acme.care.test 一次性登入連結');
+
+      // A second request within the minute sends nothing but looks the same.
+      expect((await ask('hr@acme.test', 'staff')).json()).toEqual({ sent: true });
+      expect(resendCalls).toEqual([]);
+
+      // No account (or an employee address asked as staff): nothing is sent, same answer.
+      link.mockClear();
+      expect((await ask('stranger@acme.test', 'staff')).json()).toEqual({ sent: true });
+      expect((await ask('h001@acme.test', 'staff')).json()).toEqual({ sent: true });
+      expect((await call('globex', 'POST', '/api/auth/email-link', { body: { email: 'hr@acme.test', as: 'staff' } })).json()).toEqual({ sent: true });
+      expect(link).not.toHaveBeenCalled();
+      expect(resendCalls).toEqual([]);
+
+      expect((await ask('h001@acme.test', 'employee')).json()).toEqual({ sent: true });
+      expect(link).toHaveBeenLastCalledWith(expect.objectContaining({ slug: 'acme' }), 'h001@acme.test', 'http://acme.care.test/me/login');
+      const employeeMail = JSON.parse(String(resendCalls.splice(0)[0]!.init.body));
+      expect(employeeMail.to).toEqual(['h001@acme.test']);
+      expect(employeeMail.subject).not.toContain('單次登入授權');
+      expect(employeeMail.text).toContain('oobCode=xyz');
+      const [row] = await owner.select().from(notifications).where(eq(notifications.template, 'employee_sign_in_link'));
+      expect(row).toMatchObject({ status: 'sent', params: { employeeId: e!.id } });
+
+      // People who have left get nothing.
+      await owner.update(employees).set({ status: '離職' }).where(eq(employees.id, e!.id));
+      await owner.update(notifications).set({ createdAt: new Date(Date.now() - 120_000) }).where(eq(notifications.id, row!.id));
+      link.mockClear();
+      expect((await ask('h001@acme.test', 'employee')).json()).toEqual({ sent: true });
+      expect(link).not.toHaveBeenCalled();
+    } finally {
+      link.mockRestore();
+      await owner.update(employees).set({ lang: e!.lang, status: e!.status }).where(eq(employees.id, e!.id));
+    }
+  });
+});
+
 describe('phrases and audit search', () => {
   it('lets tenant admins list the phrases they maintain', async () => {
     const cookie = await signIn('acme', 'admin@acme.test');

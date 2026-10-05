@@ -21,17 +21,41 @@ export function staffInvitationEmail(i: { to: string; userId: string; name: stri
   };
 }
 
-/** A one-time sign-in link a tenant admin sent a staff member (e.g. when the invitation went missing). Wording by Yutis; `site` is the tenant's own host. */
-export function staffSignInLinkEmail(i: { to: string; userId: string; name: string; tenantName: string; site: string; url: string }): Email {
+const SIGN_IN_LINK: Record<string, { subject: (tenant: string) => string; text: (name: string, site: string, url: string) => string[] }> = {
+  // Wording by Yutis (Geodown, 2026-10-05).
+  zh: {
+    subject: tenant => `${tenant}單次登入授權`,
+    text: (name, site, url) => [`${name} 您好：`, '', `這是 ${site} 一次性登入連結，登入後即失效，Yutis Care 與您共同維護個資安全。`, url],
+  },
+  en: {
+    subject: tenant => `${tenant}: one-time sign-in`,
+    text: (name, site, url) => [`Dear ${name},`, '', `This is a one-time sign-in link for ${site}. It stops working once you have signed in. Yutis Care works with you to keep personal data safe.`, url],
+  },
+  ja: {
+    subject: tenant => `${tenant} ワンタイムログイン`,
+    text: (name, site, url) => [`${name} 様`, '', `${site} のワンタイムログインリンクです。ログイン後は無効になります。Yutis Care は皆さまと共に個人情報を守ります。`, url],
+  },
+  vi: {
+    subject: tenant => `${tenant}: đăng nhập một lần`,
+    text: (name, site, url) => [`Kính gửi ${name},`, '', `Đây là liên kết đăng nhập một lần cho ${site}. Liên kết sẽ hết hiệu lực sau khi bạn đăng nhập. Yutis Care cùng bạn bảo vệ dữ liệu cá nhân.`, url],
+  },
+  th: {
+    subject: tenant => `${tenant}: ลงชื่อเข้าใช้ครั้งเดียว`,
+    text: (name, site, url) => [`เรียน ${name}`, '', `นี่คือลิงก์ลงชื่อเข้าใช้ครั้งเดียวสำหรับ ${site} ลิงก์จะใช้ไม่ได้หลังจากลงชื่อเข้าใช้แล้ว Yutis Care ร่วมกับคุณดูแลความปลอดภัยของข้อมูลส่วนบุคคล`, url],
+  },
+};
+
+/**
+ * A one-time sign-in link: from the login page, or sent by a tenant admin. `site` is the tenant's own host. Staff get
+ * it in Chinese; employees in their portal language.
+ */
+export function signInLinkEmail(i: {
+  to: string; recipient: { userId: string } | { employeeId: string }; name: string; tenantName: string; site: string; url: string; lang?: string;
+}): Email {
+  const t = SIGN_IN_LINK[i.lang && isEmployeeLang(i.lang) ? i.lang : 'zh']!;
   return {
-    to: i.to, template: 'staff_sign_in_link', params: { userId: i.userId },
-    subject: `${i.tenantName}單次登入授權`,
-    text: [
-      `${i.name} 您好：`,
-      '',
-      `這是 ${i.site} 一次性登入連結，登入後即失效，Yutis Care 與您共同維護個資安全。`,
-      i.url,
-    ].join('\n'),
+    to: i.to, template: 'userId' in i.recipient ? 'staff_sign_in_link' : 'employee_sign_in_link', params: i.recipient,
+    subject: t.subject(i.tenantName), text: t.text(i.name, i.site, i.url).join('\n'),
   };
 }
 

@@ -7,21 +7,23 @@ import { googleTokenSource } from '../core/gcp.js';
 import { DevIdentityVerifier, IDENTITY_VERIFIER, IdentityPlatformVerifier, UnconfiguredIdentityVerifier, type IdentityVerifier } from './identity.js';
 import { MeController } from './me.controller.js';
 import { SessionService } from './sessions.js';
+import { SignInLinks } from './sign-in-links.js';
 
 @Module({})
 export class AuthModule {
   static register(options: Pick<ApiConfig, 'devSignIn' | 'identityPlatform'>): DynamicModule {
     return {
       module: AuthModule,
-      // Tenant admins send sign-in links from AdminModule.
+      // Tenant admins send sign-in links (SignInLinks) from AdminModule.
       global: true,
       controllers: [MeController, AuthController],
       providers: [
         SessionService,
+        SignInLinks,
         { provide: IDENTITY_VERIFIER, useFactory: () => identityVerifier(options) },
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
-      exports: [IDENTITY_VERIFIER],
+      exports: [IDENTITY_VERIFIER, SignInLinks],
     };
   }
 }
