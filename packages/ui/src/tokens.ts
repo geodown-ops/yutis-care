@@ -3,8 +3,9 @@
  * --yutis-* CSS variables are generated from it. Spec: https://claude.ai/artifact/8qGyJ8B3UVjkPAKZki4n34
  *
  * Style follows the Behance "Real Estate CRM Software" reference Geodown chose (2026-10-03): light
- * grey-lilac page, white cards without shadows, lavender #9994CE as the brand colour, ink #131517 for
- * the selected menu pill and main buttons, pastel tiles for overview figures, Urbanist type.
+ * grey-lilac page, white cards without shadows, lavender #9994CE as the brand colour, ink for the selected
+ * menu pill and main buttons, pastel tiles for overview figures, Urbanist type. Geodown set the ink (every
+ * black text and block) to #232629 on 2026-10-05.
  * Status text colours are a step darker than the reference so small text stays WCAG AA on its tint.
  */
 
@@ -55,17 +56,17 @@ export const light: ColorTokens = {
   surface2: '#F4F4F3',
   line: '#EDECF1',
   lineStrong: '#D4D3DB',
-  fg: '#131517',
+  fg: '#232629',
   muted: '#646466',
   brand: '#9994CE',
-  brandFg: '#131517',
+  brandFg: '#232629',
   link: '#5F58A8',
   logo: '#102A43',
   nav: '#F6F5F8',
   navFg: '#3D3E3F',
   navStrong: '#FFFFFF',
   navMuted: '#6E6E72',
-  navActive: '#131517',
+  navActive: '#232629',
   navIcon: '#EBEAF0',
   ok: '#18761C', okWeak: '#E3F6E4',
   warn: '#A14F00', warnWeak: '#FFF0DC',
@@ -76,7 +77,7 @@ export const light: ColorTokens = {
   tilePink: '#FFE6E7', tilePinkStrong: '#F7D7DA',
   tileBlue: '#DFF6FF', tileBlueStrong: '#C2E6F3',
   grade1: '#22A826', grade2: '#E8B21E', grade3: '#F07F2D', grade4: '#C42F3A',
-  grade1Fg: '#131517', grade2Fg: '#131517', grade3Fg: '#131517', grade4Fg: '#FFFFFF',
+  grade1Fg: '#232629', grade2Fg: '#232629', grade3Fg: '#232629', grade4Fg: '#FFFFFF',
   chart1: '#9994CE', chart2: '#22A826', chart3: '#22A0E7', chart4: '#E8707A', chart5: '#E8B21E',
 };
 
@@ -89,12 +90,12 @@ export const dark: ColorTokens = {
   fg: '#EDEDF0',
   muted: '#A3A3AA',
   brand: '#9994CE',
-  brandFg: '#131517',
+  brandFg: '#232629',
   link: '#B3AEDD',
   logo: '#EDEDF0',
   nav: '#0F1012',
   navFg: '#C9C9CF',
-  navStrong: '#131517',
+  navStrong: '#232629',
   navMuted: '#8E8E96',
   navActive: '#9994CE',
   navIcon: '#1F2024',
@@ -117,10 +118,10 @@ export const brandScale = [
   '#8580C2', '#6F69B3', '#5F58A8', '#4C4690', '#3A3570',
 ] as const;
 
-/** Ink scale behind light-mode buttons, chips and the selected menu pill; shade 6 is #131517. */
+/** Ink scale behind light-mode buttons, chips and the selected menu pill; shade 6 is #232629 (hover uses 7). */
 export const inkScale = [
   '#F4F4F5', '#E6E6E9', '#CDCDD2', '#A6A6AC', '#7A7A80',
-  '#4A4B50', '#131517', '#0B0C0E', '#060708', '#000000',
+  '#4A4B50', '#232629', '#1C1E21', '#16181A', '#101113',
 ] as const;
 
 /** Mantine's `dark` palette, which colours dark-mode inputs, borders and menus. */

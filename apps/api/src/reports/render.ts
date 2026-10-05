@@ -39,7 +39,7 @@ export function reportPdf(report: Report, meta: ExportMeta): Promise<Buffer> {
     doc.font(FONT);
     doc.fontSize(16).text(report.title);
     doc.moveDown(0.3).fontSize(9).fillColor('#666666').text(stamp(meta));
-    doc.moveDown().fillColor('#000000').fontSize(11);
+    doc.moveDown().fillColor('#232629').fontSize(11);
     for (const s of report.summary) doc.text(`${s.label}：${show(s.value)}`);
     doc.moveDown();
     const width = (doc.page.width - 96) / report.columns.length;
