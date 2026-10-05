@@ -25,7 +25,7 @@ export function staffInvitationEmail(i: { to: string; userId: string; name: stri
 export function staffSignInLinkEmail(i: { to: string; userId: string; name: string; tenantName: string; site: string; url: string }): Email {
   return {
     to: i.to, template: 'staff_sign_in_link', params: { userId: i.userId },
-    subject: `${i.site} 一次性登入連結（${i.tenantName}）`,
+    subject: `${i.tenantName}單次登入授權`,
     text: [
       `${i.name} 您好：`,
       '',

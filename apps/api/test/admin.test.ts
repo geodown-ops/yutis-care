@@ -240,7 +240,7 @@ describe('staff accounts', () => {
       expect(res.json()).toEqual({ sent: true });
       expect(link).toHaveBeenCalledWith(expect.objectContaining({ slug: 'acme' }), 'nurse@acme.test', 'http://acme.care.test/login');
       const body = JSON.parse(String(resendCalls.splice(0)[0]!.init.body));
-      expect(body).toMatchObject({ to: ['nurse@acme.test'], subject: 'acme.care.test 一次性登入連結（Acme）' });
+      expect(body).toMatchObject({ to: ['nurse@acme.test'], subject: 'Acme單次登入授權' });
       expect(body.text).toContain('這是 acme.care.test 一次性登入連結，登入後即失效，Yutis Care 與您共同維護個資安全。');
       expect(body.text).toContain('oobCode=abc');
       const [row] = await owner.select().from(notifications).where(eq(notifications.template, 'staff_sign_in_link'));
