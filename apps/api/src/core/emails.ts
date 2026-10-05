@@ -25,14 +25,12 @@ export function staffInvitationEmail(i: { to: string; userId: string; name: stri
 export function staffSignInLinkEmail(i: { to: string; userId: string; name: string; tenantName: string; site: string; url: string }): Email {
   return {
     to: i.to, template: 'staff_sign_in_link', params: { userId: i.userId },
-    subject: `${i.site} 登入信（${i.tenantName}）`,
+    subject: `${i.site} 一次性登入連結（${i.tenantName}）`,
     text: [
       `${i.name} 您好：`,
       '',
-      `這是 ${i.site} 登入信，請點選連結後輸入您的 email 登入：`,
+      `這是 ${i.site} 一次性登入連結，登入後即失效，Yutis Care 與您共同維護個資安全。`,
       i.url,
-      '',
-      '這個連結只能使用一次，請不要轉寄給別人。如果您不認識這封信，可以忽略它。',
     ].join('\n'),
   };
 }
