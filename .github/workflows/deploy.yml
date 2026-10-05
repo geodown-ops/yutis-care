@@ -47,7 +47,7 @@ jobs:
         run: |
           gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
           docker build -f deploy/server.Dockerfile -t "$SERVER_IMAGE" .
-          docker build -f deploy/web.Dockerfile --build-arg VITE_API=${{ vars.WEB_API_MODE }} -t "$WEB_IMAGE" .
+          docker build -f deploy/web.Dockerfile -t "$WEB_IMAGE" .
           docker push "$SERVER_IMAGE"
           docker push "$WEB_IMAGE"
 

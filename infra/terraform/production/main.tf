@@ -59,7 +59,6 @@ module "env" {
   tenant_hosts       = ["*.${var.domain}"]
   platform_host      = "admin.${var.domain}"
   tenant_base_domain = var.domain
-  web_api_mode       = "live"
 
   platform_staff        = var.platform_staff
   platform_sign_in      = var.platform_sign_in

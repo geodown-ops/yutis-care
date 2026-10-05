@@ -69,7 +69,7 @@ PLATFORM_SIGN_IN_AUTH_DOMAIN=<GCP 專案 id>.firebaseapp.com
 GOOGLE_SERVICE_ACCOUNT_KEY=服務帳號 yutis-platform 的 JSON 金鑰
 ```
 
-**web**：`PORT=8080`、`API_UPSTREAM=api.railway.internal:3000`、`PLATFORM_API_UPSTREAM=platform-api.railway.internal:3001`（示範站不設）、`VITE_API=live`（前端畫面串接 API 之後；在那之前是 `demo`，用畫面內建的虛構資料）。
+**web**：`PORT=8080`、`API_UPSTREAM=api.railway.internal:3000`、`PLATFORM_API_UPSTREAM=platform-api.railway.internal:3001`（示範站不設）。
 
 **backup**：`DATABASE_URL=${{Postgres.DATABASE_URL}}`、`BACKUP_AGE_RECIPIENT`（age 公鑰，私鑰離線保管）、`BACKUP_BUCKET`、`BACKUP_ENDPOINT`、`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`（Railway Bucket 或任何 S3 相容儲存）、選填 `BACKUP_KEEP_DAYS`（預設 35）。還原：`age -d -i key.txt 檔案 | pg_restore --clean --no-owner -d "$DATABASE_URL"`。
 
