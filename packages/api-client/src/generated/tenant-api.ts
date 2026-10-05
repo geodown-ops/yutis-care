@@ -2315,8 +2315,13 @@ export interface components {
             emailed: boolean;
         };
         SignInLinkResultDto: {
-            /** @description 已由本系統寄出登入連結；false 表示本系統無法寄（寄信服務未設定或無法產生連結），前端可改用登入服務自己寄 */
+            /** @description 已由本系統寄出登入連結；false 表示本系統無法寄，前端可改用登入服務自己寄 */
             sent: boolean;
+            /**
+             * @description 沒寄的原因：寄信服務未設定（email_not_configured）、租戶沒有可產生連結的 Email 登入（no_email_link）、登入服務拒絕產生連結，例如權限未設定（link_refused）
+             * @enum {string}
+             */
+            reason?: "email_not_configured" | "no_email_link" | "link_refused";
         };
         EmployeeNameDto: {
             /** Format: uuid */

@@ -230,7 +230,7 @@ describe('staff accounts', () => {
     expect((await call('acme', 'POST', url, { cookie: await signIn('acme', 'nurse@acme.test') })).statusCode).toBe(403);
     // Local sign-in has no email links: nothing is sent and the page falls back to the sign-in service.
     resendCalls.splice(0);
-    expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+    expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false, reason: 'no_email_link' });
     expect(resendCalls).toEqual([]);
 
     const identity = app.get<IdentityVerifier>(IDENTITY_VERIFIER);
@@ -251,7 +251,7 @@ describe('staff accounts', () => {
       // Identity Platform refusing (e.g. a missing permission) falls back instead of failing.
       await owner.update(notifications).set({ createdAt: new Date(Date.now() - 120_000) }).where(eq(notifications.id, row!.id));
       link.mockRejectedValueOnce(new Error('403 PERMISSION_DENIED'));
-      expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false });
+      expect((await call('acme', 'POST', url, { cookie })).json()).toEqual({ sent: false, reason: 'link_refused' });
 
       await owner.update(users).set({ active: false }).where(eq(users.id, nurse!.id));
       expect((await call('acme', 'POST', url, { cookie })).json()).toMatchObject({ code: 'account_inactive' });

@@ -37,8 +37,15 @@ class InvitedStaffDto extends StaffAccountDto {
   @ApiProperty({ description: '邀請信會寄出（寄信服務已設定）；false 表示只記錄、沒有寄出（本機與示範站），請另外通知對方' }) emailed!: boolean;
 }
 
+const NOT_SENT = ['email_not_configured', 'no_email_link', 'link_refused'] as const;
+
 class SignInLinkResultDto {
-  @ApiProperty({ description: '已由本系統寄出登入連結；false 表示本系統無法寄（寄信服務未設定或無法產生連結），前端可改用登入服務自己寄' }) sent!: boolean;
+  @ApiProperty({ description: '已由本系統寄出登入連結；false 表示本系統無法寄，前端可改用登入服務自己寄' }) sent!: boolean;
+  @ApiProperty({
+    enum: NOT_SENT, required: false,
+    description: '沒寄的原因：寄信服務未設定（email_not_configured）、租戶沒有可產生連結的 Email 登入（no_email_link）、登入服務拒絕產生連結，例如權限未設定（link_refused）',
+  })
+  reason?: (typeof NOT_SENT)[number];
 }
 
 /** One sign-in link per person per minute, so a double click or an impatient admin does not flood a mailbox. */
@@ -162,7 +169,7 @@ export class UsersController {
     const [account] = await ctx.tx.select().from(users).where(eq(users.id, id));
     if (!account) throw new NotFoundException({ code: 'account_not_found', message: 'No such account' });
     if (!account.active) throw new ConflictException({ code: 'account_inactive', message: 'The account is deactivated' });
-    if (!this.notifier.delivers) return { sent: false };
+    if (!this.notifier.delivers) return { sent: false, reason: 'email_not_configured' };
     const [recent] = await ctx.tx.select({ id: notifications.id }).from(notifications).where(and(
       eq(notifications.template, 'staff_sign_in_link'), sql`${notifications.params}->>'userId' = ${id}`,
       gt(notifications.createdAt, sql`now() - ${SIGN_IN_LINK_INTERVAL}::interval`),
@@ -174,9 +181,9 @@ export class UsersController {
     } catch (error) {
       // E.g. the API's service account lacks the permission yet: the browser can still have the sign-in service send it.
       this.logger.warn(`Could not create a sign-in link: ${error instanceof Error ? error.message : String(error)}`);
-      return { sent: false };
+      return { sent: false, reason: 'link_refused' };
     }
-    if (!url) return { sent: false };
+    if (!url) return { sent: false, reason: 'no_email_link' };
     await this.notifier.email(ctx, staffSignInLinkEmail({
       to: account.email, userId: id, name: account.name, tenantName: ctx.tenant.name, site: `${ctx.tenant.slug}.${this.config.tenantBaseDomain}`, url,
     }));
