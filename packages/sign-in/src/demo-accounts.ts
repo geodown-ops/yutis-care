@@ -5,6 +5,14 @@
 /** The demo site's sign-in page shows the product name beside the logo instead of the fictional company. */
 export const DEMO_SIGN_IN_TITLE = 'Yutis Care';
 
+/**
+ * The marketing site (官網) the demo's logo leads back to: the bare product domain the demo lives under, so
+ * demo.care.yutis.net → https://care.yutis.net/.
+ */
+export function demoHomeUrl(hostname: string): string {
+  return `https://${hostname.replace(/^demo\./, '')}/`;
+}
+
 export interface DemoAccount { token: string; name: string; label: string }
 
 export const DEMO_STAFF: DemoAccount[] = [

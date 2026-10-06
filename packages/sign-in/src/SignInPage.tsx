@@ -1,9 +1,9 @@
-import { Box, Button, Card, Divider, Group, PasswordInput, SimpleGrid, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core';
+import { Anchor, Box, Button, Card, Divider, Group, PasswordInput, SimpleGrid, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core';
 import { IconMail } from '@tabler/icons-react';
 import { data, type TenantApi, type TenantInfo } from '@yutis/api-client';
 import { YutisMark } from '@yutis/ui';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { DEMO_EMPLOYEES, DEMO_SIGN_IN_TITLE, DEMO_STAFF } from './demo-accounts';
+import { DEMO_EMPLOYEES, DEMO_SIGN_IN_TITLE, DEMO_STAFF, demoHomeUrl } from './demo-accounts';
 import { signInProblem, type SignInProblem } from './errors';
 import { completeEmailLink, isEmailLink, rememberedEmail, sendEmailLink, signInWithPassword, signInWithSso } from './identity';
 import { fill, STAFF_TEXT, type SignInText } from './text';
@@ -127,10 +127,20 @@ export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = S
     <Box mih="100dvh" bg="var(--yutis-bg)" px="md" py="xl" style={{ display: 'grid', placeItems: 'center' }}>
       <Stack w="100%" maw={420} gap="lg">
         <Group justify="space-between" wrap="nowrap">
-          <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
-            <YutisMark height={28} />
-            <Text fw={700} truncate>{tenant.subdomain === 'demo' ? DEMO_SIGN_IN_TITLE : tenant.name}</Text>
-          </Group>
+          {tenant.subdomain === 'demo' ? (
+            // The demo site's logo leads back to the marketing site.
+            <Anchor href={demoHomeUrl(window.location.hostname)} aria-label="回到 Yutis Care 官網" c="inherit" underline="never" style={{ minWidth: 0 }}>
+              <Group gap={10} wrap="nowrap">
+                <YutisMark height={28} />
+                <Text fw={700} truncate>{DEMO_SIGN_IN_TITLE}</Text>
+              </Group>
+            </Anchor>
+          ) : (
+            <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+              <YutisMark height={28} />
+              <Text fw={700} truncate>{tenant.name}</Text>
+            </Group>
+          )}
           {headerEnd}
         </Group>
         <Card padding="xl">
