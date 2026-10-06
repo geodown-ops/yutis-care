@@ -2,6 +2,9 @@
  * One-click accounts for the demo tenant (subdomain `demo`, dev sign-in only), replacing the old role switcher. They
  * are the fictional people created by apps/api/scripts/seed-dev.ts (staff) and the prototype demo data (employees).
  */
+/** The demo site's sign-in page shows the product name beside the logo instead of the fictional company. */
+export const DEMO_SIGN_IN_TITLE = 'Yutis Care';
+
 export interface DemoAccount { token: string; name: string; label: string }
 
 export const DEMO_STAFF: DemoAccount[] = [
