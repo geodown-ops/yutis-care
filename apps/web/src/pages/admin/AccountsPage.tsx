@@ -109,25 +109,37 @@ export function AccountsPage() {
   );
 }
 
+/** Why the system did not send the link itself, so the admin knows the email came from Google (in English). */
+const NOT_SENT_TEXT: Record<string, string> = {
+  email_not_configured: '系統寄信服務尚未設定',
+  no_email_link: '這個租戶的 Email 登入無法由系統產生連結',
+  link_refused: '系統尚未取得產生登入連結的權限',
+};
+
 /**
  * Emails a member a one-time sign-in link to this site's login page. The system sends it from its own address when it
  * can (POST …/sign-in-link); otherwise the sign-in service sends its own email.
  */
 function SendLinkButton({ cfg, account }: { cfg: IdentityPlatformConfig; account: StaffAccount }) {
   const send = useMutation({
-    mutationFn: async () => {
-      const { sent } = await data(api.POST('/api/admin/users/{id}/sign-in-link', { params: { path: { id: account.id } } }));
-      if (!sent) await sendEmailLinkTo(cfg, account.email, `${window.location.origin}/login`);
+    mutationFn: async (): Promise<string | null> => {
+      const result = await data(api.POST('/api/admin/users/{id}/sign-in-link', { params: { path: { id: account.id } } }));
+      if (result.sent) return null;
+      await sendEmailLinkTo(cfg, account.email, `${window.location.origin}/login`);
+      return NOT_SENT_TEXT[result.reason ?? ''] ?? '系統無法寄出';
     },
   });
   // signInProblem reads both the API's 429 and the sign-in service's own rate limit.
   const failed = send.isError ? (signInProblem(send.error) === 'tooMany' ? '剛剛才寄過，請稍後再試' : '寄送失敗，請再試一次') : null;
+  const viaGoogle = send.isSuccess ? send.data : null;
+  const label = failed ?? (viaGoogle ? `已由 Google 寄出英文登入信到 ${account.email}（${viaGoogle}）`
+    : send.isSuccess ? `已寄到 ${account.email}` : `寄一次性登入連結到 ${account.email}`);
   return (
-    <Tooltip label={failed ?? (send.isSuccess ? `已寄到 ${account.email}` : `寄一次性登入連結到 ${account.email}`)} withArrow>
-      <Button size="compact-sm" variant="light" color={failed ? 'red' : send.isSuccess ? 'green' : undefined}
+    <Tooltip label={label} withArrow multiline maw={320}>
+      <Button size="compact-sm" variant="light" color={failed ? 'red' : viaGoogle ? 'yellow' : send.isSuccess ? 'green' : undefined}
         leftSection={send.isSuccess ? <IconCheck size={14} /> : <IconSend size={14} />} loading={send.isPending}
         onClick={() => send.mutate()} aria-label={`重新寄發登入連結給 ${account.name}`}>
-        {send.isSuccess ? '已寄出' : '重新寄發登入連結'}
+        {viaGoogle ? '已寄出（Google）' : send.isSuccess ? '已寄出' : '重新寄發登入連結'}
       </Button>
     </Tooltip>
   );

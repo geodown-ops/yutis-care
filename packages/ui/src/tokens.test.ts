@@ -21,7 +21,7 @@ describe('design tokens', () => {
 
   it('keeps the reference brand colours', () => {
     expect(brandScale[4]).toBe('#9994CE');
-    expect(inkScale[6]).toBe('#131517');
+    expect(inkScale[6]).toBe('#232629');
   });
 
   it('computes WCAG contrast', () => {

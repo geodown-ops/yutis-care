@@ -3,7 +3,7 @@
  * POST /api/auth/sign-in turns into our own session cookie. Firebase keeps nothing (in-memory persistence), so the
  * session cookie is the only sign-in state. Loaded on demand: dev and demo sign-in never download Firebase.
  */
-import type { IdentityPlatformConfig } from '@yutis/api-client';
+import { data, type IdentityPlatformConfig, type TenantApi } from '@yutis/api-client';
 import type { Auth } from 'firebase/auth';
 
 type FirebaseAuthModule = typeof import('firebase/auth');
@@ -48,9 +48,14 @@ export async function signInWithPassword(cfg: IdentityPlatformConfig, email: str
 
 const EMAIL_KEY = 'yutis.signInEmail';
 
-/** Emails a one-time sign-in link that opens `continueUrl` (this app's /login). Remembers the address on this device. */
-export async function sendEmailLink(cfg: IdentityPlatformConfig, email: string, continueUrl: string): Promise<void> {
-  await sendEmailLinkTo(cfg, email, continueUrl);
+/**
+ * Emails a one-time sign-in link that opens `continueUrl` (this app's /login), and remembers the address on this
+ * device. The system sends it from its own address when it can (POST /api/auth/email-link); otherwise the sign-in
+ * service sends its own email.
+ */
+export async function sendEmailLink(api: TenantApi, cfg: IdentityPlatformConfig, as: 'staff' | 'employee', email: string, continueUrl: string): Promise<void> {
+  const sent = await data(api.POST('/api/auth/email-link', { body: { email, as } })).then(r => r.sent, () => false);
+  if (!sent) await sendEmailLinkTo(cfg, email, continueUrl);
   try { localStorage.setItem(EMAIL_KEY, email); } catch { /* private mode: the page asks for the address again */ }
 }
 
