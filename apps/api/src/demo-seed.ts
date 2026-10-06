@@ -1,22 +1,28 @@
 /*
- * The fictional "demo" tenant (示範科技): two sites, three employees and one account per staff role. Used by the local
+ * The fictional "demo" tenant (Your Company): two sites, three employees and one account per staff role. Used by the local
  * seed (`pnpm --filter @yutis/api db:seed`) and by the release job on the demo site. Never run against a database that
- * holds real data. Idempotent: does nothing if the tenant exists.
+ * holds real data. Idempotent: if the tenant exists, only its company name is brought up to date.
  */
 import { departments, employees, legalEntities, sites, tenants, users, userSiteScopes, type Db } from '@yutis/db';
 import { DEMO_SITE_SUBDOMAIN } from '@yutis/domain';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export const DEMO_TENANT_SLUG = DEMO_SITE_SUBDOMAIN;
+/** Shown beside the logo on the demo site. */
+export const DEMO_COMPANY_NAME = 'Your Company';
 
 /** Runs as the table owner. Returns false if the tenant already existed. */
 export async function seedDemoTenant(db: Db): Promise<boolean> {
   const [existing] = await db.select().from(tenants).where(eq(tenants.slug, DEMO_TENANT_SLUG));
-  if (existing) return false;
+  if (existing) {
+    await db.update(tenants).set({ name: DEMO_COMPANY_NAME }).where(eq(tenants.id, existing.id));
+    await db.update(legalEntities).set({ name: DEMO_COMPANY_NAME }).where(and(eq(legalEntities.tenantId, existing.id), eq(legalEntities.code, 'DEMO')));
+    return false;
+  }
   await db.transaction(async tx => {
-    const [t] = await tx.insert(tenants).values({ slug: DEMO_TENANT_SLUG, name: '示範科技股份有限公司' }).returning();
+    const [t] = await tx.insert(tenants).values({ slug: DEMO_TENANT_SLUG, name: DEMO_COMPANY_NAME }).returning();
     const tenantId = t!.id;
-    const [le] = await tx.insert(legalEntities).values({ tenantId, code: 'DEMO', name: '示範科技股份有限公司' }).returning();
+    const [le] = await tx.insert(legalEntities).values({ tenantId, code: 'DEMO', name: DEMO_COMPANY_NAME }).returning();
     const [s1, s2] = await tx.insert(sites).values([
       { tenantId, legalEntityId: le!.id, code: 'TY', name: '桃園廠' },
       { tenantId, legalEntityId: le!.id, code: 'HC', name: '新竹廠' },

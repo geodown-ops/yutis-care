@@ -3,7 +3,7 @@ import { IconMail } from '@tabler/icons-react';
 import { data, type TenantApi, type TenantInfo } from '@yutis/api-client';
 import { YutisMark } from '@yutis/ui';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { DEMO_EMPLOYEES, DEMO_STAFF } from './demo-accounts';
+import { DEMO_EMPLOYEES, DEMO_SIGN_IN_TITLE, DEMO_STAFF } from './demo-accounts';
 import { signInProblem, type SignInProblem } from './errors';
 import { completeEmailLink, isEmailLink, rememberedEmail, sendEmailLink, signInWithPassword, signInWithSso } from './identity';
 import { fill, STAFF_TEXT, type SignInText } from './text';
@@ -129,7 +129,7 @@ export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = S
         <Group justify="space-between" wrap="nowrap">
           <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
             <YutisMark height={28} />
-            <Text fw={700} truncate>{tenant.name}</Text>
+            <Text fw={700} truncate>{tenant.subdomain === 'demo' ? DEMO_SIGN_IN_TITLE : tenant.name}</Text>
           </Group>
           {headerEnd}
         </Group>
