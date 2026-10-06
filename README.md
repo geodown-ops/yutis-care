@@ -9,12 +9,13 @@
 | `packages/domain` | 健康管理規則（TypeScript，前後端共用） |
 | `packages/db` | PostgreSQL schema（Drizzle）、migration、租戶隔離 |
 | `apps/api` | 租戶 API（NestJS + Fastify）：租戶識別、session、權限管線、稽核、OpenAPI |
-| `apps/platform-api` | 平台 API：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員；看不到任何健康資料 |
+| `apps/platform-api` | 平台 API：租戶開通與停用、試用申請審核、方案與訂閱、用量計數、公告、平台人員；看不到任何健康資料 |
 | `packages/ui` | 設計 token、Mantine 主題與共用元件 |
 | `packages/api-client` | 租戶 API 的呼叫函式與型別 |
 | `apps/web` | 租戶後台（職護、職醫、人資、租戶管理員） |
 | `apps/portal` | 員工端（手機優先，網址 `/me`） |
 | `apps/platform-web` | 平台管理後台（Yutis 內部人員） |
+| `apps/site` | 官網 `care.yutis.net`（靜態網站）與線上申請試用表單 |
 | `prototype` | 可操作的純前端雛形（需求規格） |
 | `deploy` | 容器映像（後端、前端 nginx） |
 | `infra` | 正式站與示範站的 Terraform 與上線手冊，見 [infra/README.md](infra/README.md) |

@@ -1,5 +1,5 @@
 /* Chinese labels for the platform API's enum values. Keyed by the generated types, so a new value fails typecheck here. */
-import type { AnnouncementKind, PlatformRole, SubscriptionStatus, TemplateKind, TenantStatus } from './api';
+import type { AnnouncementKind, PlatformRole, SubscriptionStatus, TemplateKind, TenantStatus, TrialApplicationStatus } from './api';
 
 /** Badge colours: the --yutis-{tone} status tokens, plus neutral for states that need no attention. */
 export type Tone = 'ok' | 'info' | 'warn' | 'bad' | 'neutral';
@@ -47,4 +47,10 @@ export const PLATFORM_ROLE_SUMMARY: Record<PlatformRole, string> = {
   營運: '開通、停用租戶，設定方案與訂閱，發布公告與預設範本',
   客服: '查看租戶狀態，發布公告；進入租戶需該租戶管理員授權',
   工程: '查看租戶狀態，發布預設範本，管理平台帳號',
+};
+
+export const TRIAL_APPLICATION_STATUS: Record<TrialApplicationStatus, Label> = {
+  pending: { label: '待審核', tone: 'warn' },
+  approved: { label: '已開通', tone: 'ok' },
+  declined: { label: '已婉拒', tone: 'neutral' },
 };

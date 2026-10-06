@@ -10,7 +10,7 @@ export const ACCESS_RULE = 'yutis:platform-access-rule';
 export const IAP_SECURITY = 'iap';
 export const SIGN_IN_SECURITY = 'google-sign-in';
 
-/** No sign-in: health checks and the sign-in page's settings only. */
+/** No sign-in: health checks, the sign-in page's settings and the marketing site's trial application form only. */
 export const Public = () => SetMetadata(ACCESS_RULE, { kind: 'public' } satisfies AccessRule);
 
 const signedIn = (rule: AccessRule, forbidden: string) => applyDecorators(

@@ -8,7 +8,7 @@ const Env = z.object({
   /** Login role that is a member of `yutis_platform` (never yutis_app, never the table owner). */
   PLATFORM_DATABASE_URL: z.string().min(1),
   /** Tenants are served at {slug}.{TENANT_BASE_DOMAIN}; used for links in invitations. */
-  TENANT_BASE_DOMAIN: z.string().min(1).default('care.yutis.com.tw'),
+  TENANT_BASE_DOMAIN: z.string().min(1).default('care.yutis.net'),
   /** Identity-Aware Proxy audience: /projects/{number}/global/backendServices/{id} (on Google Cloud). */
   IAP_AUDIENCE: z.string().min(1).optional(),
   /**
@@ -27,6 +27,16 @@ const Env = z.object({
   /** Production: this project's Identity Platform, and the KMS key ring for tenant keys (projects/…/keyRings/tenants). */
   GCP_PROJECT_ID: z.string().min(1).optional(),
   KMS_KEY_RING: z.string().regex(/^projects\/[^/]+\/locations\/[^/]+\/keyRings\/[^/]+$/).optional(),
+  /**
+   * How the platform's own email goes out (trial application notices): `log` only logs that a message would have been
+   * sent; `resend` sends through Resend's HTTPS API, like the tenant API.
+   */
+  EMAIL_PROVIDER: z.enum(['log', 'resend']).default('log'),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  /** e.g. "Yutis Care <noreply@care.yutis.net>" */
+  EMAIL_FROM: z.string().min(1).optional(),
+  /** Comma-separated addresses told about each new trial application (營運). None = only the platform admin shows them. */
+  TRIAL_NOTIFY_EMAILS: z.string().default(''),
 });
 
 export interface PlatformConfig {
@@ -42,7 +52,11 @@ export interface PlatformConfig {
   fakeIntegrations: boolean;
   /** Cloud KMS and Identity Platform for onboarding; undefined = those steps answer 503 (unless faked). */
   gcp?: { projectId: string; kmsKeyRing: string };
+  email: EmailConfig;
+  trialNotifyEmails: string[];
 }
+
+export type EmailConfig = { provider: 'log' } | { provider: 'resend'; apiKey: string; from: string };
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): PlatformConfig {
   const parsed = Env.safeParse(env);
@@ -57,6 +71,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (signIn.some(Boolean) && !signIn.every(Boolean)) {
     throw new Error('PLATFORM_SIGN_IN_PROJECT_ID, PLATFORM_SIGN_IN_API_KEY and PLATFORM_SIGN_IN_AUTH_DOMAIN go together');
   }
+  if (e.EMAIL_PROVIDER === 'resend' && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) throw new Error('EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM');
+  const trialNotifyEmails = e.TRIAL_NOTIFY_EMAILS.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+  if (!trialNotifyEmails.every(a => z.email().safeParse(a).success)) throw new Error('TRIAL_NOTIFY_EMAILS must be comma-separated email addresses');
   const ways = [e.PLATFORM_DEV_AUTH, !!e.IAP_AUDIENCE, !!e.PLATFORM_SIGN_IN_PROJECT_ID].filter(Boolean).length;
   if (ways !== 1) throw new Error('Configure exactly one of IAP_AUDIENCE, PLATFORM_SIGN_IN_PROJECT_ID or PLATFORM_DEV_AUTH');
   return {
@@ -72,5 +89,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     devAuth: e.PLATFORM_DEV_AUTH,
     fakeIntegrations: e.PLATFORM_FAKE_INTEGRATIONS,
     gcp: e.GCP_PROJECT_ID && e.KMS_KEY_RING ? { projectId: e.GCP_PROJECT_ID, kmsKeyRing: e.KMS_KEY_RING } : undefined,
+    email: e.EMAIL_PROVIDER === 'resend' ? { provider: 'resend', apiKey: e.RESEND_API_KEY!, from: e.EMAIL_FROM! } : { provider: 'log' },
+    trialNotifyEmails,
   };
 }

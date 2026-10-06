@@ -1,4 +1,4 @@
-# 正式站 care.yutis.net：租戶 {slug}.care.yutis.net（/me 員工端），平台管理後台 admin.care.yutis.net。
+# 正式站 care.yutis.net：官網與線上申請試用在 care.yutis.net，租戶 {slug}.care.yutis.net（/me 員工端），平台管理後台 admin.care.yutis.net。
 terraform {
   backend "gcs" {
     prefix = "production"
@@ -50,6 +50,12 @@ variable "email_from" {
   default = ""
 }
 
+variable "trial_notify_emails" {
+  description = "Who hears about new trial applications from care.yutis.net; null = platform_admin_emails."
+  type        = list(string)
+  default     = null
+}
+
 module "env" {
   source      = "../modules/environment"
   project_id  = var.project_id
@@ -58,6 +64,7 @@ module "env" {
   certificate_domain = var.domain
   tenant_hosts       = ["*.${var.domain}"]
   platform_host      = "admin.${var.domain}"
+  site_host          = var.domain
   tenant_base_domain = var.domain
 
   platform_staff        = var.platform_staff
@@ -75,6 +82,8 @@ module "env" {
   identity_platform  = true
   alert_email        = var.alert_email
   email_from         = var.email_from
+
+  trial_notify_emails = var.trial_notify_emails != null ? var.trial_notify_emails : var.platform_admin_emails
 }
 
 output "load_balancer_ip" {

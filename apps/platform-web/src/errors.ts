@@ -12,6 +12,8 @@ const BY_CODE: Record<string, string> = {
   tenant_not_found: '找不到這個租戶。',
   tenant_status: '租戶狀態已經變更，請重新整理後再試。',
   subdomain_taken: '這個子網域已經有租戶使用，請換一個。',
+  trial_application_decided: '這件申請已經有人處理過了，請重新整理。',
+  trial_application_not_found: '找不到這件試用申請，可能已被刪除。',
   invalid_subdomain: '子網域只能使用小寫英文字母、數字和連字號，且不能是平台保留的名稱。',
   unknown_plan: '找不到這個方案，或方案已停用，請重新選擇。',
   templates_missing: '還沒有可用的預設範本，請先到「預設範本」更新範本後再開通。',

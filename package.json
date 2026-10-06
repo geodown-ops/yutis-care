@@ -12,6 +12,7 @@
     "prototype": "node prototype/scripts/serve.js",
     "dev:web": "pnpm --filter @yutis/web dev",
     "dev:portal": "pnpm --filter @yutis/portal dev",
-    "dev:platform": "pnpm --filter @yutis/platform-web dev"
+    "dev:platform": "pnpm --filter @yutis/platform-web dev",
+    "dev:site": "pnpm --filter @yutis/site dev"
   }
 }

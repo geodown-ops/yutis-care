@@ -4,6 +4,8 @@
 #                   everything else  → front ends (back office at /, employee portal at /me/)
 #   platform host   /platform-api/*  → platform API   ┐ both behind Identity-Aware Proxy
 #                   everything else  → front ends     ┘ (Google Workspace accounts in platform_staff)
+#   site host       /platform-api/public/*  → platform API, public routes only (trial applications), never IAP
+#                   everything else         → front ends (the marketing site, deploy/site.sh)
 
 resource "google_compute_global_address" "lb" {
   project    = var.project_id
@@ -51,6 +53,26 @@ resource "google_compute_security_policy" "edge" {
       enforce_on_key = "IP"
       rate_limit_threshold {
         count        = 30
+        interval_sec = 60
+      }
+    }
+  }
+
+  # The marketing site's trial application form: a person sends one now and then.
+  rule {
+    action   = "throttle"
+    priority = 1100
+    match {
+      expr {
+        expression = "request.path.startsWith('/platform-api/public/')"
+      }
+    }
+    rate_limit_options {
+      conform_action = "allow"
+      exceed_action  = "deny(429)"
+      enforce_on_key = "IP"
+      rate_limit_threshold {
+        count        = 10
         interval_sec = 60
       }
     }
@@ -151,6 +173,23 @@ resource "google_compute_backend_service" "platform_web" {
   }
 }
 
+# The platform API again, without IAP, for the marketing site's public routes (the URL map sends nothing else to it).
+resource "google_compute_backend_service" "site_api" {
+  count                 = local.site ? 1 : 0
+  project               = var.project_id
+  name                  = "${local.prefix}-site-api"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  protocol              = "HTTPS"
+  security_policy       = google_compute_security_policy.edge.id
+  backend {
+    group = google_compute_region_network_endpoint_group.run["platform-api"].id
+  }
+  log_config {
+    enable      = true
+    sample_rate = 1
+  }
+}
+
 resource "google_iap_web_backend_service_iam_binding" "platform" {
   for_each            = local.platform_iap ? { api = google_compute_backend_service.platform_api[0].name, web = google_compute_backend_service.platform_web[0].name } : {}
   project             = var.project_id
@@ -192,6 +231,25 @@ resource "google_compute_url_map" "https" {
       path_rule {
         paths   = ["/platform-api", "/platform-api/*"]
         service = google_compute_backend_service.platform_api[0].id
+      }
+    }
+  }
+
+  dynamic "host_rule" {
+    for_each = local.site ? [1] : []
+    content {
+      hosts        = [var.site_host]
+      path_matcher = "site"
+    }
+  }
+  dynamic "path_matcher" {
+    for_each = local.site ? [1] : []
+    content {
+      name            = "site"
+      default_service = google_compute_backend_service.web.id
+      path_rule {
+        paths   = ["/platform-api/public/*"]
+        service = google_compute_backend_service.site_api[0].id
       }
     }
   }

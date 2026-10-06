@@ -85,6 +85,15 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', PLATFORM_DEV_AUTH: 'true' })).toThrow(/PLATFORM_DEV_AUTH/);
     expect(() => loadConfig({ ...env, NODE_ENV: 'production', IAP_AUDIENCE: 'a', PLATFORM_FAKE_INTEGRATIONS: 'true' })).toThrow(/PLATFORM_FAKE_INTEGRATIONS/);
   });
+
+  it('reads how trial application notices are emailed', () => {
+    const dev = { ...env, PLATFORM_DEV_AUTH: 'true' };
+    expect(loadConfig(dev)).toMatchObject({ email: { provider: 'log' }, trialNotifyEmails: [] });
+    expect(loadConfig({ ...dev, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_x', EMAIL_FROM: 'Yutis <a@b.test>', TRIAL_NOTIFY_EMAILS: ' Ops@Yutis.test, b@yutis.test ' }))
+      .toMatchObject({ email: { provider: 'resend', apiKey: 're_x' }, trialNotifyEmails: ['ops@yutis.test', 'b@yutis.test'] });
+    expect(() => loadConfig({ ...dev, EMAIL_PROVIDER: 'resend' })).toThrow(/RESEND_API_KEY/);
+    expect(() => loadConfig({ ...dev, TRIAL_NOTIFY_EMAILS: 'not-an-address' })).toThrow(/TRIAL_NOTIFY_EMAILS/);
+  });
 });
 
 describe('OpenAPI contract', () => {

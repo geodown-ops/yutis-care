@@ -365,6 +365,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/public/trial-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 線上申請試用（官網，不需登入）
+         * @description 只儲存申請並通知營運與申請人；不會自動開通。公司 Email 不能是免費信箱（free_mail），統一編號須通過檢查碼（invalid_tax_id）。同一個來源每天最多 5 件。
+         */
+        post: operations["TrialApplicationsController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/trial-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 試用申請列表
+         * @description 新的在前。status 不給時列出全部。
+         */
+        get: operations["TrialApplicationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/trial-applications/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 開通試用申請
+         * @description 用審核後的資料開通租戶（同 POST /tenants：建立租戶、金鑰、登入租戶與訂閱，邀請第一位租戶管理員），並把申請標為已開通。
+         */
+        post: operations["TrialApplicationsController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/trial-applications/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 婉拒試用申請
+         * @description 原因只留在平台內部，不會寄給申請人。
+         */
+        post: operations["TrialApplicationsController_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -579,6 +659,44 @@ export interface components {
             total: number;
             /** @description 新的在前 */
             items: components["schemas"]["PlatformAuditEntryDto"][];
+        };
+        TrialApplicationReceivedDto: {
+            /** @enum {string} */
+            status: "received";
+        };
+        TrialApplicationDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description 待審核、已開通、已婉拒
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "declined";
+            companyName: string;
+            /** @description 統一編號 */
+            taxId: string;
+            /** @enum {string} */
+            employeeRange: "1-49" | "50-99" | "100-299" | "300-999" | "1000+";
+            contactName: string;
+            contactTitle: string;
+            email: string;
+            phone: string;
+            preferredSubdomain: string | null;
+            /** @enum {string|null} */
+            identityProvider: "microsoft" | "google" | "none" | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /** @description 審核人 Email */
+            decidedBy: string | null;
+            /** @description 婉拒原因（內部紀錄，不寄給申請人） */
+            declineReason: string | null;
+            /**
+             * Format: uuid
+             * @description 開通後的租戶
+             */
+            tenantId?: string | null;
         };
     };
     responses: never;
@@ -1641,6 +1759,243 @@ export interface operations {
             };
             /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    TrialApplicationsController_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    companyName: string;
+                    taxId: string;
+                    /** @enum {string} */
+                    employeeRange: "1-49" | "50-99" | "100-299" | "300-999" | "1000+";
+                    contactName: string;
+                    contactTitle: string;
+                    /** Format: email */
+                    email: string;
+                    phone: string;
+                    preferredSubdomain?: string | null;
+                    identityProvider?: ("microsoft" | "google" | "none") | null;
+                    /** @constant */
+                    consent: true;
+                    website?: string;
+                    elapsedMs?: number;
+                };
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialApplicationReceivedDto"];
+                };
+            };
+            /** @description validation_failed、free_mail、invalid_tax_id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    TrialApplicationsController_list: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "declined";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialApplicationDto"][];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    TrialApplicationsController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    subdomain: string;
+                    name: string;
+                    planCode: string;
+                    /**
+                     * @default trial
+                     * @enum {string}
+                     */
+                    subscriptionStatus?: "trial" | "active";
+                    /** @default null */
+                    seatLimit?: number | null;
+                    /** Format: date */
+                    startsOn?: string;
+                    /** @default null */
+                    endsOn?: string | null;
+                    admin: {
+                        /** Format: email */
+                        email: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialApplicationDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 申請已處理過（trial_application_decided），或子網域已被使用（subdomain_taken） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    TrialApplicationsController_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialApplicationDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 申請已處理過（trial_application_decided） */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

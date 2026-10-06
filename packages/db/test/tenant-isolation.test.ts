@@ -220,7 +220,7 @@ describe('billing extension points', () => {
 
 describe('platform role (yutis_platform)', () => {
   /** Everything the platform API may touch. Every other table, current or future, must stay closed to it. */
-  const allowed = new Set(['tenants', 'plans', 'tenant_subscriptions', 'usage_counters', 'platform_users', 'default_templates', 'announcements', 'support_access_grants', 'platform_audit_log']);
+  const allowed = new Set(['tenants', 'plans', 'tenant_subscriptions', 'usage_counters', 'platform_users', 'default_templates', 'announcements', 'support_access_grants', 'platform_audit_log', 'trial_applications']);
 
   it('has no privilege on any employee, health or programme table', async () => {
     const { rows } = await ownerPool.query<{ name: string; any: boolean }>(`

@@ -1866,11 +1866,493 @@
           "audit"
         ]
       }
+    },
+    "/platform-api/public/trial-applications": {
+      "post": {
+        "description": "只儲存申請並通知營運與申請人；不會自動開通。公司 Email 不能是免費信箱（free_mail），統一編號須通過檢查碼（invalid_tax_id）。同一個來源每天最多 5 件。",
+        "operationId": "TrialApplicationsController_submit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "taxId": {
+                    "type": "string"
+                  },
+                  "employeeRange": {
+                    "type": "string",
+                    "enum": [
+                      "1-49",
+                      "50-99",
+                      "100-299",
+                      "300-999",
+                      "1000+"
+                    ]
+                  },
+                  "contactName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "contactTitle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "preferredSubdomain": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 63,
+                        "pattern": "^[a-z0-9-]*$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "identityProvider": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "microsoft",
+                          "google",
+                          "none"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "consent": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "elapsedMs": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "companyName",
+                  "taxId",
+                  "employeeRange",
+                  "contactName",
+                  "contactTitle",
+                  "email",
+                  "phone",
+                  "consent"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialApplicationReceivedDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "validation_failed、free_mail、invalid_tax_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "線上申請試用（官網，不需登入）",
+        "tags": [
+          "trial-applications"
+        ]
+      }
+    },
+    "/platform-api/trial-applications": {
+      "get": {
+        "description": "新的在前。status 不給時列出全部。",
+        "operationId": "TrialApplicationsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "declined"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrialApplicationDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "試用申請列表",
+        "tags": [
+          "trial-applications"
+        ]
+      }
+    },
+    "/platform-api/trial-applications/{id}/approve": {
+      "post": {
+        "description": "用審核後的資料開通租戶（同 POST /tenants：建立租戶、金鑰、登入租戶與訂閱，邀請第一位租戶管理員），並把申請標為已開通。",
+        "operationId": "TrialApplicationsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subdomain": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "planCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "subscriptionStatus": {
+                    "default": "trial",
+                    "type": "string",
+                    "enum": [
+                      "trial",
+                      "active"
+                    ]
+                  },
+                  "seatLimit": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "endsOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "admin": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "subdomain",
+                  "name",
+                  "planCode",
+                  "admin"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialApplicationDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "申請已處理過（trial_application_decided），或子網域已被使用（subdomain_taken）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "開通試用申請",
+        "tags": [
+          "trial-applications"
+        ]
+      }
+    },
+    "/platform-api/trial-applications/{id}/decline": {
+      "post": {
+        "description": "原因只留在平台內部，不會寄給申請人。",
+        "operationId": "TrialApplicationsController_decline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialApplicationDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "申請已處理過（trial_application_decided）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "婉拒試用申請",
+        "tags": [
+          "trial-applications"
+        ]
+      }
     }
   },
   "info": {
     "title": "Yutis Care 平台 API",
-    "description": "平台管理後台（admin.care.yutis.com.tw）用：租戶開通與停用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
+    "description": "平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
     "version": "0.1.0",
     "contact": {}
   },
@@ -2533,6 +3015,122 @@
         "required": [
           "total",
           "items"
+        ]
+      },
+      "TrialApplicationReceivedDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "received"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "TrialApplicationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "declined"
+            ],
+            "description": "待審核、已開通、已婉拒"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "taxId": {
+            "type": "string",
+            "description": "統一編號"
+          },
+          "employeeRange": {
+            "type": "string",
+            "enum": [
+              "1-49",
+              "50-99",
+              "100-299",
+              "300-999",
+              "1000+"
+            ]
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "contactTitle": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferredSubdomain": {
+            "type": "string",
+            "nullable": true
+          },
+          "identityProvider": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "microsoft",
+              "google",
+              "none"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "decidedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "審核人 Email"
+          },
+          "declineReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "婉拒原因（內部紀錄，不寄給申請人）"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "開通後的租戶"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "companyName",
+          "taxId",
+          "employeeRange",
+          "contactName",
+          "contactTitle",
+          "email",
+          "phone",
+          "preferredSubdomain",
+          "identityProvider",
+          "createdAt",
+          "decidedAt",
+          "decidedBy",
+          "declineReason"
         ]
       }
     }

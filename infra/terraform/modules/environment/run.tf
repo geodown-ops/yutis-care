@@ -179,7 +179,7 @@ resource "google_cloud_run_v2_service" "platform_api" {
   ingress              = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   invoker_iam_disabled = true # IAP (or Google sign-in) is checked by the API itself: the IAP JWT or the ID token
   deletion_protection  = false
-  depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s]
+  depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s, google_secret_manager_secret_iam_member.resend_platform]
 
   template {
     service_account = google_service_account.run["platform"].email
@@ -247,6 +247,25 @@ resource "google_cloud_run_v2_service" "platform_api" {
           }
         }
       }
+      dynamic "env" {
+        for_each = merge(local.email_env, local.send_email ? { TRIAL_NOTIFY_EMAILS = join(",", var.trial_notify_emails) } : {})
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = local.send_email ? [google_secret_manager_secret.resend[0].secret_id] : []
+        content {
+          name = "RESEND_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -277,6 +296,14 @@ resource "google_cloud_run_v2_service" "web" {
       resources {
         cpu_idle = true
         limits   = { cpu = "1", memory = "512Mi" }
+      }
+      # deploy/site.sh serves the marketing site on this host.
+      dynamic "env" {
+        for_each = local.site ? { SITE_HOST = var.site_host } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
     }
   }

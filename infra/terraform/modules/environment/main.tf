@@ -9,6 +9,8 @@ locals {
   platform = var.platform_host != null
   # Identity-Aware Proxy in front of the platform back office, unless staff sign in with Google instead.
   platform_iap = local.platform && !var.platform_sign_in
+  # The marketing site; its trial application form posts to the platform API's public routes.
+  site = local.platform && var.site_host != null
   services = [
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
@@ -219,6 +221,15 @@ resource "google_secret_manager_secret_iam_member" "resend" {
   secret_id = google_secret_manager_secret.resend[0].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = google_service_account.run["api"].member
+}
+
+# The platform API emails trial application notices through the same Resend account.
+resource "google_secret_manager_secret_iam_member" "resend_platform" {
+  count     = !var.demo_site && local.platform ? 1 : 0
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.resend[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = google_service_account.run["platform"].member
 }
 
 # ---------------------------------------------------------------- Cloud KMS: one key per tenant, created by the platform API

@@ -9,7 +9,7 @@ describe('platform navigation', () => {
   });
 
   it('lists usage with the customer pages', () => {
-    expect(NAV.find(g => g.label === '客戶')?.items.map(i => i.label)).toEqual(['租戶列表', '新增租戶', '用量', '客服存取']);
+    expect(NAV.find(g => g.label === '客戶')?.items.map(i => i.label)).toEqual(['租戶列表', '試用申請', '新增租戶', '用量', '客服存取']);
   });
 
   it('keeps the tenant list highlighted on a tenant detail page', () => {
