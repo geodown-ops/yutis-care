@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { signInProblem } from './errors';
 import { isEmailLink, providerKind } from './identity';
 import { fill, STAFF_TEXT } from './text';
+import { demoHomeUrl } from './demo-accounts';
 
 describe('sign-in helpers', () => {
   it('recognises Identity Platform email links', () => {
@@ -30,5 +31,11 @@ describe('sign-in helpers', () => {
   it('fills placeholders and has text for every problem', () => {
     expect(fill(STAFF_TEXT.sso, { provider: 'Google' })).toBe('使用 Google 登入');
     for (const v of Object.values(STAFF_TEXT.problems)) expect(v).not.toBe('');
+  });
+});
+
+describe('demo site', () => {
+  it('leads the logo back to the marketing site on the bare domain', () => {
+    expect(demoHomeUrl('demo.care.yutis.net')).toBe('https://care.yutis.net/');
   });
 });
