@@ -32,6 +32,7 @@ export type TemplateVersion = PlatformSchemas['TemplateVersionDto'];
 export type PlatformMe = PlatformSchemas['PlatformMeDto'];
 export type Permission = PlatformMe['permissions'][number];
 export type AuditEntry = PlatformSchemas['PlatformAuditEntryDto'];
+export type TrialApplication = PlatformSchemas['TrialApplicationDto'];
 export type AuditPage = PlatformSchemas['PlatformAuditPageDto'];
 export type AuditFilters = NonNullable<PlatformPaths['/platform-api/audit']['get']['parameters']['query']>;
 
@@ -40,6 +41,7 @@ export type SubscriptionStatus = Subscription['status'];
 export type AnnouncementKind = Announcement['kind'];
 export type PlatformRole = PlatformUser['role'];
 export type TemplateKind = TemplateVersion['kind'];
+export type TrialApplicationStatus = TrialApplication['status'];
 
 /** Retry network hiccups and 5xx, never a 4xx: the answer will not change and the error should show at once. */
 export const shouldRetry = (failures: number, error: unknown) =>
@@ -72,6 +74,12 @@ export const plansQuery = queryOptions({
 export const usageQuery = (month: string) => queryOptions({
   queryKey: ['usage', month],
   queryFn: () => data(api.GET('/platform-api/usage', { params: { query: { month } } })),
+});
+
+/** Every trial application from the marketing site, newest first; the page filters by status. */
+export const trialApplicationsQuery = queryOptions({
+  queryKey: ['trial-applications'],
+  queryFn: () => data(api.GET('/platform-api/trial-applications')),
 });
 
 export const announcementsQuery = queryOptions({

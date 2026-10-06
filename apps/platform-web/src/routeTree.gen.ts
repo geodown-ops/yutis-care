@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AnnouncementsRouteImport } from './routes/announcements'
 import { Route as PlatformUsersRouteImport } from './routes/platform-users'
 import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as TrialApplicationsRouteImport } from './routes/trial-applications'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as TenantsTenantIdRouteImport } from './routes/tenants.$tenantId'
 import { Route as TenantsNewRouteImport } from './routes/tenants.new'
@@ -43,6 +44,11 @@ const TemplatesRoute = TemplatesRouteImport.update({
   path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrialApplicationsRoute = TrialApplicationsRouteImport.update({
+  id: '/trial-applications',
+  path: '/trial-applications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsageRoute = UsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/announcements': typeof AnnouncementsRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
+  '/trial-applications': typeof TrialApplicationsRoute
   '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants/new': typeof TenantsNewRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/announcements': typeof AnnouncementsRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
+  '/trial-applications': typeof TrialApplicationsRoute
   '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants/new': typeof TenantsNewRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/announcements': typeof AnnouncementsRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
+  '/trial-applications': typeof TrialApplicationsRoute
   '/usage': typeof UsageRoute
   '/tenants/$tenantId': typeof TenantsTenantIdRoute
   '/tenants/new': typeof TenantsNewRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/platform-users'
     | '/templates'
+    | '/trial-applications'
     | '/usage'
     | '/tenants/$tenantId'
     | '/tenants/new'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/platform-users'
     | '/templates'
+    | '/trial-applications'
     | '/usage'
     | '/tenants/$tenantId'
     | '/tenants/new'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/platform-users'
     | '/templates'
+    | '/trial-applications'
     | '/usage'
     | '/tenants/$tenantId'
     | '/tenants/new'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   AnnouncementsRoute: typeof AnnouncementsRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
   TemplatesRoute: typeof TemplatesRoute
+  TrialApplicationsRoute: typeof TrialApplicationsRoute
   UsageRoute: typeof UsageRoute
   TenantsTenantIdRoute: typeof TenantsTenantIdRoute
   TenantsNewRoute: typeof TenantsNewRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trial-applications': {
+      id: '/trial-applications'
+      path: '/trial-applications'
+      fullPath: '/trial-applications'
+      preLoaderRoute: typeof TrialApplicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/usage': {
       id: '/usage'
       path: '/usage'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnnouncementsRoute: AnnouncementsRoute,
   PlatformUsersRoute: PlatformUsersRoute,
   TemplatesRoute: TemplatesRoute,
+  TrialApplicationsRoute: TrialApplicationsRoute,
   UsageRoute: UsageRoute,
   TenantsTenantIdRoute: TenantsTenantIdRoute,
   TenantsNewRoute: TenantsNewRoute,

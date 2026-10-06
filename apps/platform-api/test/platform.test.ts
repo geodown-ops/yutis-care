@@ -16,6 +16,7 @@ import { Requires } from '../src/auth/access.js';
 import { loadConfig } from '../src/config.js';
 import { Ctx, type RequestContext } from '../src/core/context.js';
 import type { IdentityTenantService, Invitation, InvitationMailer, TenantKeyService } from '../src/integrations/integrations.js';
+import type { Mail, Mailer } from '../src/core/mail.js';
 import { DEFAULT_PHRASES } from '../src/templates/defaults.js';
 import { syncDefaultTemplates } from '../src/templates/templates.js';
 import { createTestDatabase, type TestDatabase } from './support/database.js';
@@ -35,6 +36,11 @@ class RecordingMailer implements InvitationMailer {
   async sendTenantAdminInvitation(i: Invitation) { if (this.fail) throw new Error('mail server down'); this.sent.push(i); }
 }
 
+class RecordingEmail implements Mailer {
+  sent: Mail[] = []; fail = false;
+  async send(m: Mail) { if (this.fail) throw new Error('Resend down'); this.sent.push(m); }
+}
+
 @Controller('probe')
 class ProbeController {
   /** A write that forgets its audit entry: must be refused and rolled back. */
@@ -49,7 +55,7 @@ class ProbeController {
 let db: TestDatabase;
 let owner: Db;
 let app: NestFastifyApplication;
-const keys = new RecordingKeys(), idp = new RecordingIdentityTenants(), mailer = new RecordingMailer();
+const keys = new RecordingKeys(), idp = new RecordingIdentityTenants(), mailer = new RecordingMailer(), email = new RecordingEmail();
 let acmeId = '';
 let engId = '';
 
@@ -93,8 +99,8 @@ beforeAll(async () => {
   await owner.insert(employees).values([emp('E1', '在職'), emp('E2', '在職'), emp('E3', '離職')]);
   await owner.insert(usageCounters).values({ tenantId: acmeId, period: '2026-10-01', metric: 'sms_sent', quantity: 42 });
 
-  const config = loadConfig({ NODE_ENV: 'test', PLATFORM_DATABASE_URL: db.platformUrl, PLATFORM_DEV_AUTH: 'true', TENANT_BASE_DOMAIN: 'care.test' });
-  @Module({ imports: [AppModule.forRoot(config, { integrations: { keys, identityTenants: idp, invitations: mailer } })], controllers: [ProbeController] })
+  const config = loadConfig({ NODE_ENV: 'test', PLATFORM_DATABASE_URL: db.platformUrl, PLATFORM_DEV_AUTH: 'true', TENANT_BASE_DOMAIN: 'care.test', TRIAL_NOTIFY_EMAILS: 'ops@yutis.test' });
+  @Module({ imports: [AppModule.forRoot(config, { integrations: { keys, identityTenants: idp, invitations: mailer }, mailer: email })], controllers: [ProbeController] })
   class TestRoot {}
   app = await createApp(config, { module: { module: TestRoot }, logger: false });
   await app.init();
@@ -109,6 +115,7 @@ afterAll(async () => {
 beforeEach(() => {
   idp.fail = false;
   mailer.fail = false;
+  email.fail = false;
 });
 
 describe('sign-in', () => {
@@ -304,5 +311,99 @@ describe('announcements, platform users, templates', () => {
     expect(byEng.items.every((i: { actor: { email: string } }) => i.actor.email === ENG)).toBe(true);
     expect((await call('GET', '/audit?from=2000-01-01&to=2000-01-31', OPS)).json()).toEqual({ total: 0, items: [] });
     expect((await call('GET', '/audit?tenantId=acme', OPS)).statusCode).toBe(400);
+  });
+});
+
+describe('trial applications', () => {
+  const application = (extra: Record<string, unknown> = {}) => ({
+    companyName: '大南汽車股份有限公司', taxId: '04595257', employeeRange: '100-299', contactName: '林小姐', contactTitle: '人資經理',
+    email: 'HR@dnmotor.test', phone: '02-2345-6789', preferredSubdomain: 'dnmotor', identityProvider: 'microsoft', consent: true,
+    website: '', elapsedMs: 45_000, ...extra,
+  });
+  const submit = (body: unknown, ip = '203.0.113.7') =>
+    app.inject({ method: 'POST', url: '/platform-api/public/trial-applications', payload: body as object, remoteAddress: ip });
+
+  it('takes an application without sign-in, emails the applicant and operations, and creates nothing else', async () => {
+    const tenantsBefore = (await owner.select().from(tenants)).length;
+    email.sent = [];
+    const res = await submit(application());
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ status: 'received' });
+    expect(email.sent.map(m => m.to).sort()).toEqual(['hr@dnmotor.test', 'ops@yutis.test']);
+    expect(email.sent.find(m => m.to === 'ops@yutis.test')!.text).toContain('https://admin.care.test/trial-applications');
+    expect((await owner.select().from(tenants)).length).toBe(tenantsBefore);
+
+    const [stored] = (await call('GET', '/trial-applications?status=pending', SUPPORT)).json();
+    expect(stored).toMatchObject({ companyName: '大南汽車股份有限公司', email: 'hr@dnmotor.test', status: 'pending', preferredSubdomain: 'dnmotor' });
+    expect(await auditActions()).toContain('trial_application.submit');
+
+    // The same application again (double click) is neither stored nor emailed twice.
+    email.sent = [];
+    expect((await submit(application())).statusCode).toBe(202);
+    expect(email.sent).toEqual([]);
+    expect((await call('GET', '/trial-applications', OPS)).json()).toHaveLength(1);
+  });
+
+  it('refuses free mailboxes, wrong tax ids and missing consent', async () => {
+    expect((await submit(application({ email: 'boss@gmail.com' }))).json()).toMatchObject({ status: 400, code: 'free_mail' });
+    expect((await submit(application({ taxId: '04595258' }))).json()).toMatchObject({ status: 400, code: 'invalid_tax_id' });
+    expect((await submit(application({ consent: false }))).json()).toMatchObject({ status: 400, code: 'validation_failed' });
+    expect((await submit(application({ employeeRange: 'lots' }))).json()).toMatchObject({ code: 'validation_failed' });
+  });
+
+  it('quietly drops what bots send', async () => {
+    email.sent = [];
+    expect((await submit(application({ email: 'a@bot1.test', website: 'http://spam.test' }))).statusCode).toBe(202);
+    expect((await submit(application({ email: 'a@bot2.test', elapsedMs: 400 }))).statusCode).toBe(202);
+    expect(email.sent).toEqual([]);
+    const emails = (await call('GET', '/trial-applications', OPS)).json().map((a: { email: string }) => a.email);
+    expect(emails).not.toContain('a@bot1.test');
+    expect(emails).not.toContain('a@bot2.test');
+  });
+
+  it('limits how often one address may apply, and still stores an application when email fails', async () => {
+    email.fail = true;
+    for (let i = 0; i < 5; i++) expect((await submit(application({ email: `x${i}@flood.test` }), '198.51.100.9')).statusCode).toBe(202);
+    expect((await submit(application({ email: 'x5@flood.test' }), '198.51.100.9')).statusCode).toBe(429);
+    expect((await submit(application({ email: 'other@flood.test' }), '198.51.100.10')).statusCode).toBe(202);
+  });
+
+  it('lets operations approve one, which onboards the tenant as a trial', async () => {
+    const [pending] = (await call('GET', '/trial-applications?status=pending', OPS)).json()
+      .filter((a: { email: string }) => a.email === 'hr@dnmotor.test');
+    const body = {
+      subdomain: 'dnmotor', name: '大南汽車股份有限公司', planCode: 'standard', subscriptionStatus: 'trial', seatLimit: 100,
+      startsOn: '2026-10-06', endsOn: '2026-11-05', admin: { email: 'hr@dnmotor.test', name: '林小姐' },
+    };
+    expect((await call('POST', `/trial-applications/${pending.id}/approve`, SUPPORT, body)).statusCode).toBe(403);
+    mailer.sent = [];
+    const res = await call('POST', `/trial-applications/${pending.id}/approve`, OPS, body);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ status: 'approved', decidedBy: OPS, tenantId: expect.any(String) });
+    expect(mailer.sent).toEqual([expect.objectContaining({ email: 'hr@dnmotor.test', tenantUrl: 'https://dnmotor.care.test' })]);
+    const [sub] = await owner.select().from(tenantSubscriptions).where(eq(tenantSubscriptions.tenantId, res.json().tenantId));
+    expect(sub).toMatchObject({ status: 'trial', seatLimit: 100, endsOn: '2026-11-05' });
+    expect(await auditActions()).toContain('trial_application.approve');
+
+    const again = await call('POST', `/trial-applications/${pending.id}/approve`, OPS, { ...body, subdomain: 'dnmotor2' });
+    expect(again.json()).toMatchObject({ status: 409, code: 'trial_application_decided' });
+  });
+
+  it('leaves the application pending when onboarding fails', async () => {
+    const [pending] = (await call('GET', '/trial-applications?status=pending', OPS)).json();
+    idp.fail = true;
+    const res = await call('POST', `/trial-applications/${pending.id}/approve`, OPS, onboardBody('failing'));
+    expect(res.statusCode).toBe(500);
+    const [still] = (await call('GET', '/trial-applications?status=pending', OPS)).json().filter((a: { id: string }) => a.id === pending.id);
+    expect(still).toMatchObject({ status: 'pending' });
+  });
+
+  it('lets operations decline one with an internal reason', async () => {
+    const [pending] = (await call('GET', '/trial-applications?status=pending', OPS)).json();
+    expect((await call('POST', `/trial-applications/${pending.id}/decline`, OPS, {})).statusCode).toBe(400);
+    const res = await call('POST', `/trial-applications/${pending.id}/decline`, OPS, { reason: '重複申請' });
+    expect(res.json()).toMatchObject({ status: 'declined', declineReason: '重複申請', decidedBy: OPS });
+    expect((await call('POST', `/trial-applications/${pending.id}/decline`, OPS, { reason: 'again' })).statusCode).toBe(409);
+    expect((await call('POST', '/trial-applications/00000000-0000-4000-8000-000000000000/decline', OPS, { reason: 'x' })).statusCode).toBe(404);
   });
 });

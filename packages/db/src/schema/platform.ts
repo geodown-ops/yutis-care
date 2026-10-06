@@ -91,3 +91,36 @@ export const tenantSettings = pgTable('tenant_settings', {
   key: text('key').notNull(),
   value: jsonb('value').notNull(),
 }, t => [tenantKey(t), unique().on(t.tenantId, t.key)]);
+
+export const trialApplicationStatusEnum = pgEnum('trial_application_status', ['pending', 'approved', 'declined']);
+
+/**
+ * Online trial applications from the marketing site (線上申請試用). Company and contact details only, never health data.
+ * The public form only inserts; platform staff approve (which onboards a tenant) or decline. Applications that never
+ * became a tenant are deleted after a year.
+ */
+export const trialApplications = pgTable('trial_applications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  status: trialApplicationStatusEnum('status').notNull().default('pending'),
+  companyName: text('company_name').notNull(),
+  /** 統一編號 */
+  taxId: text('tax_id').notNull(),
+  /** One of TRIAL_EMPLOYEE_RANGES (@yutis/domain). */
+  employeeRange: text('employee_range').notNull(),
+  contactName: text('contact_name').notNull(),
+  contactTitle: text('contact_title').notNull(),
+  /** The work address that becomes the first tenant admin. */
+  email: text('email').notNull(),
+  phone: text('phone').notNull(),
+  preferredSubdomain: text('preferred_subdomain'),
+  /** One of TRIAL_IDENTITY_PROVIDERS (@yutis/domain). */
+  identityProvider: text('identity_provider'),
+  consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
+  /** Keyed hash of the client IP, only to limit how often one address may apply. */
+  ipHash: text('ip_hash').notNull(),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  decidedBy: uuid('decided_by').references(() => platformUsers.id),
+  declineReason: text('decline_reason'),
+  tenantId: uuid('tenant_id').references(() => tenants.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [index('trial_applications_status_idx').on(t.status, t.createdAt), index('trial_applications_ip_idx').on(t.ipHash, t.createdAt)]);
