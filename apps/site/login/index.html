@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<!-- include:head -->
+<title>登入｜Yutis Care</title>
+<meta name="description" content="輸入公司代碼，前往貴公司專屬的 Yutis Care 登入頁。">
+<link rel="canonical" href="https://care.yutis.net/login/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://care.yutis.net/login/">
+<meta property="og:title" content="登入｜Yutis Care">
+<meta property="og:description" content="輸入公司代碼，前往貴公司專屬的 Yutis Care 登入頁。">
+<script type="module" src="/src/login.ts"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+<div class="page">
+<header class="subhead">
+  <div class="lines l6-blue"></div>
+  <div class="wrap">
+    <!-- include:nav -->
+    <div class="intro center" style="text-align:center">
+      <span class="pill"><i></i>登入</span>
+      <h1>前往貴公司的 Yutis Care</h1>
+      <p class="lead">每家公司都有自己的網址。輸入公司代碼，我們帶您到貴公司的登入頁。</p>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="inner">
+  <div class="wrap">
+    <form class="login-card" id="login-form" novalidate>
+      <div class="field">
+        <label for="f-code">公司代碼</label>
+        <div class="code-row">
+          <input id="f-code" type="text" name="code" autocomplete="organization" autocapitalize="off" spellcheck="false" maxlength="100" placeholder="例如 dncar" required aria-describedby="code-suffix err-code">
+          <span class="suffix" id="code-suffix">.care.yutis.net</span>
+        </div>
+        <p class="err" id="err-code" aria-live="polite"></p>
+      </div>
+      <button class="btn btn-primary" type="submit">前往登入 <span class="arr">→</span></button>
+      <div class="login-note">
+        <p><b>員工請用公司提供的網址登入</b></p>
+        <p>員工端在 <code>{代碼}.care.yutis.net/me</code>，忘記公司代碼請洽貴公司職護或人資。</p>
+        <p>還沒有帳號？<a href="/trial/" style="color:var(--primary)">申請免費試用</a></p>
+      </div>
+    </form>
+  </div>
+</main>
+
+<!-- include:footer -->
+</div>
+</body>
+</html>

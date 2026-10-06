@@ -126,3 +126,15 @@ variable "email_from" {
   type        = string
   default     = ""
 }
+
+variable "site_host" {
+  description = "Host name of the public marketing site (官網) with the online trial application form, e.g. care.yutis.net; null for none. Needs the platform (its API takes the applications)."
+  type        = string
+  default     = null
+}
+
+variable "trial_notify_emails" {
+  description = "Who is emailed about each new trial application from the marketing site (needs email_from)."
+  type        = list(string)
+  default     = []
+}

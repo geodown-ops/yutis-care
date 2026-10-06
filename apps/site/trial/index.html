@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<!-- include:head -->
+<title>線上申請試用｜Yutis Care</title>
+<meta name="description" content="線上申請 Yutis Care 免費試用：審核後開通，試用 30 天、最多 100 位員工，不需信用卡。">
+<link rel="canonical" href="https://care.yutis.net/trial/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://care.yutis.net/trial/">
+<meta property="og:title" content="線上申請試用｜Yutis Care">
+<meta property="og:description" content="審核後開通，試用 30 天、最多 100 位員工，不需信用卡。">
+<script type="module" src="/src/trial.ts"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+<div class="page">
+<header class="subhead">
+  <div class="lines l6-blue"></div>
+  <div class="wrap">
+    <!-- include:nav -->
+    <div class="intro">
+      <span class="pill"><i></i>開通試用</span>
+      <h1>線上申請試用</h1>
+      <p class="lead">留下公司與管理員的聯絡資料，我們核對後為貴公司開通專屬網址。</p>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="inner">
+  <div class="wrap apply">
+    <aside>
+      <ul class="perks">
+        <li><b>審核後開通</b><span>營運團隊核對公司資料</span></li>
+        <li><b>試用 30 天</b><span>不收費，期滿可轉正式方案</span></li>
+        <li><b>最多 100 位員工</b><span>所有功能都能使用</span></li>
+        <li><b>不需信用卡</b><span>轉正式方案再報價</span></li>
+      </ul>
+      <div class="next">
+        <h2>送出之後</h2>
+        <ol>
+          <li>我們審核申請，必要時會打電話與您確認。</li>
+          <li>我們審核後會寄開通信到公司 Email，內含第一次登入連結。</li>
+          <li>管理員登入後，跟著開始使用清單匯入組織與員工、邀請職護。</li>
+        </ol>
+      </div>
+      <p class="aside-note">想先自己看看？<a href="https://demo.care.yutis.net">示範站</a>不用申請，資料皆為虛構。</p>
+    </aside>
+
+    <div class="form-card">
+      <form id="trial-form" novalidate>
+        <h2>申請資料</h2>
+        <p class="hint">標示 <span class="req" style="color:var(--coral)">*</span> 的欄位必填。</p>
+        <div class="fields">
+          <div class="field full">
+            <label for="f-company">公司名稱<span class="req">*</span></label>
+            <input id="f-company" type="text" name="companyName" autocomplete="organization" maxlength="100" required aria-describedby="err-companyName">
+            <p class="err" id="err-companyName" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-tax">統一編號<span class="req">*</span></label>
+            <input id="f-tax" type="text" name="taxId" inputmode="numeric" autocomplete="off" maxlength="10" required aria-describedby="err-taxId">
+            <p class="err" id="err-taxId" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-size">員工人數<span class="req">*</span></label>
+            <select id="f-size" name="employeeRange" required aria-describedby="err-employeeRange">
+              <option value="" selected disabled>請選擇</option>
+              <!-- include:employee-options -->
+            </select>
+            <p class="err" id="err-employeeRange" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-name">聯絡人姓名<span class="req">*</span></label>
+            <input id="f-name" type="text" name="contactName" autocomplete="name" maxlength="50" required aria-describedby="err-contactName">
+            <p class="err" id="err-contactName" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-title">職稱<span class="req">*</span></label>
+            <input id="f-title" type="text" name="contactTitle" autocomplete="organization-title" maxlength="50" required aria-describedby="err-contactTitle">
+            <p class="err" id="err-contactTitle" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-email">公司 Email<span class="req">*</span></label>
+            <input id="f-email" type="email" name="email" autocomplete="email" maxlength="254" required aria-describedby="help-email err-email">
+            <p class="help" id="help-email">這個 Email 會成為貴公司的第一位管理員，請勿使用免費信箱。</p>
+            <p class="err" id="err-email" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-phone">電話<span class="req">*</span></label>
+            <input id="f-phone" type="tel" name="phone" autocomplete="tel" maxlength="30" required aria-describedby="err-phone">
+            <p class="err" id="err-phone" aria-live="polite"></p>
+          </div>
+          <div class="field full">
+            <label for="f-code">希望的公司代碼<span class="opt">選填</span></label>
+            <input id="f-code" type="text" name="preferredSubdomain" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="63" placeholder="例如 dncar" aria-describedby="help-code subdomain-preview err-preferredSubdomain">
+            <p class="preview" id="subdomain-preview" aria-live="polite" hidden></p>
+            <p class="help" id="help-code">公司代碼是貴公司專屬的網址（{代碼}.care.yutis.net），職護、員工都從這裡登入。可用英文字母、數字與連字號；若已有人使用，我們會與您討論調整。</p>
+            <p class="err" id="err-preferredSubdomain" aria-live="polite"></p>
+          </div>
+          <fieldset class="field full">
+            <legend>公司帳號系統<span class="opt">選填，決定之後的登入方式</span></legend>
+            <div class="choices"><!-- include:identity-options --></div>
+            <p class="err" id="err-identityProvider" aria-live="polite"></p>
+          </fieldset>
+          <div class="hp" aria-hidden="true">
+            <label for="f-website">網站</label>
+            <input id="f-website" type="text" name="website" tabindex="-1" autocomplete="off">
+          </div>
+          <div class="field consent-wrap">
+            <label class="field consent"><input type="checkbox" name="consent" required aria-describedby="err-consent"><span>我已閱讀並同意 <a href="/privacy/" target="_blank" rel="noopener">隱私權政策</a> 與 <a href="/terms/" target="_blank" rel="noopener">試用條款</a></span></label>
+            <p class="err" id="err-consent" aria-live="polite"></p>
+          </div>
+        </div>
+        <p class="form-error" id="form-error" role="alert" tabindex="-1" hidden></p>
+        <div class="form-foot">
+          <p class="hint" style="margin:0">我們只用這些資料審核申請與聯繫您。</p>
+          <button class="btn btn-primary" type="submit">送出申請</button>
+        </div>
+      </form>
+
+      <div class="done" id="trial-done" hidden>
+        <div class="tick" aria-hidden="true">✓</div>
+        <h2 tabindex="-1">已收到申請</h2>
+        <p>謝謝您！我們會審核申請，並寄信到 <b data-email>您的公司 Email</b> 與您聯繫，開通信內含第一次登入連結。</p>
+        <p>如果幾個工作天內沒有收到，請檢查垃圾郵件匣，或來信 <a href="mailto:care@yutis.net">care@yutis.net</a>。</p>
+        <div class="actions">
+          <a class="btn btn-white" href="https://demo.care.yutis.net">先看示範站</a>
+          <a class="btn btn-primary" href="/">回首頁</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- include:footer -->
+</div>
+</body>
+</html>

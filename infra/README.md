@@ -6,7 +6,7 @@
 
 | | 正式站 | 示範站 |
 |---|---|---|
-| 網址 | 租戶 `{租戶}.care.yutis.net`、員工端 `/me`、平台管理後台 `admin.care.yutis.net` | `demo.care.yutis.net`、員工端 `demo.care.yutis.net/me` |
+| 網址 | 官網與線上申請試用 `care.yutis.net`、租戶 `{租戶}.care.yutis.net`、員工端 `/me`、平台管理後台 `admin.care.yutis.net` | `demo.care.yutis.net`、員工端 `demo.care.yutis.net/me` |
 | 資料 | 客戶真實資料 | 只有虛構示範資料，每晚 04:00 自動重置 |
 | 登入 | 租戶 SSO（Identity Platform）+ MFA；平台人員經 Identity-Aware Proxy | 示範登入（不需密碼），只能進入虛構的示範租戶 |
 | 加密 | 每個租戶一把 Cloud KMS 金鑰 | 一把示範用金鑰（Secret Manager） |
@@ -76,11 +76,14 @@ terraform apply
 | 名稱 | 類型 | 值 | 用途 |
 |---|---|---|---|
 | `_acme-challenge.care.yutis.net` | CNAME | 見正式站 `dns_records` | 正式站憑證驗證（保留，續約要用） |
+| `care.yutis.net` | A | 正式站 `load_balancer_ip` | 官網（含線上申請試用） |
 | `*.care.yutis.net` | A | 正式站 `load_balancer_ip` | 所有租戶與平台管理後台 |
 | `_acme-challenge.demo.care.yutis.net` | CNAME | 見示範站 `dns_records` | 示範站憑證驗證 |
 | `demo.care.yutis.net` | A | 示範站 `load_balancer_ip` | 示範站（比萬用字元優先） |
 
 憑證在 DNS 生效後通常數十分鐘內簽發。
+
+官網的「線上申請試用」表單送到平台 API 的公開路由（負載平衡器在 `care.yutis.net` 上只開放 `/platform-api/public/*`，不經 IAP，每個 IP 每分鐘 10 次）。申請只會儲存並寄信通知，要由營運在平台管理後台「試用申請」按「開通」才會建立租戶。通知信寄給 `trial_notify_emails`（沒填時用 `platform_admin_emails`），需要已設定 `email_from`。
 
 ### GitHub 設定
 

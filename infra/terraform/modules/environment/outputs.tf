@@ -14,7 +14,7 @@ output "dns_records" {
         why   = "certificate validation (keep it: renewals use it)"
       },
     ],
-    [for h in distinct(concat(var.tenant_hosts, local.platform ? [var.platform_host] : [])) : {
+    [for h in distinct(concat(var.tenant_hosts, local.platform ? [var.platform_host] : [], local.site ? [var.site_host] : [])) : {
       name  = "${h}."
       type  = "A"
       value = google_compute_global_address.lb.address

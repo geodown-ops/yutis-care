@@ -1,0 +1,23 @@
+{
+  "name": "@yutis/site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yutis Care 官網（care.yutis.net）：產品介紹、線上申請試用、登入入口、隱私權政策與試用條款。靜態多頁，不含第三方追蹤。",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@yutis/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
