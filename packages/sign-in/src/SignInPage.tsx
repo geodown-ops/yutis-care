@@ -141,7 +141,12 @@ export function SignInPage({ api, tenant, as, emailLinkUrl, onSignedIn, text = S
               <Text fw={700} truncate>{tenant.name}</Text>
             </Group>
           )}
-          {headerEnd}
+          {tenant.subdomain === 'demo' ? (
+            <Group gap="xs" wrap="nowrap">
+              {headerEnd}
+              <Button component="a" href={demoHomeUrl(window.location.hostname)} variant="default" size="xs" radius="xl">返回介紹頁</Button>
+            </Group>
+          ) : headerEnd}
         </Group>
         <Card padding="xl">
           <Stack gap="lg">
