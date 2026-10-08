@@ -2348,11 +2348,684 @@
           "trial-applications"
         ]
       }
+    },
+    "/platform-api/payment-orders": {
+      "get": {
+        "description": "新的在前；可只看一個租戶。",
+        "operationId": "PaymentOrdersController_list",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOrderDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "付款單列表",
+        "tags": [
+          "payments"
+        ]
+      },
+      "post": {
+        "description": "金額由營運填寫（方案的計價參數仍不解讀）。付款後自動新增這一期訂閱（同「續約／新期間」，狀態為啟用），所以開始日要晚於租戶最近一期的開始日。預設寄付款通知信給付款聯絡人。",
+        "operationId": "PaymentOrdersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tenantId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "planCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "seatLimit": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "endsOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 99999999
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "payerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "payerEmail": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "expiresOn": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "sendEmail": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "tenantId",
+                  "planCode",
+                  "seatLimit",
+                  "startsOn",
+                  "amount",
+                  "payerName",
+                  "payerEmail"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOrderDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "開始日沒有晚於最近一期（period_overlap），或租戶已結束（tenant_closed）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "建立付款單",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/payment-orders/{id}/email": {
+      "post": {
+        "operationId": "PaymentOrdersController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOrderDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "付款單不是待付款（payment_order_closed）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "重寄付款通知信",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/payment-orders/{id}/cancel": {
+      "post": {
+        "description": "取消後付款頁不能再付款。",
+        "operationId": "PaymentOrdersController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOrderDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "付款單不是待付款（payment_order_closed），或付款正在處理（payment_in_progress）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "取消付款單",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/payment-orders/{id}/mark-paid": {
+      "post": {
+        "description": "和刷卡付款一樣新增這一期訂閱並寄付款完成信。",
+        "operationId": "PaymentOrdersController_markPaid",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "note"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentOrderDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "付款單不是待付款（payment_order_closed），或付款正在處理（payment_in_progress）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "標記已付款（匯款入帳）",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/public/payments/tappay-notify": {
+      "post": {
+        "description": "一律回 { status: 0 } 讓 TapPay 不再重送。不採信通知內容，只用其中的 order_number 向 TapPay 交易紀錄查詢後才入帳。",
+        "operationId": "PublicPaymentsController_notify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "TapPay 3D 驗證結果通知（TapPay 伺服器呼叫）",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/public/payments/{token}": {
+      "get": {
+        "operationId": "PublicPaymentsController_get",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPaymentDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "付款頁：付款單內容（不需登入）",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/public/payments/{token}/pay": {
+      "post": {
+        "description": "前端以 TapPay 安全欄位取得 prime 後送來，卡號不經過 Yutis Care。啟用 3D 驗證時回 result=verify 與銀行驗證頁網址。",
+        "operationId": "PublicPaymentsController_pay",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prime": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "cardholder": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 50
+                      },
+                      "email": {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "phoneNumber": {
+                        "type": "string",
+                        "pattern": "^(\\+?\\d{8,15}|09\\d{8})$"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "email",
+                      "phoneNumber"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "prime",
+                  "cardholder"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "已付款（already_paid）、已取消（order_cancelled）、已逾期（order_expired）、另一筆付款正在處理（payment_in_progress）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "付款頁：信用卡付款（TapPay Pay by Prime）",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/platform-api/public/payments/{token}/verify": {
+      "post": {
+        "description": "向 TapPay 交易紀錄查詢；已入帳就標為已付款。回傳付款單目前狀態。",
+        "operationId": "PublicPaymentsController_verify",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPaymentDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "付款頁：3D 驗證回來後確認結果",
+        "tags": [
+          "payments"
+        ]
+      }
     }
   },
   "info": {
     "title": "Yutis Care 平台 API",
-    "description": "平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
+    "description": "平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、付款單與官網付款頁（TapPay 信用卡）、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
     "version": "0.1.0",
     "contact": {}
   },
@@ -3131,6 +3804,282 @@
           "decidedAt",
           "decidedBy",
           "declineReason"
+        ]
+      },
+      "PaymentOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string",
+            "example": "YC261008A1B2C3"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "cancelled"
+            ],
+            "description": "待付款、已付款、已取消"
+          },
+          "expired": {
+            "type": "boolean",
+            "description": "待付款且已過最後付款日"
+          },
+          "amount": {
+            "type": "number",
+            "description": "新台幣，整數"
+          },
+          "description": {
+            "type": "string"
+          },
+          "planCode": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "seatLimit": {
+            "type": "number",
+            "nullable": true
+          },
+          "periodStartsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEndsOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "payerName": {
+            "type": "string"
+          },
+          "payerEmail": {
+            "type": "string"
+          },
+          "expiresOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "payUrl": {
+            "type": "string",
+            "description": "付款頁連結（官網 /pay/）"
+          },
+          "method": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "card",
+              "transfer"
+            ],
+            "description": "信用卡（TapPay）或匯款（人工標記）"
+          },
+          "cardLastFour": {
+            "type": "string",
+            "nullable": true
+          },
+          "recTradeId": {
+            "type": "string",
+            "nullable": true,
+            "description": "TapPay 交易編號"
+          },
+          "paidNote": {
+            "type": "string",
+            "nullable": true,
+            "description": "人工標記已付款時的備註"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "subscriptionAdded": {
+            "type": "boolean",
+            "description": "付款後已自動新增訂閱期間；已付款但為 false 時，請到租戶頁手動新增"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "建立人 Email"
+          },
+          "emailSent": {
+            "type": "boolean",
+            "description": "這次是否寄出付款通知信（只在建立與重寄時回傳）"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "tenantName",
+          "orderNumber",
+          "status",
+          "expired",
+          "amount",
+          "description",
+          "planCode",
+          "planName",
+          "seatLimit",
+          "periodStartsOn",
+          "periodEndsOn",
+          "payerName",
+          "payerEmail",
+          "expiresOn",
+          "payUrl",
+          "method",
+          "cardLastFour",
+          "recTradeId",
+          "paidNote",
+          "paidAt",
+          "subscriptionAdded",
+          "createdAt",
+          "createdBy"
+        ]
+      },
+      "CardSetupDto": {
+        "type": "object",
+        "properties": {
+          "appId": {
+            "type": "number",
+            "description": "TapPay App ID（公開值）"
+          },
+          "appKey": {
+            "type": "string",
+            "description": "TapPay App Key（公開的前端金鑰）"
+          },
+          "env": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "production"
+            ]
+          }
+        },
+        "required": [
+          "appId",
+          "appKey",
+          "env"
+        ]
+      },
+      "PublicPaymentDto": {
+        "type": "object",
+        "properties": {
+          "orderNumber": {
+            "type": "string",
+            "example": "YC261008A1B2C3"
+          },
+          "tenantName": {
+            "type": "string",
+            "description": "付款的公司（租戶名稱）"
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "新台幣，整數"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "cancelled",
+              "expired"
+            ],
+            "description": "待付款、已付款、已取消、已逾期"
+          },
+          "expiresOn": {
+            "type": "string",
+            "format": "date",
+            "description": "最後付款日（台灣時間，含當日）"
+          },
+          "payerName": {
+            "type": "string",
+            "description": "付款聯絡人，用來預填持卡人"
+          },
+          "payerEmail": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "method": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "card",
+              "transfer"
+            ]
+          },
+          "cardLastFour": {
+            "type": "string",
+            "nullable": true
+          },
+          "card": {
+            "nullable": true,
+            "description": "線上刷卡的 TapPay SDK 設定；null 表示未開放刷卡",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CardSetupDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "orderNumber",
+          "tenantName",
+          "description",
+          "amount",
+          "status",
+          "expiresOn",
+          "payerName",
+          "payerEmail",
+          "paidAt",
+          "method",
+          "cardLastFour",
+          "card"
+        ]
+      },
+      "PayResultDto": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "verify"
+            ],
+            "description": "paid：已付款；verify：請把付款人導到 paymentUrl 做 3D 驗證，完成後會回到付款頁（threeds=1）"
+          },
+          "paymentUrl": {
+            "type": "string"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PublicPaymentDto"
+          }
+        },
+        "required": [
+          "result",
+          "payment"
         ]
       }
     }

@@ -7,6 +7,7 @@ import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { PlatformConfig } from '../config.js';
 import { CloudKmsTenantKeys, GoogleApi, IdentityPlatformInvitations, IdentityPlatformTenants, googleTokenSource } from './gcp.js';
+import { createPaymentGateway, type PaymentGateway } from './tappay.js';
 
 /** One Cloud KMS key per tenant; it wraps the tenant's data keys, so destroying it makes the tenant's `_enc` data unreadable. */
 export interface TenantKeyService {
@@ -36,8 +37,10 @@ export interface InvitationMailer {
 }
 
 /**
- * The billing extension point (計費). The billing model is not decided, so the only implementation does nothing.
- * Choosing a payment provider means adding an implementation of this interface, without changing the tables.
+ * The billing extension point (計費). Told about every customer and subscription change, including the periods that
+ * paid payment orders add (payments/payments.service.ts). Card payments themselves go through PaymentGateway
+ * (tappay.ts): TapPay Direct Pay charges once per order and keeps no customer, so this stays the no-op until a
+ * provider with customers or recurring billing is chosen.
  */
 export interface BillingProvider {
   /** Create the customer at the payment provider; returns its reference for tenant_subscriptions.billing_ref, or null. */
@@ -58,6 +61,7 @@ export interface Integrations {
   identityTenants: IdentityTenantService;
   invitations: InvitationMailer;
   billing: BillingProvider;
+  payments: PaymentGateway;
 }
 
 const unavailable = (what: string) => new ServiceUnavailableException({ code: 'integration_unavailable', message: `${what} is not configured` });
@@ -107,9 +111,11 @@ export class FakeInvitations implements InvitationMailer {
   async sendTenantAdminInvitation(i: Invitation) { fakeLog.log(`Invitation for ${i.tenantName} sent to the new tenant admin: ${i.tenantUrl}`); }
 }
 
-export function defaultIntegrations(config: Pick<PlatformConfig, 'fakeIntegrations' | 'gcp' | 'tenantBaseDomain'>): Integrations {
+export function defaultIntegrations(config: Pick<PlatformConfig, 'fakeIntegrations' | 'gcp' | 'tenantBaseDomain' | 'tappay'>): Integrations {
+  // TapPay has a sandbox, so card payments are the real thing (or absent) even in local development.
+  const payments = createPaymentGateway(config.tappay);
   if (config.fakeIntegrations) {
-    return { keys: new FakeTenantKeys(), identityTenants: new FakeIdentityTenants(), invitations: new FakeInvitations(), billing: new NoopBillingProvider() };
+    return { keys: new FakeTenantKeys(), identityTenants: new FakeIdentityTenants(), invitations: new FakeInvitations(), billing: new NoopBillingProvider(), payments };
   }
   if (config.gcp) {
     const api = new GoogleApi(googleTokenSource());
@@ -118,7 +124,8 @@ export function defaultIntegrations(config: Pick<PlatformConfig, 'fakeIntegratio
       identityTenants: new IdentityPlatformTenants(api, config.gcp.projectId, config.tenantBaseDomain),
       invitations: new IdentityPlatformInvitations(api, config.gcp.projectId),
       billing: new NoopBillingProvider(),
+      payments,
     };
   }
-  return { keys: new UnconfiguredTenantKeys(), identityTenants: new UnconfiguredIdentityTenants(), invitations: new UnconfiguredInvitations(), billing: new NoopBillingProvider() };
+  return { keys: new UnconfiguredTenantKeys(), identityTenants: new UnconfiguredIdentityTenants(), invitations: new UnconfiguredInvitations(), billing: new NoopBillingProvider(), payments };
 }
