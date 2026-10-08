@@ -179,7 +179,7 @@ resource "google_cloud_run_v2_service" "platform_api" {
   ingress              = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
   invoker_iam_disabled = true # IAP (or Google sign-in) is checked by the API itself: the IAP JWT or the ID token
   deletion_protection  = false
-  depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s, google_secret_manager_secret_iam_member.resend_platform]
+  depends_on           = [google_secret_manager_secret_iam_member.access, google_secret_manager_secret_version.s, google_secret_manager_secret_iam_member.resend_platform, google_secret_manager_secret_iam_member.tappay, google_compute_router_nat.egress]
 
   template {
     service_account = google_service_account.run["platform"].email
@@ -187,7 +187,8 @@ resource "google_cloud_run_v2_service" "platform_api" {
       max_instance_count = 2
     }
     vpc_access {
-      egress = "PRIVATE_RANGES_ONLY"
+      # With card payments, everything goes out through Cloud NAT's fixed address (payments.tf) for TapPay's allow list.
+      egress = local.payments ? "ALL_TRAFFIC" : "PRIVATE_RANGES_ONLY"
       network_interfaces {
         network    = google_compute_network.vpc.id
         subnetwork = google_compute_subnetwork.run.id
@@ -248,7 +249,7 @@ resource "google_cloud_run_v2_service" "platform_api" {
         }
       }
       dynamic "env" {
-        for_each = merge(local.email_env, local.send_email ? { TRIAL_NOTIFY_EMAILS = join(",", var.trial_notify_emails) } : {})
+        for_each = merge(local.email_env, local.send_email ? { TRIAL_NOTIFY_EMAILS = join(",", var.trial_notify_emails) } : {}, local.tappay_env)
         content {
           name  = env.key
           value = env.value
@@ -258,6 +259,18 @@ resource "google_cloud_run_v2_service" "platform_api" {
         for_each = local.send_email ? [google_secret_manager_secret.resend[0].secret_id] : []
         content {
           name = "RESEND_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = local.payments ? [google_secret_manager_secret.tappay[0].secret_id] : []
+        content {
+          name = "TAPPAY_PARTNER_KEY"
           value_source {
             secret_key_ref {
               secret  = env.value

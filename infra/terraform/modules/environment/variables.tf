@@ -138,3 +138,19 @@ variable "trial_notify_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "tappay" {
+  description = "Card payments on the marketing site's payment page (/pay/) through TapPay Direct Pay; null = off. app_id and app_key are public values; the partner key is never given to Terraform: add it to the tappay-partner-key secret first. env is sandbox or production."
+  type = object({
+    env         = string
+    app_id      = number
+    app_key     = string
+    merchant_id = string
+    use_3ds     = optional(bool)
+  })
+  default = null
+  validation {
+    condition     = var.tappay == null || contains(["sandbox", "production"], try(var.tappay.env, ""))
+    error_message = "tappay.env must be sandbox or production."
+  }
+}

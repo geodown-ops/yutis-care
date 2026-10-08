@@ -9,6 +9,7 @@ import { isMissingTenant } from '../errors';
 import { formatCount, formatDate, formatDateTime, todayInTaipei } from '../format';
 import { SUBSCRIPTION_STATUS, TENANT_STATUS } from '../labels';
 import { AnchorLink } from '../links';
+import { PaymentOrders } from '../payment-orders';
 import { can, useMe } from '../permissions';
 import { TenantDialogs, type TenantDialogKind } from '../tenant-dialogs';
 import { currentPeriodIndex, pendingSetup } from '../tenants';
@@ -151,6 +152,10 @@ function TenantView({ tenant: t }: { tenant: TenantDetail }) {
             </Table>
           </Table.ScrollContainer>
         )}
+      </Card>
+
+      <Card>
+        <PaymentOrders tenant={t} canWrite={canSubscribe} />
       </Card>
 
       <Footnote>員工數與帳號數由資料庫函式計算，平台看不到任何員工明細。</Footnote>

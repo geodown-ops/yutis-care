@@ -308,3 +308,31 @@ fieldset.field{border:0;padding:0;margin:0}
   .perks b{font-size:17px}
   .code-row .suffix{padding:0 10px;font-size:13px}
 }
+
+/* payment page (/pay/) */
+.pay{max-width:760px}
+.pay-state p{color:var(--body)}
+.pay-state h2{font-size:24px;margin:0 0 10px}
+.pay-state a{color:var(--primary);font-weight:700}
+.pay-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.pay-head h2{font-size:24px;margin:0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;letter-spacing:.02em}
+.status{font-size:13px;font-weight:700;padding:5px 14px;border-radius:999px;background:var(--canvas);border:1px solid var(--line);color:var(--ink)}
+.status[data-tone=pending]{background:#FFF6E5;border-color:#FFE0A3;color:#8A5A00}
+.status[data-tone=paid]{background:#E7F8F2;border-color:#A8E8D3;color:#0E7A5E}
+.status[data-tone=cancelled],.status[data-tone=expired]{background:#FFF0F2;border-color:#FFC9D0;color:var(--error)}
+.pay-summary{margin:22px 0 0;display:grid;gap:12px}
+.pay-summary div{display:grid;grid-template-columns:7em minmax(0,1fr);gap:12px}
+.pay-summary dt{color:var(--body);font-size:15px}
+.pay-summary dd{margin:0;font-weight:500}
+.pay-summary .total{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
+.pay-summary .total dd{font-family:var(--display);font-weight:800;font-size:26px;color:var(--ink)}
+#pay-order{padding-block:0}
+#pay-form,#pay-no-card,#pay-closed,#pay-done{margin-top:30px;padding-top:28px;border-top:1px solid var(--line)}
+#pay-form[hidden],#pay-no-card[hidden],#pay-closed[hidden],#pay-done[hidden],.pay-state[hidden],#pay-order[hidden],.pay-sandbox[hidden]{display:none}
+.pay-sub{font-size:20px;margin:0}
+.pay-sandbox{margin-top:12px;border-radius:14px;padding:12px 16px;background:#FFF6E5;border:1px solid #FFE0A3;color:#8A5A00;font-size:14px;line-height:1.6}
+.tpfield{height:50px;background:var(--white);border:1px solid #D6D0F2;border-radius:14px;padding:13px 16px;transition:border-color .15s,box-shadow .15s}
+.tpfield.tappay-field-focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(74,58,255,.15)}
+.tpfield.tappay-field-invalid{border-color:var(--error)}
+@media (max-width:640px){.pay-summary div{grid-template-columns:minmax(0,1fr);gap:2px}}

@@ -110,6 +110,18 @@ terraform apply
 - 邀請信的寄件名稱與內容在 Identity Platform → 設定 → 範本（建議改成中文、寄件者名稱 Yutis Care）。
 - **加密**：每個租戶一把 Cloud KMS 金鑰（開通時建立，每 90 天自動輪替）。租戶第一次寫入加密欄位時，租戶 API 產生資料金鑰並用 KMS 包裝存在 `tenant_keys`；之後每個程式只向 KMS 解開一次。銷毀租戶的 KMS 金鑰，該租戶的加密資料就再也無法讀取。
 
+## 信用卡付款（TapPay，正式站）
+
+付款單在平台後台的租戶頁建立，付款人從 `care.yutis.net/pay/?t=…` 以信用卡付款（TapPay Direct Pay，與 Bazar 同一套做法：卡號只進 TapPay 的欄位，平台 API 用 prime 扣款，3D 驗證結果一律回查 TapPay 交易紀錄才入帳）。付款後自動新增那一期訂閱。沒設定 TapPay 時付款頁不提供刷卡，營運仍可在匯款入帳後手動標記已付款。
+
+1. 在 TapPay Portal 取得 App ID、App Key（公開值）、Partner Key（密鑰）與這個網站要用的 Merchant ID（正式區商家皆為 3D 驗證規格）。
+2. 第一次 `terraform apply` 後把 Partner Key 存進 Secret Manager：`printf %s 'partner_…' | gcloud secrets versions add tappay-partner-key --data-file=- --project <專案>`。
+3. 在 `terraform.tfvars` 填 `tappay = { env = "production", app_id = …, app_key = "app_…", merchant_id = "…" }`，重跑 `terraform apply`。這會建立固定對外 IP（Cloud NAT），平台 API 的對外連線都從這個位址出去。
+4. 把輸出的 `payment_egress_ip` 加到 TapPay Portal「開發人員內容 → 系統設定 → 正式環境 → 後台 IP 限制」，並在「跳轉連結設定」加入 `https://care.yutis.net/pay/`。
+5. 重新部署（Actions → Deploy → production），讓付款頁與平台 API 的新版上線。
+
+本機測試：平台 API 的 `.env` 填 TapPay 測試區金鑰（`TAPPAY_ENV=sandbox`、`TAPPAY_APP_ID`、`TAPPAY_APP_KEY`、`TAPPAY_PARTNER_KEY`、`TAPPAY_MERCHANT_ID`），測試卡 4242 4242 4242 4242。要測 3D 驗證時加 `TAPPAY_USE_3DS=true` 與 `PUBLIC_SITE_URL=http://127.0.0.1.nip.io:5184`（TapPay 不接受 localhost），驗證碼 1234567。
+
 ## 換網域
 
 1. 在 Cloud Shell 改 `terraform.tfvars` 的 `domain`，重跑 `terraform apply`，再依新的 `dns_records` 設定 DNS（憑證會重新簽發）。

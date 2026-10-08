@@ -26,6 +26,10 @@ const BY_CODE: Record<string, string> = {
   platform_user_not_found: '找不到這位平台人員。',
   cannot_change_self: '不能停用自己的帳號或變更自己的角色。',
   too_many_requests: '操作太頻繁，請稍候再試。',
+  tenant_closed: '這個租戶已結束，不能再建立付款單。',
+  payment_order_not_found: '找不到這張付款單。',
+  payment_order_closed: '這張付款單已經付款或取消，請重新整理。',
+  payment_in_progress: '付款人正在刷卡付款，請稍候再試。',
 };
 
 const BY_STATUS: Record<number, string> = {

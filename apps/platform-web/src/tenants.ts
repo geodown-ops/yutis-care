@@ -91,12 +91,12 @@ export function subdomainProblem(slug: string): string | null {
 /** Seat limit as a NumberInput holds it: '' means no limit. */
 export type SeatLimitInput = number | string;
 
-const seatLimitValue = (v: SeatLimitInput): number | null => (v === '' ? null : Number(v));
-const seatLimitProblem = (v: SeatLimitInput) => {
+export const seatLimitValue = (v: SeatLimitInput): number | null => (v === '' ? null : Number(v));
+export const seatLimitProblem = (v: SeatLimitInput) => {
   const n = seatLimitValue(v);
   return n != null && (!Number.isInteger(n) || n <= 0) ? '人數上限要是正整數，不限人數請留空' : undefined;
 };
-const termProblem = (startsOn: string, endsOn: string) => (endsOn && startsOn && endsOn < startsOn ? '結束日不能早於開始日' : undefined);
+export const termProblem = (startsOn: string, endsOn: string) => (endsOn && startsOn && endsOn < startsOn ? '結束日不能早於開始日' : undefined);
 
 /** PUT /platform-api/tenants/{id}/subscription, as a form. Dates are YYYY-MM-DD; endsOn '' means open-ended. */
 export interface SubscriptionForm {
