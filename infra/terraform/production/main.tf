@@ -56,6 +56,18 @@ variable "trial_notify_emails" {
   default     = null
 }
 
+variable "tappay" {
+  description = "Card payments (TapPay) on care.yutis.net/pay/; null = off. Add the partner key to the tappay-partner-key secret first."
+  type = object({
+    env         = string
+    app_id      = number
+    app_key     = string
+    merchant_id = string
+    use_3ds     = optional(bool)
+  })
+  default = null
+}
+
 module "env" {
   source      = "../modules/environment"
   project_id  = var.project_id
@@ -84,6 +96,7 @@ module "env" {
   email_from         = var.email_from
 
   trial_notify_emails = var.trial_notify_emails != null ? var.trial_notify_emails : var.platform_admin_emails
+  tappay              = var.tappay
 }
 
 output "load_balancer_ip" {
@@ -92,6 +105,10 @@ output "load_balancer_ip" {
 
 output "dns_records" {
   value = module.env.dns_records
+}
+
+output "payment_egress_ip" {
+  value = module.env.payment_egress_ip
 }
 
 output "github_variables" {

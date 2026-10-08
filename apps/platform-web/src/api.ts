@@ -33,6 +33,7 @@ export type PlatformMe = PlatformSchemas['PlatformMeDto'];
 export type Permission = PlatformMe['permissions'][number];
 export type AuditEntry = PlatformSchemas['PlatformAuditEntryDto'];
 export type TrialApplication = PlatformSchemas['TrialApplicationDto'];
+export type PaymentOrder = PlatformSchemas['PaymentOrderDto'];
 export type AuditPage = PlatformSchemas['PlatformAuditPageDto'];
 export type AuditFilters = NonNullable<PlatformPaths['/platform-api/audit']['get']['parameters']['query']>;
 
@@ -42,6 +43,7 @@ export type AnnouncementKind = Announcement['kind'];
 export type PlatformRole = PlatformUser['role'];
 export type TemplateKind = TemplateVersion['kind'];
 export type TrialApplicationStatus = TrialApplication['status'];
+export type PaymentOrderStatus = PaymentOrder['status'];
 
 /** Retry network hiccups and 5xx, never a 4xx: the answer will not change and the error should show at once. */
 export const shouldRetry = (failures: number, error: unknown) =>
@@ -80,6 +82,12 @@ export const usageQuery = (month: string) => queryOptions({
 export const trialApplicationsQuery = queryOptions({
   queryKey: ['trial-applications'],
   queryFn: () => data(api.GET('/platform-api/trial-applications')),
+});
+
+/** Payment orders (付款單) of one tenant, newest first. */
+export const paymentOrdersQuery = (tenantId: string) => queryOptions({
+  queryKey: ['payment-orders', tenantId],
+  queryFn: () => data(api.GET('/platform-api/payment-orders', { params: { query: { tenantId } } })),
 });
 
 export const announcementsQuery = queryOptions({

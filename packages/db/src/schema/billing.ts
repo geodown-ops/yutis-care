@@ -9,8 +9,9 @@
  * tenant (e.g. one more SMS sent) and never deleted.
  */
 import { desc, sql } from 'drizzle-orm';
-import { bigint, boolean, check, date, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { tenants } from './common.js';
+import { platformUsers } from './platform.js';
 
 export const plans = pgTable('plans', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -70,4 +71,59 @@ export const usageCounters = pgTable('usage_counters', {
   primaryKey({ columns: [t.tenantId, t.period, t.metric] }),
   check('usage_counters_period_is_month', sql`extract(day from ${t.period}) = 1`),
   check('usage_counters_quantity', sql`${t.quantity} >= 0`),
+]);
+
+export const paymentOrderStatusEnum = pgEnum('payment_order_status', ['pending', 'paid', 'cancelled']);
+
+/**
+ * 付款單: one amount a tenant owes for one subscription period, paid by card on the marketing site's payment page
+ * (care.yutis.net/pay/?t=<token>) through TapPay, or marked paid by platform staff after a bank transfer. Platform
+ * staff set the amount; plans.pricing is still not read. Paying adds the period to tenant_subscriptions. Platform
+ * data only (migrations/0031_payment_orders_access.sql): the tenant API cannot read it. No card number is ever here,
+ * only what TapPay returns (trade id, last four digits).
+ */
+export const paymentOrders = pgTable('payment_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  /** Sent to TapPay as order_number and shown to the payer, e.g. YC2610081A2B3C. */
+  orderNumber: text('order_number').notNull().unique(),
+  /** Unguessable; the payment page link carries it. Whoever has the link can pay, which is the point. */
+  token: text('token').notNull().unique(),
+  status: paymentOrderStatusEnum('status').notNull().default('pending'),
+  /** NT$, whole dollars (TapPay takes TWD without decimals). */
+  amount: integer('amount').notNull(),
+  /** What the payer sees and TapPay records, e.g. 標準方案 2027/01/01–2027/12/31，200 人. */
+  description: text('description').notNull(),
+  /** The subscription period paying for this order adds. */
+  planId: uuid('plan_id').notNull().references(() => plans.id),
+  seatLimit: integer('seat_limit'),
+  periodStartsOn: date('period_starts_on').notNull(),
+  periodEndsOn: date('period_ends_on'),
+  payerName: text('payer_name').notNull(),
+  payerEmail: text('payer_email').notNull(),
+  /** The payment page refuses the order after this day (Taiwan time). */
+  expiresOn: date('expires_on').notNull(),
+  /** How it was paid: card (TapPay) or transfer (marked by platform staff). */
+  method: text('method'),
+  /** TapPay environment the charge went to: sandbox or production. */
+  gatewayEnv: text('gateway_env'),
+  /** A 3D Secure charge waiting for the bank: its TapPay trade id, settled by the notify or the payer's return. */
+  pendingTradeId: text('pending_trade_id'),
+  recTradeId: text('rec_trade_id'),
+  bankTransactionId: text('bank_transaction_id'),
+  cardLastFour: text('card_last_four'),
+  /** Platform staff's note when marking a transfer paid (e.g. 匯款末五碼). */
+  paidNote: text('paid_note'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  /** The period added when it was paid; null when it could not be added automatically (staff add it by hand). */
+  subscriptionId: uuid('subscription_id').references(() => tenantSubscriptions.id),
+  createdBy: uuid('created_by').references(() => platformUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('payment_orders_tenant_idx').on(t.tenantId, t.createdAt),
+  check('payment_orders_amount', sql`${t.amount} > 0`),
+  check('payment_orders_seat_limit', sql`${t.seatLimit} is null or ${t.seatLimit} > 0`),
+  check('payment_orders_term', sql`${t.periodEndsOn} is null or ${t.periodEndsOn} >= ${t.periodStartsOn}`),
+  check('payment_orders_paid', sql`(${t.status} = 'paid') = (${t.paidAt} is not null)`),
 ]);

@@ -445,6 +445,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/payment-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 付款單列表
+         * @description 新的在前；可只看一個租戶。
+         */
+        get: operations["PaymentOrdersController_list"];
+        put?: never;
+        /**
+         * 建立付款單
+         * @description 金額由營運填寫（方案的計價參數仍不解讀）。付款後自動新增這一期訂閱（同「續約／新期間」，狀態為啟用），所以開始日要晚於租戶最近一期的開始日。預設寄付款通知信給付款聯絡人。
+         */
+        post: operations["PaymentOrdersController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/payment-orders/{id}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重寄付款通知信 */
+        post: operations["PaymentOrdersController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/payment-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 取消付款單
+         * @description 取消後付款頁不能再付款。
+         */
+        post: operations["PaymentOrdersController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/payment-orders/{id}/mark-paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 標記已付款（匯款入帳）
+         * @description 和刷卡付款一樣新增這一期訂閱並寄付款完成信。
+         */
+        post: operations["PaymentOrdersController_markPaid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/payments/tappay-notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * TapPay 3D 驗證結果通知（TapPay 伺服器呼叫）
+         * @description 一律回 { status: 0 } 讓 TapPay 不再重送。不採信通知內容，只用其中的 order_number 向 TapPay 交易紀錄查詢後才入帳。
+         */
+        post: operations["PublicPaymentsController_notify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/payments/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 付款頁：付款單內容（不需登入） */
+        get: operations["PublicPaymentsController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/payments/{token}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 付款頁：信用卡付款（TapPay Pay by Prime）
+         * @description 前端以 TapPay 安全欄位取得 prime 後送來，卡號不經過 Yutis Care。啟用 3D 驗證時回 result=verify 與銀行驗證頁網址。
+         */
+        post: operations["PublicPaymentsController_pay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/payments/{token}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 付款頁：3D 驗證回來後確認結果
+         * @description 向 TapPay 交易紀錄查詢；已入帳就標為已付款。回傳付款單目前狀態。
+         */
+        post: operations["PublicPaymentsController_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -697,6 +855,104 @@ export interface components {
              * @description 開通後的租戶
              */
             tenantId?: string | null;
+        };
+        PaymentOrderDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tenantId: string;
+            tenantName: string;
+            /** @example YC261008A1B2C3 */
+            orderNumber: string;
+            /**
+             * @description 待付款、已付款、已取消
+             * @enum {string}
+             */
+            status: "pending" | "paid" | "cancelled";
+            /** @description 待付款且已過最後付款日 */
+            expired: boolean;
+            /** @description 新台幣，整數 */
+            amount: number;
+            description: string;
+            planCode: string;
+            planName: string;
+            seatLimit: number | null;
+            /** Format: date */
+            periodStartsOn: string;
+            /** Format: date */
+            periodEndsOn: string | null;
+            payerName: string;
+            payerEmail: string;
+            /** Format: date */
+            expiresOn: string;
+            /** @description 付款頁連結（官網 /pay/） */
+            payUrl: string;
+            /**
+             * @description 信用卡（TapPay）或匯款（人工標記）
+             * @enum {string|null}
+             */
+            method: "card" | "transfer" | null;
+            cardLastFour: string | null;
+            /** @description TapPay 交易編號 */
+            recTradeId: string | null;
+            /** @description 人工標記已付款時的備註 */
+            paidNote: string | null;
+            /** Format: date-time */
+            paidAt: string | null;
+            /** @description 付款後已自動新增訂閱期間；已付款但為 false 時，請到租戶頁手動新增 */
+            subscriptionAdded: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description 建立人 Email */
+            createdBy: string | null;
+            /** @description 這次是否寄出付款通知信（只在建立與重寄時回傳） */
+            emailSent?: boolean;
+        };
+        CardSetupDto: {
+            /** @description TapPay App ID（公開值） */
+            appId: number;
+            /** @description TapPay App Key（公開的前端金鑰） */
+            appKey: string;
+            /** @enum {string} */
+            env: "sandbox" | "production";
+        };
+        PublicPaymentDto: {
+            /** @example YC261008A1B2C3 */
+            orderNumber: string;
+            /** @description 付款的公司（租戶名稱） */
+            tenantName: string;
+            description: string;
+            /** @description 新台幣，整數 */
+            amount: number;
+            /**
+             * @description 待付款、已付款、已取消、已逾期
+             * @enum {string}
+             */
+            status: "pending" | "paid" | "cancelled" | "expired";
+            /**
+             * Format: date
+             * @description 最後付款日（台灣時間，含當日）
+             */
+            expiresOn: string;
+            /** @description 付款聯絡人，用來預填持卡人 */
+            payerName: string;
+            payerEmail: string;
+            /** Format: date-time */
+            paidAt: string | null;
+            /** @enum {string|null} */
+            method: "card" | "transfer" | null;
+            cardLastFour: string | null;
+            /** @description 線上刷卡的 TapPay SDK 設定；null 表示未開放刷卡 */
+            card: components["schemas"]["CardSetupDto"] | null;
+        };
+        PayResultDto: {
+            /**
+             * @description paid：已付款；verify：請把付款人導到 paymentUrl 做 3D 驗證，完成後會回到付款頁（threeds=1）
+             * @enum {string}
+             */
+            result: "paid" | "verify";
+            paymentUrl?: string;
+            payment: components["schemas"]["PublicPaymentDto"];
         };
     };
     responses: never;
@@ -1996,6 +2252,412 @@ export interface operations {
             };
             /** @description 申請已處理過（trial_application_decided） */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PaymentOrdersController_list: {
+        parameters: {
+            query?: {
+                tenantId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOrderDto"][];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PaymentOrdersController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    tenantId: string;
+                    planCode: string;
+                    seatLimit: number | null;
+                    /** Format: date */
+                    startsOn: string;
+                    /** @default null */
+                    endsOn?: string | null;
+                    amount: number;
+                    description?: string;
+                    payerName: string;
+                    /** Format: email */
+                    payerEmail: string;
+                    /** Format: date */
+                    expiresOn?: string;
+                    /** @default true */
+                    sendEmail?: boolean;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOrderDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 開始日沒有晚於最近一期（period_overlap），或租戶已結束（tenant_closed） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PaymentOrdersController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOrderDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 付款單不是待付款（payment_order_closed） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PaymentOrdersController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOrderDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 付款單不是待付款（payment_order_closed），或付款正在處理（payment_in_progress） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PaymentOrdersController_markPaid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOrderDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 付款單不是待付款（payment_order_closed），或付款正在處理（payment_in_progress） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PublicPaymentsController_notify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicPaymentsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPaymentDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PublicPaymentsController_pay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prime: string;
+                    cardholder: {
+                        name: string;
+                        /** Format: email */
+                        email: string;
+                        phoneNumber: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayResultDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 已付款（already_paid）、已取消（order_cancelled）、已逾期（order_expired）、另一筆付款正在處理（payment_in_progress） */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    PublicPaymentsController_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPaymentDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

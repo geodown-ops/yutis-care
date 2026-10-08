@@ -43,7 +43,7 @@ function includePartials(): Plugin {
   };
 }
 
-const pages = ['index.html', 'trial/index.html', 'login/index.html', 'privacy/index.html', 'terms/index.html', '404.html'];
+const pages = ['index.html', 'trial/index.html', 'login/index.html', 'pay/index.html', 'privacy/index.html', 'terms/index.html', '404.html'];
 
 export default defineConfig({
   plugins: [includePartials()],
@@ -56,7 +56,7 @@ export default defineConfig({
     // Every browser the site supports has modulepreload; skip the polyfill script.
     modulePreload: { polyfill: false },
   },
-  // The trial form posts to the platform API, which the same host serves under /platform-api in production.
+  // The trial form and the payment page call the platform API, which the same host serves under /platform-api in production.
   server: { port: 5184, proxy: { '/platform-api': { target: localApi('platform-api', 3001) } } },
   preview: { port: 5184 },
 });

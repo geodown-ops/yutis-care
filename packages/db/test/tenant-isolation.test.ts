@@ -7,7 +7,7 @@ import { eq, sql } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  announcements, auditLog, createDb, defaultTemplates, departments, employees, gradingRules, gradingRuleSets, healthExams, legalEntities, phrases, plans,
+  announcements, auditLog, createDb, defaultTemplates, departments, employees, gradingRules, gradingRuleSets, healthExams, legalEntities, paymentOrders, phrases, plans,
   runMigrations, sessions, sites, tenantBySlug, tenantKeys, tenants, tenantSettings, tenantSubscriptions, usageCounters, users, withTenant, type Db,
 } from '../src/index.js';
 
@@ -216,11 +216,15 @@ describe('billing extension points', () => {
     expect(await pgError(withTenant(app, T.a, tx => tx.delete(usageCounters)))).toMatch(/permission denied/);
     expect(await pgError(owner.insert(usageCounters).values({ tenantId: T.a, period: '2026-10-15', metric: 'sms_sent' }))).toMatch(/usage_counters_period_is_month/);
   });
+
+  it('keeps payment orders (付款單) away from tenant sessions', async () => {
+    expect(await pgError(withTenant(app, T.a, tx => tx.select().from(paymentOrders)))).toMatch(/permission denied/);
+  });
 });
 
 describe('platform role (yutis_platform)', () => {
   /** Everything the platform API may touch. Every other table, current or future, must stay closed to it. */
-  const allowed = new Set(['tenants', 'plans', 'tenant_subscriptions', 'usage_counters', 'platform_users', 'default_templates', 'announcements', 'support_access_grants', 'platform_audit_log', 'trial_applications']);
+  const allowed = new Set(['tenants', 'plans', 'tenant_subscriptions', 'usage_counters', 'platform_users', 'default_templates', 'announcements', 'support_access_grants', 'platform_audit_log', 'trial_applications', 'payment_orders']);
 
   it('has no privilege on any employee, health or programme table', async () => {
     const { rows } = await ownerPool.query<{ name: string; any: boolean }>(`

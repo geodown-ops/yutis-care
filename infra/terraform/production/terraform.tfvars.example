@@ -11,3 +11,11 @@ alert_email           = "ops@yutis.com.tw"
 # email_from            = "Yutis Care <noreply@care.yutis.net>"
 # 專案不在 Google Workspace 組織內（個人 Gmail 建立）時設 true：平台人員改用 Google 登入，不經 IAP
 # platform_sign_in      = true
+# 信用卡金流（TapPay，官網付款頁 care.yutis.net/pay/）。先把 Partner Key 加入 tappay-partner-key 密鑰再填；
+# apply 後把輸出的 payment_egress_ip 加到 TapPay Portal「後台 IP 限制」白名單。App ID、App Key 是公開值。
+# tappay = {
+#   env         = "production" # 或 "sandbox"
+#   app_id      = 12345
+#   app_key     = "app_…"
+#   merchant_id = "…_CTBC"
+# }

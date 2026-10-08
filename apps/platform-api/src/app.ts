@@ -15,7 +15,11 @@ import type { PlatformConfig } from './config.js';
 import { CoreModule, PG_POOL } from './core/database.js';
 import { createMailer, MAILER, type Mailer } from './core/mail.js';
 import { BILLING, defaultIntegrations, IDENTITY_TENANTS, INVITATIONS, TENANT_KEYS, type Integrations } from './integrations/integrations.js';
+import { PAYMENTS } from './integrations/tappay.js';
 import { MeController } from './me.controller.js';
+import { PaymentOrdersController } from './payments/payment-orders.controller.js';
+import { PaymentsService } from './payments/payments.service.js';
+import { PublicPaymentsController } from './payments/public-payments.controller.js';
 import { PlansUsageController } from './plans-usage.controller.js';
 import { PlatformUsersController } from './platform-users.controller.js';
 import { TemplatesController } from './templates/templates.js';
@@ -88,7 +92,7 @@ export class AppModule {
       imports: [CoreModule.forRoot(config)],
       controllers: [
         HealthController, SignInConfigController, MeController, TenantsController, PlansUsageController, AnnouncementsController, PlatformUsersController,
-        TemplatesController, PlatformAuditController, TrialApplicationsController,
+        TemplatesController, PlatformAuditController, TrialApplicationsController, PaymentOrdersController, PublicPaymentsController,
       ],
       providers: [
         { provide: PLATFORM_CONFIG, useValue: config },
@@ -97,9 +101,11 @@ export class AppModule {
         { provide: IDENTITY_TENANTS, useValue: integrations.identityTenants },
         { provide: INVITATIONS, useValue: integrations.invitations },
         { provide: BILLING, useValue: integrations.billing },
+        { provide: PAYMENTS, useValue: integrations.payments },
         { provide: MAILER, useValue: overrides.mailer ?? createMailer(config.email) },
         { provide: APP_GUARD, useClass: PlatformAccessGuard },
         OnboardingService,
+        PaymentsService,
       ],
     };
   }
@@ -126,7 +132,7 @@ export async function createApp(config: PlatformConfig, options: CreateAppOption
 export function openApiDocument(app: NestFastifyApplication): OpenAPIObject {
   const options = new DocumentBuilder()
     .setTitle('Yutis Care 平台 API')
-    .setDescription('平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。')
+    .setDescription('平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、付款單與官網付款頁（TapPay 信用卡）、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。')
     .setVersion('0.1.0')
     .addApiKey({ type: 'apiKey', in: 'header', name: IAP_HEADER, description: 'Identity-Aware Proxy 簽發的 JWT，由 IAP 自動帶入（Google Cloud）' }, IAP_SECURITY)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Google 登入後的 Identity Platform ID token（Railway 等不經 IAP 的部署）' }, SIGN_IN_SECURITY)

@@ -4,7 +4,7 @@
 #                   everything else  → front ends (back office at /, employee portal at /me/)
 #   platform host   /platform-api/*  → platform API   ┐ both behind Identity-Aware Proxy
 #                   everything else  → front ends     ┘ (Google Workspace accounts in platform_staff)
-#   site host       /platform-api/public/*  → platform API, public routes only (trial applications), never IAP
+#   site host       /platform-api/public/*  → platform API, public routes only (trial applications, payment page), never IAP
 #                   everything else         → front ends (the marketing site, deploy/site.sh)
 
 resource "google_compute_global_address" "lb" {
@@ -53,6 +53,26 @@ resource "google_compute_security_policy" "edge" {
       enforce_on_key = "IP"
       rate_limit_threshold {
         count        = 30
+        interval_sec = 60
+      }
+    }
+  }
+
+  # The payment page: loading the order, paying, and asking a few times for the 3D Secure result; TapPay's notify too.
+  rule {
+    action   = "throttle"
+    priority = 1050
+    match {
+      expr {
+        expression = "request.path.startsWith('/platform-api/public/payments/')"
+      }
+    }
+    rate_limit_options {
+      conform_action = "allow"
+      exceed_action  = "deny(429)"
+      enforce_on_key = "IP"
+      rate_limit_threshold {
+        count        = 60
         interval_sec = 60
       }
     }

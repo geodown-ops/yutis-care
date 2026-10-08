@@ -1,5 +1,5 @@
 /* Chinese labels for the platform API's enum values. Keyed by the generated types, so a new value fails typecheck here. */
-import type { AnnouncementKind, PlatformRole, SubscriptionStatus, TemplateKind, TenantStatus, TrialApplicationStatus } from './api';
+import type { AnnouncementKind, PaymentOrderStatus, PlatformRole, SubscriptionStatus, TemplateKind, TenantStatus, TrialApplicationStatus } from './api';
 
 /** Badge colours: the --yutis-{tone} status tokens, plus neutral for states that need no attention. */
 export type Tone = 'ok' | 'info' | 'warn' | 'bad' | 'neutral';
@@ -53,4 +53,11 @@ export const TRIAL_APPLICATION_STATUS: Record<TrialApplicationStatus, Label> = {
   pending: { label: '待審核', tone: 'warn' },
   approved: { label: '已開通', tone: 'ok' },
   declined: { label: '已婉拒', tone: 'neutral' },
+};
+
+export const PAYMENT_ORDER_STATUS: Record<PaymentOrderStatus | 'expired', Label> = {
+  pending: { label: '待付款', tone: 'warn' },
+  expired: { label: '已逾期', tone: 'bad' },
+  paid: { label: '已付款', tone: 'ok' },
+  cancelled: { label: '已取消', tone: 'neutral' },
 };

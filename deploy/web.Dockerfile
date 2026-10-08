@@ -10,6 +10,7 @@ RUN pnpm --filter @yutis/web --filter @yutis/portal --filter @yutis/platform-web
 FROM nginx:1.29-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/security-headers.conf /etc/nginx/snippets/security-headers.conf
+COPY deploy/payment-headers.conf /etc/nginx/snippets/payment-headers.conf
 COPY --chmod=755 deploy/api-proxy.sh /docker-entrypoint.d/40-api-proxy.sh
 COPY --chmod=755 deploy/site.sh /docker-entrypoint.d/41-site.sh
 COPY --from=build /src/apps/web/dist /srv/web

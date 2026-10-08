@@ -38,3 +38,8 @@ output "github_variables" {
 output "database_instance" {
   value = google_sql_database_instance.db.connection_name
 }
+
+output "payment_egress_ip" {
+  description = "The platform API's fixed outbound address with card payments on: add it to TapPay's portal (開發人員內容 → 系統設定 → 正式環境 → 後台 IP 限制)."
+  value       = local.payments ? google_compute_address.egress[0].address : null
+}

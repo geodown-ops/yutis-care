@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<!-- include:head -->
+<title>線上付款｜Yutis Care</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<script type="module" src="/src/pay.ts"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+<div class="page">
+<header class="subhead">
+  <div class="lines l6-blue"></div>
+  <div class="wrap">
+    <!-- include:nav -->
+    <div class="intro">
+      <span class="pill"><i></i>付款單</span>
+      <h1>線上付款</h1>
+      <p class="lead">以信用卡支付 Yutis Care 的付款單。卡號由金流服務商 TapPay 直接處理，不會經過 Yutis Care。</p>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="inner">
+  <div class="wrap pay">
+    <div class="form-card">
+      <div id="pay-loading" class="pay-state" aria-live="polite"><p id="pay-loading-text">正在載入付款單…</p></div>
+
+      <div id="pay-missing" class="pay-state" hidden>
+        <h2>找不到這張付款單</h2>
+        <p id="pay-missing-text">連結可能不完整，請從付款通知信重新開啟，或來信 <a href="mailto:care@yutis.net">care@yutis.net</a>。</p>
+      </div>
+
+      <section id="pay-order" hidden aria-labelledby="pay-order-title">
+        <div class="pay-head">
+          <h2 id="pay-order-title">付款單 <span class="mono" data-order-number></span></h2>
+          <span class="status" data-status></span>
+        </div>
+        <dl class="pay-summary">
+          <div><dt>公司</dt><dd data-tenant></dd></div>
+          <div><dt>項目</dt><dd data-description></dd></div>
+          <div><dt>付款期限</dt><dd data-expires></dd></div>
+          <div class="total"><dt>金額</dt><dd data-amount></dd></div>
+        </dl>
+      </section>
+
+      <form id="pay-form" novalidate hidden>
+        <h2 class="pay-sub">信用卡資料</h2>
+        <p class="pay-sandbox" id="pay-sandbox" hidden>測試環境：請用測試卡 4242 4242 4242 4242，有效期限填未來日期，安全碼任意三碼；3D 驗證碼 1234567。不會實際扣款。</p>
+        <div class="fields">
+          <div class="field full">
+            <label>卡號<span class="req">*</span></label>
+            <div class="tpfield" id="card-number"></div>
+          </div>
+          <div class="field">
+            <label>有效期限<span class="req">*</span></label>
+            <div class="tpfield" id="card-expiry"></div>
+          </div>
+          <div class="field">
+            <label>安全碼<span class="req">*</span></label>
+            <div class="tpfield" id="card-ccv"></div>
+          </div>
+          <div class="field full">
+            <label for="f-name">持卡人姓名<span class="req">*</span></label>
+            <input id="f-name" type="text" name="name" autocomplete="cc-name" maxlength="50" required aria-describedby="err-name">
+            <p class="err" id="err-name" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-email">Email<span class="req">*</span></label>
+            <input id="f-email" type="email" name="email" autocomplete="email" maxlength="254" required aria-describedby="err-email">
+            <p class="err" id="err-email" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="f-phone">手機<span class="req">*</span></label>
+            <input id="f-phone" type="tel" name="phone" autocomplete="tel" maxlength="20" required aria-describedby="err-phone">
+            <p class="err" id="err-phone" aria-live="polite"></p>
+          </div>
+        </div>
+        <p class="form-error" id="pay-error" role="alert" tabindex="-1" hidden></p>
+        <div class="form-foot">
+          <p class="hint" style="margin:0">付款完成後，我們會寄付款完成信到付款聯絡人的信箱。</p>
+          <button class="btn btn-primary" id="pay-button" type="submit" disabled>請輸入完整卡片資訊</button>
+        </div>
+      </form>
+
+      <div id="pay-no-card" class="pay-state" hidden>
+        <p>目前未開放線上刷卡。如需匯款資訊，請來信 <a href="mailto:care@yutis.net">care@yutis.net</a>，並註明付款單號。</p>
+      </div>
+
+      <div id="pay-closed" class="pay-state" hidden>
+        <p id="pay-closed-text"></p>
+        <p>如有疑問，請來信 <a href="mailto:care@yutis.net">care@yutis.net</a>。</p>
+      </div>
+
+      <div class="done" id="pay-done" hidden>
+        <div class="tick" aria-hidden="true">✓</div>
+        <h2>付款完成</h2>
+        <p>謝謝您！<span data-tenant></span>的付款單 <b data-order-number></b> 已付款，付款方式：<span id="pay-done-how"></span>。</p>
+        <p>付款完成信已寄到付款聯絡人的信箱。</p>
+        <div class="actions"><a class="btn btn-primary" href="/">回首頁</a></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- include:footer -->
+</div>
+</body>
+</html>

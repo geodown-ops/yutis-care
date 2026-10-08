@@ -10,6 +10,7 @@ import { ApiErrorDto } from '../core/errors.js';
 import { openApiSchema, parse } from '../core/validation.js';
 import { BILLING, type BillingProvider } from '../integrations/integrations.js';
 import { OnboardingService, OnboardTenant } from './onboarding.js';
+import { addSubscriptionPeriod } from './subscriptions.js';
 
 type SubscriptionStatus = (typeof subscriptionStatusEnum.enumValues)[number];
 
@@ -66,8 +67,6 @@ const NewPeriod = z.object({
   startsOn: z.iso.date(),
   endsOn: z.iso.date().nullable().default(null),
 }).strict().refine(s => !s.endsOn || s.endsOn >= s.startsOn, { message: 'endsOn must not be before startsOn', path: ['endsOn'] });
-
-const dayBefore = (isoDate: string) => new Date(Date.parse(isoDate) - 86_400_000).toISOString().slice(0, 10);
 
 const notFound = () => new NotFoundException({ code: 'tenant_not_found', message: 'No such tenant' });
 
@@ -177,20 +176,8 @@ export class TenantsController {
     if (!tenant) throw notFound();
     const [plan] = await ctx.tx.select().from(plans).where(and(eq(plans.code, input.planCode), eq(plans.active, true)));
     if (!plan) throw new BadRequestException({ code: 'unknown_plan', message: `No active plan ${input.planCode}` });
-    const [latest] = await ctx.tx.select().from(tenantSubscriptions)
-      .where(eq(tenantSubscriptions.tenantId, id)).orderBy(desc(tenantSubscriptions.startsOn), desc(tenantSubscriptions.createdAt)).limit(1);
-    let previousEndsOn: string | undefined;
-    if (latest) {
-      if (input.startsOn <= latest.startsOn) {
-        throw new ConflictException({ code: 'period_overlap', message: `A new period must start after the latest one (${latest.startsOn})` });
-      }
-      if (latest.endsOn === null || latest.endsOn >= input.startsOn) {
-        previousEndsOn = dayBefore(input.startsOn);
-        await ctx.tx.update(tenantSubscriptions).set({ endsOn: previousEndsOn, updatedAt: new Date() }).where(eq(tenantSubscriptions.id, latest.id));
-      }
-    }
-    await ctx.tx.insert(tenantSubscriptions).values({
-      tenantId: id, planId: plan.id, status: input.status, seatLimit: input.seatLimit, startsOn: input.startsOn, endsOn: input.endsOn, billingRef: latest?.billingRef ?? null,
+    const { previousEndsOn } = await addSubscriptionPeriod(ctx.tx, id, {
+      planId: plan.id, status: input.status, seatLimit: input.seatLimit, startsOn: input.startsOn, endsOn: input.endsOn,
     });
     await this.billing.subscriptionChanged({ tenantId: id, planCode: plan.code, status: input.status, seatLimit: input.seatLimit });
     await recordPlatformAudit(ctx, {

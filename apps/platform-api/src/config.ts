@@ -37,6 +37,24 @@ const Env = z.object({
   EMAIL_FROM: z.string().min(1).optional(),
   /** Comma-separated addresses told about each new trial application (營運). None = only the platform admin shows them. */
   TRIAL_NOTIFY_EMAILS: z.string().default(''),
+  /**
+   * The marketing site's address, where the payment page lives (/pay/?t=…) and TapPay sends the payer back after 3D
+   * Secure. Default https://{TENANT_BASE_DOMAIN}. TapPay refuses localhost: test 3D Secure locally on
+   * http://127.0.0.1.nip.io:5184.
+   */
+  PUBLIC_SITE_URL: z.url().optional(),
+  /**
+   * Card payments through TapPay Direct Pay (Pay by Prime), as in the Bazar site. All four together, or none (the payment
+   * page then offers no card payment and orders can only be marked paid by hand). The app id and app key are public
+   * (the payment page's SDK uses them); the partner key is secret (Secret Manager in production).
+   */
+  TAPPAY_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  TAPPAY_APP_ID: z.coerce.number().int().positive().optional(),
+  TAPPAY_APP_KEY: z.string().min(1).optional(),
+  TAPPAY_PARTNER_KEY: z.string().min(1).optional(),
+  TAPPAY_MERCHANT_ID: z.string().min(1).optional(),
+  /** 3D Secure. Default on in production (the account's production merchants all require it), off in the sandbox. */
+  TAPPAY_USE_3DS: flag.optional(),
 });
 
 export interface PlatformConfig {
@@ -54,6 +72,19 @@ export interface PlatformConfig {
   gcp?: { projectId: string; kmsKeyRing: string };
   email: EmailConfig;
   trialNotifyEmails: string[];
+  /** e.g. https://care.yutis.net, without a trailing slash. */
+  siteUrl: string;
+  /** Card payments; undefined = not configured. */
+  tappay?: TapPayConfig;
+}
+
+export interface TapPayConfig {
+  env: 'sandbox' | 'production';
+  appId: number;
+  appKey: string;
+  partnerKey: string;
+  merchantId: string;
+  use3DS: boolean;
 }
 
 export type EmailConfig = { provider: 'log' } | { provider: 'resend'; apiKey: string; from: string };
@@ -74,6 +105,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (e.EMAIL_PROVIDER === 'resend' && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) throw new Error('EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM');
   const trialNotifyEmails = e.TRIAL_NOTIFY_EMAILS.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
   if (!trialNotifyEmails.every(a => z.email().safeParse(a).success)) throw new Error('TRIAL_NOTIFY_EMAILS must be comma-separated email addresses');
+  const tappay = [e.TAPPAY_APP_ID, e.TAPPAY_APP_KEY, e.TAPPAY_PARTNER_KEY, e.TAPPAY_MERCHANT_ID];
+  if (tappay.some(v => v !== undefined) && !tappay.every(v => v !== undefined)) {
+    throw new Error('TAPPAY_APP_ID, TAPPAY_APP_KEY, TAPPAY_PARTNER_KEY and TAPPAY_MERCHANT_ID go together');
+  }
   const ways = [e.PLATFORM_DEV_AUTH, !!e.IAP_AUDIENCE, !!e.PLATFORM_SIGN_IN_PROJECT_ID].filter(Boolean).length;
   if (ways !== 1) throw new Error('Configure exactly one of IAP_AUDIENCE, PLATFORM_SIGN_IN_PROJECT_ID or PLATFORM_DEV_AUTH');
   return {
@@ -91,5 +126,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     gcp: e.GCP_PROJECT_ID && e.KMS_KEY_RING ? { projectId: e.GCP_PROJECT_ID, kmsKeyRing: e.KMS_KEY_RING } : undefined,
     email: e.EMAIL_PROVIDER === 'resend' ? { provider: 'resend', apiKey: e.RESEND_API_KEY!, from: e.EMAIL_FROM! } : { provider: 'log' },
     trialNotifyEmails,
+    siteUrl: (e.PUBLIC_SITE_URL ?? `https://${e.TENANT_BASE_DOMAIN.toLowerCase()}`).replace(/\/+$/, ''),
+    tappay: e.TAPPAY_APP_ID && e.TAPPAY_APP_KEY && e.TAPPAY_PARTNER_KEY && e.TAPPAY_MERCHANT_ID
+      ? {
+        env: e.TAPPAY_ENV, appId: e.TAPPAY_APP_ID, appKey: e.TAPPAY_APP_KEY, partnerKey: e.TAPPAY_PARTNER_KEY, merchantId: e.TAPPAY_MERCHANT_ID,
+        use3DS: e.TAPPAY_USE_3DS ?? e.TAPPAY_ENV === 'production',
+      }
+      : undefined,
   };
 }
