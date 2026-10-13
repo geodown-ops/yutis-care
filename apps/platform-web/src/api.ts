@@ -34,6 +34,9 @@ export type Permission = PlatformMe['permissions'][number];
 export type AuditEntry = PlatformSchemas['PlatformAuditEntryDto'];
 export type TrialApplication = PlatformSchemas['TrialApplicationDto'];
 export type AuditPage = PlatformSchemas['PlatformAuditPageDto'];
+export type ChatConversation = PlatformSchemas['ChatConversationDto'];
+export type ChatConversationDetail = PlatformSchemas['ChatConversationDetailDto'];
+export type ChatMessage = ChatConversationDetail['messages'][number];
 export type AuditFilters = NonNullable<PlatformPaths['/platform-api/audit']['get']['parameters']['query']>;
 
 export type TenantStatus = Tenant['status'];
@@ -42,6 +45,7 @@ export type AnnouncementKind = Announcement['kind'];
 export type PlatformRole = PlatformUser['role'];
 export type TemplateKind = TemplateVersion['kind'];
 export type TrialApplicationStatus = TrialApplication['status'];
+export type ChatStatus = ChatConversation['status'];
 
 /** Retry network hiccups and 5xx, never a 4xx: the answer will not change and the error should show at once. */
 export const shouldRetry = (failures: number, error: unknown) =>
@@ -80,6 +84,20 @@ export const usageQuery = (month: string) => queryOptions({
 export const trialApplicationsQuery = queryOptions({
   queryKey: ['trial-applications'],
   queryFn: () => data(api.GET('/platform-api/trial-applications')),
+});
+
+/** Site chats (線上客服), most recent first. Asked for often: visitors are waiting on the other side. */
+export const chatConversationsQuery = queryOptions({
+  queryKey: ['chat-conversations'],
+  queryFn: () => data(api.GET('/platform-api/chat/conversations')),
+  refetchInterval: 5_000,
+});
+
+/** One chat with its messages; opening it marks the visitor's messages read. */
+export const chatConversationQuery = (id: string) => queryOptions({
+  queryKey: ['chat-conversations', id],
+  queryFn: () => data(api.GET('/platform-api/chat/conversations/{id}', { params: { path: { id } } })),
+  refetchInterval: 3_000,
 });
 
 export const announcementsQuery = queryOptions({

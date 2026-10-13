@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AnnouncementsRouteImport } from './routes/announcements'
+import { Route as LiveChatRouteImport } from './routes/live-chat'
 import { Route as PlatformUsersRouteImport } from './routes/platform-users'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as TrialApplicationsRouteImport } from './routes/trial-applications'
@@ -32,6 +33,11 @@ const SplatRoute = SplatRouteImport.update({
 const AnnouncementsRoute = AnnouncementsRouteImport.update({
   id: '/announcements',
   path: '/announcements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveChatRoute = LiveChatRouteImport.update({
+  id: '/live-chat',
+  path: '/live-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformUsersRoute = PlatformUsersRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/announcements': typeof AnnouncementsRoute
+  '/live-chat': typeof LiveChatRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
   '/trial-applications': typeof TrialApplicationsRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/announcements': typeof AnnouncementsRoute
+  '/live-chat': typeof LiveChatRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
   '/trial-applications': typeof TrialApplicationsRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/announcements': typeof AnnouncementsRoute
+  '/live-chat': typeof LiveChatRoute
   '/platform-users': typeof PlatformUsersRoute
   '/templates': typeof TemplatesRoute
   '/trial-applications': typeof TrialApplicationsRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/announcements'
+    | '/live-chat'
     | '/platform-users'
     | '/templates'
     | '/trial-applications'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/announcements'
+    | '/live-chat'
     | '/platform-users'
     | '/templates'
     | '/trial-applications'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/announcements'
+    | '/live-chat'
     | '/platform-users'
     | '/templates'
     | '/trial-applications'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   AnnouncementsRoute: typeof AnnouncementsRoute
+  LiveChatRoute: typeof LiveChatRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
   TemplatesRoute: typeof TemplatesRoute
   TrialApplicationsRoute: typeof TrialApplicationsRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/announcements'
       fullPath: '/announcements'
       preLoaderRoute: typeof AnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live-chat': {
+      id: '/live-chat'
+      path: '/live-chat'
+      fullPath: '/live-chat'
+      preLoaderRoute: typeof LiveChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/platform-users': {
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   AnnouncementsRoute: AnnouncementsRoute,
+  LiveChatRoute: LiveChatRoute,
   PlatformUsersRoute: PlatformUsersRoute,
   TemplatesRoute: TemplatesRoute,
   TrialApplicationsRoute: TrialApplicationsRoute,

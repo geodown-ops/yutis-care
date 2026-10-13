@@ -1,15 +1,16 @@
-import { Button, Group, Text } from '@mantine/core';
+import { Badge, Button, Group, Text } from '@mantine/core';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useLocation, useRouter } from '@tanstack/react-router';
 import { platformIdToken, signOutPlatform, type PlatformSignInConfig } from '@yutis/sign-in';
 import { ConsoleShell, NavSection, SidebarIcon, sidebarLinkStyles } from '@yutis/ui';
 import { useCallback, useEffect, useMemo } from 'react';
-import { meQuery, sendIdTokens, type PlatformMe } from '../api';
+import { chatConversationsQuery, meQuery, sendIdTokens, type PlatformMe } from '../api';
 import { accountQuery, googleSignIn, onUnauthorized, signInConfigQuery } from '../auth';
+import { unreadTotal } from '../chat';
 import { errorMessage } from '../errors';
 import { menuLink, NavLinkRouter } from '../links';
 import { isActivePath, NAV } from '../nav';
-import { MeContext, visibleNav } from '../permissions';
+import { can, MeContext, visibleNav } from '../permissions';
 import { SignInFrame, SignInPage } from '../SignInPage';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({ component: PlatformRoot });
@@ -80,6 +81,9 @@ function SignedIn({ onSignOut }: { onSignOut?: () => void }) {
 function PlatformLayout({ me, onSignOut }: { me: PlatformMe; onSignOut?: () => void }) {
   const { pathname } = useLocation();
   const { routesByPath } = useRouter();
+  // Waiting site visitors show on the menu wherever staff are in the admin.
+  const chats = useQuery({ ...chatConversationsQuery, refetchInterval: 15_000, enabled: can(me, 'chat:manage') });
+  const unread = unreadTotal(chats.data);
   return (
     <ConsoleShell
       title="Yutis Care"
@@ -90,7 +94,8 @@ function PlatformLayout({ me, onSignOut }: { me: PlatformMe; onSignOut?: () => v
         <NavSection key={g.label} label={g.label}>
           {g.items.map(it => {
             const active = isActivePath(it.path, pathname);
-            return <NavLinkRouter key={it.path} {...menuLink(it.path, routesByPath)} label={it.label} leftSection={<SidebarIcon icon={it.icon} active={active} />} active={active} onClick={close} aria-current={active ? 'page' : undefined} styles={sidebarLinkStyles(active)} />;
+            return <NavLinkRouter key={it.path} {...menuLink(it.path, routesByPath)} label={it.label} leftSection={<SidebarIcon icon={it.icon} active={active} />}
+              rightSection={it.path === '/live-chat' && unread > 0 ? <Badge size="sm" color="red" aria-label={`${unread} 則未讀`}>{unread}</Badge> : undefined} active={active} onClick={close} aria-current={active ? 'page' : undefined} styles={sidebarLinkStyles(active)} />;
           })}
         </NavSection>
       ))}
