@@ -37,6 +37,8 @@ const Env = z.object({
   EMAIL_FROM: z.string().min(1).optional(),
   /** Comma-separated addresses told about each new trial application (營運). None = only the platform admin shows them. */
   TRIAL_NOTIFY_EMAILS: z.string().default(''),
+  /** Comma-separated addresses told about new chats from the site (線上客服). Unset = the same as TRIAL_NOTIFY_EMAILS. */
+  CHAT_NOTIFY_EMAILS: z.string().optional(),
 });
 
 export interface PlatformConfig {
@@ -54,6 +56,7 @@ export interface PlatformConfig {
   gcp?: { projectId: string; kmsKeyRing: string };
   email: EmailConfig;
   trialNotifyEmails: string[];
+  chatNotifyEmails: string[];
 }
 
 export type EmailConfig = { provider: 'log' } | { provider: 'resend'; apiKey: string; from: string };
@@ -72,8 +75,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error('PLATFORM_SIGN_IN_PROJECT_ID, PLATFORM_SIGN_IN_API_KEY and PLATFORM_SIGN_IN_AUTH_DOMAIN go together');
   }
   if (e.EMAIL_PROVIDER === 'resend' && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) throw new Error('EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM');
-  const trialNotifyEmails = e.TRIAL_NOTIFY_EMAILS.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
-  if (!trialNotifyEmails.every(a => z.email().safeParse(a).success)) throw new Error('TRIAL_NOTIFY_EMAILS must be comma-separated email addresses');
+  const addresses = (name: string, value: string) => {
+    const list = value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+    if (!list.every(a => z.email().safeParse(a).success)) throw new Error(`${name} must be comma-separated email addresses`);
+    return list;
+  };
+  const trialNotifyEmails = addresses('TRIAL_NOTIFY_EMAILS', e.TRIAL_NOTIFY_EMAILS);
+  const chatNotifyEmails = e.CHAT_NOTIFY_EMAILS === undefined ? trialNotifyEmails : addresses('CHAT_NOTIFY_EMAILS', e.CHAT_NOTIFY_EMAILS);
   const ways = [e.PLATFORM_DEV_AUTH, !!e.IAP_AUDIENCE, !!e.PLATFORM_SIGN_IN_PROJECT_ID].filter(Boolean).length;
   if (ways !== 1) throw new Error('Configure exactly one of IAP_AUDIENCE, PLATFORM_SIGN_IN_PROJECT_ID or PLATFORM_DEV_AUTH');
   return {
@@ -91,5 +99,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     gcp: e.GCP_PROJECT_ID && e.KMS_KEY_RING ? { projectId: e.GCP_PROJECT_ID, kmsKeyRing: e.KMS_KEY_RING } : undefined,
     email: e.EMAIL_PROVIDER === 'resend' ? { provider: 'resend', apiKey: e.RESEND_API_KEY!, from: e.EMAIL_FROM! } : { provider: 'log' },
     trialNotifyEmails,
+    chatNotifyEmails,
   };
 }

@@ -2348,11 +2348,629 @@
           "trial-applications"
         ]
       }
+    },
+    "/platform-api/public/chat/conversations": {
+      "post": {
+        "description": "儲存第一則訊息並以 Email 通知平台人員。回傳的 token 之後放在 X-Chat-Token 標頭。同一個來源每天最多開 5 段對話。",
+        "operationId": "ChatController_start",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 254,
+                            "format": "email",
+                            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
+                  },
+                  "companyName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "page": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200,
+                        "pattern": "^\\/"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "consent": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "elapsedMs": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "name",
+                  "message",
+                  "consent"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedChatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "validation_failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "開始線上客服對話（官網，不需登入）",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/public/chat/conversation": {
+      "get": {
+        "description": "依 X-Chat-Token 找到對話。帶 after（ISO 時間）時只回之後的訊息。",
+        "operationId": "ChatController_visitorRead",
+        "parameters": [
+          {
+            "name": "after",
+            "required": false,
+            "in": "query",
+            "description": "ISO 8601 時間",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-chat-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorConversationDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "chat_token_invalid：token 不對或對話已刪除，請重新開始",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "訪客讀取自己的對話（官網輪詢）",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/public/chat/conversation/messages": {
+      "post": {
+        "description": "已結束的對話會重新開啟並通知平台人員。每段對話 10 分鐘內最多 30 則。",
+        "operationId": "ChatController_visitorSend",
+        "parameters": [
+          {
+            "name": "x-chat-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorMessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "訪客留言",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/chat/conversations": {
+      "get": {
+        "description": "最近有訊息的在前。status 不給時列出全部。",
+        "operationId": "ChatController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "open",
+                "closed"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatConversationDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "線上客服對話列表",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/chat/conversations/{id}": {
+      "get": {
+        "description": "同時標為已讀。",
+        "operationId": "ChatController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "一段對話與全部訊息",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/chat/conversations/{id}/messages": {
+      "post": {
+        "description": "已結束的對話會重新開啟。訪客已離開官網（45 秒沒有連線）且留了 Email 時，回覆也會寄到訪客信箱。",
+        "operationId": "ChatController_reply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "回覆訪客",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/chat/conversations/{id}/close": {
+      "post": {
+        "description": "訪客會看到對話已結束；訪客再留言時自動重新開啟。",
+        "operationId": "ChatController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "結束對話",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/platform-api/chat/conversations/{id}/reopen": {
+      "post": {
+        "operationId": "ChatController_reopen",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "不是平台人員（not_platform_user），或角色沒有此權限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "iap": []
+          },
+          {
+            "google-sign-in": []
+          }
+        ],
+        "summary": "重新開啟對話",
+        "tags": [
+          "chat"
+        ]
+      }
     }
   },
   "info": {
     "title": "Yutis Care 平台 API",
-    "description": "平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
+    "description": "平台管理後台（admin.care.yutis.net）用：租戶開通與停用、官網的線上申請試用與線上客服、方案與訂閱、用量計數、公告、平台人員、平台稽核紀錄。以 yutis_platform 資料庫角色連線，看不到任何員工或健康資料。",
     "version": "0.1.0",
     "contact": {}
   },
@@ -2446,7 +3064,8 @@
                 "announcements:write",
                 "templates:write",
                 "platform-users:manage",
-                "audit:read"
+                "audit:read",
+                "chat:manage"
               ]
             }
           }
@@ -3131,6 +3750,298 @@
           "decidedAt",
           "decidedBy",
           "declineReason"
+        ]
+      },
+      "VisitorMessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "type": "string",
+            "enum": [
+              "visitor",
+              "staff",
+              "system"
+            ],
+            "description": "visitor：訪客；staff：Yutis Care 客服（不顯示是哪位）；system：系統訊息"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "body",
+          "createdAt"
+        ]
+      },
+      "StartedChatDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "messages": {
+            "description": "依時間先後；帶 after 時只有之後的訊息",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitorMessageDto"
+            }
+          },
+          "token": {
+            "type": "string",
+            "description": "之後每個請求放在 X-Chat-Token 標頭；只存在訪客的瀏覽器"
+          }
+        },
+        "required": [
+          "status",
+          "messages",
+          "token"
+        ]
+      },
+      "VisitorConversationDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "messages": {
+            "description": "依時間先後；帶 after 時只有之後的訊息",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitorMessageDto"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "messages"
+        ]
+      },
+      "ChatConversationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "進行中、已結束"
+          },
+          "visitorName": {
+            "type": "string"
+          },
+          "visitorEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "page": {
+            "type": "string",
+            "nullable": true,
+            "description": "在官網哪一頁開始對話"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "最後一則訊息（截短）"
+          },
+          "lastAuthor": {
+            "type": "string",
+            "enum": [
+              "visitor",
+              "staff",
+              "system"
+            ],
+            "nullable": true
+          },
+          "unread": {
+            "type": "number",
+            "description": "平台人員還沒看過的訪客訊息數"
+          },
+          "visitorOnline": {
+            "type": "boolean",
+            "description": "訪客還開著官網（最近 45 秒內有連線）"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "visitorName",
+          "visitorEmail",
+          "companyName",
+          "page",
+          "createdAt",
+          "lastMessageAt",
+          "lastMessage",
+          "lastAuthor",
+          "unread",
+          "visitorOnline",
+          "closedAt"
+        ]
+      },
+      "StaffMessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "type": "string",
+            "enum": [
+              "visitor",
+              "staff",
+              "system"
+            ],
+            "description": "visitor：訪客；staff：Yutis Care 客服（不顯示是哪位）；system：系統訊息"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "staffName": {
+            "type": "string",
+            "nullable": true,
+            "description": "author=staff 時回覆的平台人員"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "body",
+          "createdAt",
+          "staffName"
+        ]
+      },
+      "ChatConversationDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "進行中、已結束"
+          },
+          "visitorName": {
+            "type": "string"
+          },
+          "visitorEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "page": {
+            "type": "string",
+            "nullable": true,
+            "description": "在官網哪一頁開始對話"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastMessage": {
+            "type": "string",
+            "nullable": true,
+            "description": "最後一則訊息（截短）"
+          },
+          "lastAuthor": {
+            "type": "string",
+            "enum": [
+              "visitor",
+              "staff",
+              "system"
+            ],
+            "nullable": true
+          },
+          "unread": {
+            "type": "number",
+            "description": "平台人員還沒看過的訪客訊息數"
+          },
+          "visitorOnline": {
+            "type": "boolean",
+            "description": "訪客還開著官網（最近 45 秒內有連線）"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffMessageDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "visitorName",
+          "visitorEmail",
+          "companyName",
+          "page",
+          "createdAt",
+          "lastMessageAt",
+          "lastMessage",
+          "lastAuthor",
+          "unread",
+          "visitorOnline",
+          "closedAt",
+          "messages"
         ]
       }
     }

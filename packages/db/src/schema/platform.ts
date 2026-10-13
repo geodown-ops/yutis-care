@@ -124,3 +124,44 @@ export const trialApplications = pgTable('trial_applications', {
   tenantId: uuid('tenant_id').references(() => tenants.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, t => [index('trial_applications_status_idx').on(t.status, t.createdAt), index('trial_applications_ip_idx').on(t.ipHash, t.createdAt)]);
+
+export const chatConversationStatusEnum = pgEnum('chat_conversation_status', ['open', 'closed']);
+export const chatAuthorEnum = pgEnum('chat_author', ['visitor', 'staff', 'system']);
+
+/**
+ * Online customer chat from the marketing site (線上客服). Visitors chat without signing in: the browser keeps a random
+ * token and only its hash is stored here. Prospective customers' names and messages only, never health data. Platform
+ * staff answer in the platform admin; conversations with no message for a year are deleted.
+ */
+export const chatConversations = pgTable('chat_conversations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  status: chatConversationStatusEnum('status').notNull().default('open'),
+  visitorName: text('visitor_name').notNull(),
+  visitorEmail: text('visitor_email'),
+  companyName: text('company_name'),
+  /** SHA-256 of the visitor's token; the token itself is only in their browser. */
+  tokenHash: text('token_hash').notNull().unique(),
+  /** Keyed hash of the client IP, only to limit how many conversations one address may start. */
+  ipHash: text('ip_hash').notNull(),
+  /** The site page the chat was started on, e.g. /trial/. */
+  page: text('page'),
+  consentedAt: timestamp('consented_at', { withTimezone: true }).notNull(),
+  lastMessageAt: timestamp('last_message_at', { withTimezone: true }).notNull().defaultNow(),
+  /** The visitor's window last asked for messages: whether they are still on the page. */
+  visitorSeenAt: timestamp('visitor_seen_at', { withTimezone: true }),
+  /** Staff last opened the conversation; visitor messages after it are unread. */
+  staffReadAt: timestamp('staff_read_at', { withTimezone: true }),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+  closedBy: uuid('closed_by').references(() => platformUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [index('chat_conversations_status_idx').on(t.status, t.lastMessageAt), index('chat_conversations_ip_idx').on(t.ipHash, t.createdAt)]);
+
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  conversationId: uuid('conversation_id').notNull().references(() => chatConversations.id, { onDelete: 'cascade' }),
+  author: chatAuthorEnum('author').notNull(),
+  /** Who answered, for author = staff. Visitors only ever see "Yutis Care 客服". */
+  staffId: uuid('staff_id').references(() => platformUsers.id),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [index('chat_messages_conversation_idx').on(t.conversationId, t.createdAt)]);

@@ -1,5 +1,5 @@
 /* Platform admin navigation (frontend/backend plan, 平台管理後台). It manages customers, never employees. */
-import { IconBuildingCommunity, IconChartBar, IconHeadset, IconInbox, IconPlus, IconSpeakerphone, IconTemplate, IconUserShield } from '@tabler/icons-react';
+import { IconBuildingCommunity, IconChartBar, IconHeadset, IconInbox, IconMessageCircle, IconPlus, IconSpeakerphone, IconTemplate, IconUserShield } from '@tabler/icons-react';
 import type { ComponentType } from 'react';
 import type { Permission } from './api';
 
@@ -15,6 +15,7 @@ export const NAV: { label: string; items: NavItem[] }[] = [
   { label: '客戶', items: [
     { path: '/', label: '租戶列表', icon: IconBuildingCommunity },
     { path: '/trial-applications', label: '試用申請', icon: IconInbox },
+    { path: '/live-chat', label: '線上客服', icon: IconMessageCircle, permission: 'chat:manage' },
     { path: '/tenants/new', label: '新增租戶', icon: IconPlus, permission: 'tenants:write' },
     { path: '/usage', label: '用量', icon: IconChartBar },
     { path: '/support-access', label: '客服存取', icon: IconHeadset },

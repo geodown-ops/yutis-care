@@ -10,10 +10,11 @@ import {
   type TrialEmployeeRange,
   type TrialIdentityProvider,
 } from '@yutis/domain';
+import { CONTACT_EMAIL } from './contact.js';
 
 /** Where the site sends applications; nginx serves the platform API under this path on the site's own host. */
 export const TRIAL_ENDPOINT = '/platform-api/public/trial-applications';
-export const CONTACT_EMAIL = 'care@yutis.net';
+export { CONTACT_EMAIL };
 
 /** What the applicant typed, as read from the form. */
 export interface TrialFormValues {

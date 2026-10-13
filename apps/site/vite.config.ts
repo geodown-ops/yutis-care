@@ -49,7 +49,13 @@ export default defineConfig({
   plugins: [includePartials()],
   // Use the domain package's source directly, so dev, tests and typecheck never need its dist build. Only its trial rules:
   // the package index has module-level code (NMQ tables and such) that would otherwise ride along in the site's bundle.
-  resolve: { alias: { '@yutis/domain': resolve(root, '../../packages/domain/src/trial.ts') } },
+  // The chat window's shared limits come the same way, from chat.ts.
+  resolve: {
+    alias: [
+      { find: /^@yutis\/domain$/, replacement: resolve(root, '../../packages/domain/src/trial.ts') },
+      { find: /^@yutis\/domain\/chat$/, replacement: resolve(root, '../../packages/domain/src/chat.ts') },
+    ],
+  },
   build: {
     rollupOptions: { input: Object.fromEntries(pages.map(p => [p.replace(/(\/index)?\.html$/, '') || 'home', resolve(root, p)])) },
     assetsInlineLimit: 0,

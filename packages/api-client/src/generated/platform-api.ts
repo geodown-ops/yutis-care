@@ -445,6 +445,163 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform-api/public/chat/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 開始線上客服對話（官網，不需登入）
+         * @description 儲存第一則訊息並以 Email 通知平台人員。回傳的 token 之後放在 X-Chat-Token 標頭。同一個來源每天最多開 5 段對話。
+         */
+        post: operations["ChatController_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/chat/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 訪客讀取自己的對話（官網輪詢）
+         * @description 依 X-Chat-Token 找到對話。帶 after（ISO 時間）時只回之後的訊息。
+         */
+        get: operations["ChatController_visitorRead"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/public/chat/conversation/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 訪客留言
+         * @description 已結束的對話會重新開啟並通知平台人員。每段對話 10 分鐘內最多 30 則。
+         */
+        post: operations["ChatController_visitorSend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/chat/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 線上客服對話列表
+         * @description 最近有訊息的在前。status 不給時列出全部。
+         */
+        get: operations["ChatController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/chat/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 一段對話與全部訊息
+         * @description 同時標為已讀。
+         */
+        get: operations["ChatController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/chat/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 回覆訪客
+         * @description 已結束的對話會重新開啟。訪客已離開官網（45 秒沒有連線）且留了 Email 時，回覆也會寄到訪客信箱。
+         */
+        post: operations["ChatController_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/chat/conversations/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 結束對話
+         * @description 訪客會看到對話已結束；訪客再留言時自動重新開啟。
+         */
+        post: operations["ChatController_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform-api/chat/conversations/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新開啟對話 */
+        post: operations["ChatController_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -472,7 +629,7 @@ export interface components {
             /** @enum {string} */
             role: "營運" | "客服" | "工程";
             /** @description 這個角色能做的事；畫面依此隱藏按鈕（API 仍會逐一檢查） */
-            permissions: ("tenants:read" | "tenants:write" | "subscriptions:write" | "announcements:write" | "templates:write" | "platform-users:manage" | "audit:read")[];
+            permissions: ("tenants:read" | "tenants:write" | "subscriptions:write" | "announcements:write" | "templates:write" | "platform-users:manage" | "audit:read" | "chat:manage")[];
         };
         ApiErrorDto: {
             /** @example 403 */
@@ -697,6 +854,103 @@ export interface components {
              * @description 開通後的租戶
              */
             tenantId?: string | null;
+        };
+        VisitorMessageDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description visitor：訪客；staff：Yutis Care 客服（不顯示是哪位）；system：系統訊息
+             * @enum {string}
+             */
+            author: "visitor" | "staff" | "system";
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StartedChatDto: {
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** @description 依時間先後；帶 after 時只有之後的訊息 */
+            messages: components["schemas"]["VisitorMessageDto"][];
+            /** @description 之後每個請求放在 X-Chat-Token 標頭；只存在訪客的瀏覽器 */
+            token: string;
+        };
+        VisitorConversationDto: {
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** @description 依時間先後；帶 after 時只有之後的訊息 */
+            messages: components["schemas"]["VisitorMessageDto"][];
+        };
+        ChatConversationDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description 進行中、已結束
+             * @enum {string}
+             */
+            status: "open" | "closed";
+            visitorName: string;
+            visitorEmail: string | null;
+            companyName: string | null;
+            /** @description 在官網哪一頁開始對話 */
+            page: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** @description 最後一則訊息（截短） */
+            lastMessage: string | null;
+            /** @enum {string|null} */
+            lastAuthor: "visitor" | "staff" | "system" | null;
+            /** @description 平台人員還沒看過的訪客訊息數 */
+            unread: number;
+            /** @description 訪客還開著官網（最近 45 秒內有連線） */
+            visitorOnline: boolean;
+            /** Format: date-time */
+            closedAt: string | null;
+        };
+        StaffMessageDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description visitor：訪客；staff：Yutis Care 客服（不顯示是哪位）；system：系統訊息
+             * @enum {string}
+             */
+            author: "visitor" | "staff" | "system";
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description author=staff 時回覆的平台人員 */
+            staffName: string | null;
+        };
+        ChatConversationDetailDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description 進行中、已結束
+             * @enum {string}
+             */
+            status: "open" | "closed";
+            visitorName: string;
+            visitorEmail: string | null;
+            companyName: string | null;
+            /** @description 在官網哪一頁開始對話 */
+            page: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** @description 最後一則訊息（截短） */
+            lastMessage: string | null;
+            /** @enum {string|null} */
+            lastAuthor: "visitor" | "staff" | "system" | null;
+            /** @description 平台人員還沒看過的訪客訊息數 */
+            unread: number;
+            /** @description 訪客還開著官網（最近 45 秒內有連線） */
+            visitorOnline: boolean;
+            /** Format: date-time */
+            closedAt: string | null;
+            messages: components["schemas"]["StaffMessageDto"][];
         };
     };
     responses: never;
@@ -1996,6 +2250,365 @@ export interface operations {
             };
             /** @description 申請已處理過（trial_application_decided） */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    email?: (string | null) | "";
+                    companyName?: string | null;
+                    message: string;
+                    page?: string | null;
+                    /** @constant */
+                    consent: true;
+                    website?: string;
+                    elapsedMs?: number;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedChatDto"];
+                };
+            };
+            /** @description validation_failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_visitorRead: {
+        parameters: {
+            query?: {
+                /** @description ISO 8601 時間 */
+                after?: string;
+            };
+            header: {
+                "x-chat-token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorConversationDto"];
+                };
+            };
+            /** @description chat_token_invalid：token 不對或對話已刪除，請重新開始 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_visitorSend: {
+        parameters: {
+            query?: never;
+            header: {
+                "x-chat-token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitorMessageDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_list: {
+        parameters: {
+            query?: {
+                status?: "open" | "closed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversationDto"][];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversationDetailDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversationDetailDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversationDetailDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+        };
+    };
+    ChatController_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatConversationDetailDto"];
+                };
+            };
+            /** @description 沒有有效身分（Identity-Aware Proxy，或 Google 登入的 ID token） */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description 不是平台人員（not_platform_user），或角色沒有此權限 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

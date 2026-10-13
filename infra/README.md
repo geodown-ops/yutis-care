@@ -85,6 +85,8 @@ terraform apply
 
 官網的「線上申請試用」表單送到平台 API 的公開路由（負載平衡器在 `care.yutis.net` 上只開放 `/platform-api/public/*`，不經 IAP，每個 IP 每分鐘 10 次）。申請只會儲存並寄信通知，要由營運在平台管理後台「試用申請」按「開通」才會建立租戶。通知信寄給 `trial_notify_emails`（沒填時用 `platform_admin_emails`），需要已設定 `email_from`。
 
+官網每頁右下角的「線上客服」也走同一組公開路由（`/platform-api/public/chat/*`，每個 IP 每分鐘 120 次，因為聊天視窗開著時每 4 秒問一次新訊息）。訪客不需登入，平台人員（營運、客服角色）在平台管理後台「線上客服」回覆。新對話的通知信同樣寄給 `trial_notify_emails`；平台 API 另可用環境變數 `CHAT_NOTIFY_EMAILS` 改寄別的信箱。
+
 ### GitHub 設定
 
 - 每個環境填入 `github_variables` 的 7 個變數，另外可設 `SITE_URL`（示範站 `https://demo.care.yutis.net`；正式站填一個租戶網址），部署完會檢查它是否正常。

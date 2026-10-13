@@ -2,7 +2,7 @@
   "name": "@yutis/site",
   "version": "0.1.0",
   "private": true,
-  "description": "Yutis Care 官網（care.yutis.net）：產品介紹、線上申請試用、登入入口、隱私權政策與試用條款。靜態多頁，不含第三方追蹤。",
+  "description": "Yutis Care 官網（care.yutis.net）：產品介紹、線上申請試用、線上客服、登入入口、隱私權政策與試用條款。靜態多頁，不含第三方追蹤。",
   "type": "module",
   "scripts": {
     "dev": "vite",
