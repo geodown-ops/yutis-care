@@ -211,6 +211,20 @@
       "when": 1791278009481,
       "tag": "0029_trial_applications_access",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791850393736,
+      "tag": "0030_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791850394920,
+      "tag": "0031_chat_access",
+      "breakpoints": true
     }
   ]
 }

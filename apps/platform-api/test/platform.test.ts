@@ -5,7 +5,7 @@
 import { Controller, Module, Post } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
-  announcements, departments, employees, gradingRules, legalEntities, phrases, platformAuditLog, platformUsers, plans, sites,
+  announcements, chatConversations, departments, employees, gradingRules, legalEntities, phrases, platformAuditLog, platformUsers, plans, sites,
   tenants, tenantSettings, tenantSubscriptions, usageCounters, users, type Db,
 } from '@yutis/db';
 import { RULES_V1 } from '@yutis/domain';
@@ -134,7 +134,7 @@ describe('sign-in', () => {
 
   it('tells any platform user who they are and what they may do', async () => {
     expect((await call('GET', '/me', SUPPORT)).json()).toEqual({
-      id: expect.any(String), email: SUPPORT, name: '客服小李', role: '客服', permissions: ['tenants:read', 'announcements:write', 'audit:read'],
+      id: expect.any(String), email: SUPPORT, name: '客服小李', role: '客服', permissions: ['tenants:read', 'announcements:write', 'audit:read', 'chat:manage'],
     });
     expect((await call('GET', '/me')).statusCode).toBe(401);
     expect((await call('GET', '/me', 'gone@yutis.test')).statusCode).toBe(403);
@@ -405,5 +405,102 @@ describe('trial applications', () => {
     expect(res.json()).toMatchObject({ status: 'declined', declineReason: '重複申請', decidedBy: OPS });
     expect((await call('POST', `/trial-applications/${pending.id}/decline`, OPS, { reason: 'again' })).statusCode).toBe(409);
     expect((await call('POST', '/trial-applications/00000000-0000-4000-8000-000000000000/decline', OPS, { reason: 'x' })).statusCode).toBe(404);
+  });
+});
+
+describe('site chat', () => {
+  const start = (extra: Record<string, unknown> = {}, ip = '198.51.100.9') => app.inject({
+    method: 'POST', url: '/platform-api/public/chat/conversations', remoteAddress: ip,
+    payload: { name: '林小姐', email: 'Lin@Example.test', companyName: '大南汽車', message: '請問可以地端部署嗎？', page: '/trial/', consent: true, website: '', elapsedMs: 9_000, ...extra },
+  });
+  const visitor = (method: 'GET' | 'POST', url: string, token: string, body?: unknown) => app.inject({
+    method, url: `/platform-api/public/chat/conversation${url}`, headers: { 'x-chat-token': token }, ...(body === undefined ? {} : { payload: body as object }),
+  });
+
+  it('lets a visitor start a chat without signing in and tells operations', async () => {
+    email.sent = [];
+    const res = await start();
+    expect(res.statusCode).toBe(201);
+    const { token, status, messages } = res.json();
+    expect(token).toMatch(/^[\w-]{40,}$/);
+    expect(status).toBe('open');
+    expect(messages).toEqual([expect.objectContaining({ author: 'visitor', body: '請問可以地端部署嗎？' })]);
+    expect(email.sent).toEqual([expect.objectContaining({ to: 'ops@yutis.test', subject: '線上客服新對話：林小姐（大南汽車）' })]);
+    expect(email.sent[0]!.text).toContain('https://admin.care.test/live-chat?c=');
+    // Only the token's hash is stored.
+    const stored = await owner.select().from(chatConversations);
+    expect(stored.some(c => c.tokenHash === token)).toBe(false);
+    expect(await auditActions()).toContain('chat.start');
+  });
+
+  it('refuses bad input, unknown tokens and silently drops bots', async () => {
+    expect((await start({ consent: false })).statusCode).toBe(400);
+    expect((await start({ message: '   ' })).statusCode).toBe(400);
+    expect((await start({ message: 'x'.repeat(2001) })).statusCode).toBe(400);
+    expect((await visitor('GET', '', 'nope')).json()).toMatchObject({ status: 401, code: 'chat_token_invalid' });
+    const before = (await owner.select().from(chatConversations)).length;
+    email.sent = [];
+    expect((await start({ website: 'http://spam.test' })).statusCode).toBe(201);
+    expect((await start({ elapsedMs: 100 })).statusCode).toBe(201);
+    expect((await owner.select().from(chatConversations)).length).toBe(before);
+    expect(email.sent).toEqual([]);
+  });
+
+  it('limits how many chats one address may start in a day', async () => {
+    for (let i = 0; i < 5; i++) expect((await start({}, '192.0.2.50')).statusCode).toBe(201);
+    expect((await start({}, '192.0.2.50')).statusCode).toBe(429);
+  });
+
+  it('carries a conversation between visitor and staff, and only staff with chat:manage see it', async () => {
+    const { token } = (await start({ name: '陳先生', email: null, companyName: null, message: '你好' }, '192.0.2.60')).json();
+    expect((await call('GET', '/chat/conversations', ENG)).statusCode).toBe(403);
+    const list = (await call('GET', '/chat/conversations?status=open', SUPPORT)).json();
+    const mine = list.find((c: { visitorName: string }) => c.visitorName === '陳先生');
+    expect(mine).toMatchObject({ unread: 1, lastMessage: '你好', lastAuthor: 'visitor', visitorOnline: true, visitorEmail: null });
+
+    const opened = (await call('GET', `/chat/conversations/${mine.id}`, SUPPORT)).json();
+    expect(opened.messages).toHaveLength(1);
+    expect((await call('GET', '/chat/conversations?status=open', SUPPORT)).json().find((c: { id: string }) => c.id === mine.id).unread).toBe(0);
+
+    const replied = await call('POST', `/chat/conversations/${mine.id}/messages`, SUPPORT, { body: '您好，可以的。' });
+    expect(replied.statusCode).toBe(201);
+    expect(replied.json().messages.at(-1)).toMatchObject({ author: 'staff', staffName: '客服小李', body: '您好，可以的。' });
+    expect(await auditActions()).toContain('chat.reply');
+
+    const seen = (await visitor('GET', '', token)).json();
+    expect(seen.messages.map((m: { author: string }) => m.author)).toEqual(['visitor', 'staff']);
+    expect(seen.messages[1]).not.toHaveProperty('staffName');
+    // After a time: the messages since then, possibly overlapping (the window keeps them by id).
+    const later = (await visitor('GET', `?after=${encodeURIComponent(seen.messages[0].createdAt)}`, token)).json().messages;
+    expect(later.map((m: { id: string }) => m.id)).toContain(seen.messages[1].id);
+    expect((await visitor('GET', `?after=${encodeURIComponent(new Date(Date.now() + 60_000).toISOString())}`, token)).json().messages).toEqual([]);
+
+    // Closing tells the visitor; their next message reopens it and tells operations.
+    expect((await call('POST', `/chat/conversations/${mine.id}/close`, SUPPORT)).json()).toMatchObject({ status: 'closed', closedAt: expect.any(String) });
+    expect((await visitor('GET', '', token)).json()).toMatchObject({ status: 'closed', messages: expect.arrayContaining([expect.objectContaining({ author: 'system' })]) });
+    email.sent = [];
+    expect((await visitor('POST', '/messages', token, { body: '還有一個問題' })).statusCode).toBe(201);
+    expect((await visitor('GET', '', token)).json().status).toBe('open');
+    expect(email.sent).toEqual([expect.objectContaining({ subject: '線上客服：陳先生 又留言了' })]);
+  });
+
+  it('emails a staff reply to a visitor who has left the page', async () => {
+    const { token } = (await start({ name: '王經理', email: 'wang@corp.test', message: '價格怎麼算？' }, '192.0.2.70')).json();
+    expect(token).toBeTruthy();
+    const [row] = await owner.select().from(chatConversations).where(eq(chatConversations.visitorName, '王經理'));
+    // Still on the page: no email.
+    email.sent = [];
+    await call('POST', `/chat/conversations/${row!.id}/messages`, OPS, { body: '稍等，我查一下。' });
+    expect(email.sent).toEqual([]);
+    await owner.update(chatConversations).set({ visitorSeenAt: new Date(Date.now() - 120_000) }).where(eq(chatConversations.id, row!.id));
+    await call('POST', `/chat/conversations/${row!.id}/messages`, OPS, { body: '依員工人數計價，我們會寄報價給您。' });
+    expect(email.sent).toEqual([expect.objectContaining({ to: 'wang@corp.test', subject: 'Yutis Care 客服回覆了您的訊息' })]);
+    expect(email.sent[0]!.text).toContain('依員工人數計價');
+  });
+
+  it('limits how fast a visitor may write', async () => {
+    const { token } = (await start({ name: '洗版', message: '1' }, '192.0.2.80')).json();
+    for (let i = 0; i < 29; i++) await visitor('POST', '/messages', token, { body: `m${i}` });
+    expect((await visitor('POST', '/messages', token, { body: 'too many' })).statusCode).toBe(429);
   });
 });

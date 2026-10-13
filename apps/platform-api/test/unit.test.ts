@@ -94,6 +94,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...dev, EMAIL_PROVIDER: 'resend' })).toThrow(/RESEND_API_KEY/);
     expect(() => loadConfig({ ...dev, TRIAL_NOTIFY_EMAILS: 'not-an-address' })).toThrow(/TRIAL_NOTIFY_EMAILS/);
   });
+
+  it('tells the trial addresses about site chats unless CHAT_NOTIFY_EMAILS says otherwise', () => {
+    const dev = { ...env, PLATFORM_DEV_AUTH: 'true', TRIAL_NOTIFY_EMAILS: 'ops@yutis.test' };
+    expect(loadConfig(dev).chatNotifyEmails).toEqual(['ops@yutis.test']);
+    expect(loadConfig({ ...dev, CHAT_NOTIFY_EMAILS: 'Help@Yutis.test' }).chatNotifyEmails).toEqual(['help@yutis.test']);
+    expect(loadConfig({ ...dev, CHAT_NOTIFY_EMAILS: '' }).chatNotifyEmails).toEqual([]);
+    expect(() => loadConfig({ ...dev, CHAT_NOTIFY_EMAILS: 'nope' })).toThrow(/CHAT_NOTIFY_EMAILS/);
+  });
 });
 
 describe('OpenAPI contract', () => {

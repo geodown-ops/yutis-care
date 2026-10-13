@@ -19,14 +19,16 @@ export const PERMISSIONS = [
   'platform-users:manage',
   /** The platform audit log: who did what in the platform admin. */
   'audit:read',
+  /** Answer and close the marketing site's online chat (線上客服). */
+  'chat:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<PlatformRole, readonly Permission[]> = {
   /** Operations: customers, plans, announcements and templates. */
-  營運: ['tenants:read', 'tenants:write', 'subscriptions:write', 'announcements:write', 'templates:write', 'audit:read'],
-  /** Support: reads customer status, posts announcements. Entering a tenant needs that tenant admin's grant. */
-  客服: ['tenants:read', 'announcements:write', 'audit:read'],
+  營運: ['tenants:read', 'tenants:write', 'subscriptions:write', 'announcements:write', 'templates:write', 'audit:read', 'chat:manage'],
+  /** Support: reads customer status, posts announcements, answers the site chat. Entering a tenant needs that tenant admin's grant. */
+  客服: ['tenants:read', 'announcements:write', 'audit:read', 'chat:manage'],
   /** Engineering: reads customer status, templates and platform accounts. */
   工程: ['tenants:read', 'templates:write', 'platform-users:manage', 'audit:read'],
 };

@@ -11,3 +11,4 @@ export * from './records.js';
 export * from './retention.js';
 export * from './options.js';
 export * from './trial.js';
+export * from './chat.js';
