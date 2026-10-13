@@ -318,7 +318,7 @@ fieldset.field{border:0;padding:0;margin:0}
 .chat-launcher:focus-visible,.chat-close:focus-visible,.chat-send:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
 .chat.is-open .chat-launcher{display:none}
 .chat-badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--coral);color:#fff;font-size:12px;line-height:22px;text-align:center;box-shadow:0 0 0 3px var(--canvas)}
-.chat-panel{width:min(380px,calc(100vw - 32px));height:min(600px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:24px;box-shadow:0 30px 80px -24px rgba(23,15,73,.45);overflow:hidden}
+.chat-panel{position:relative;padding:0;width:min(380px,calc(100vw - 32px));height:min(600px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:24px;box-shadow:0 30px 80px -24px rgba(23,15,73,.45);overflow:hidden}
 .chat-panel[hidden]{display:none}
 .chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 18px 16px 22px;background:var(--primary);color:#fff}
 .chat-head h2{font-size:17px;margin:0;color:#fff}
