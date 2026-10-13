@@ -1,0 +1,58 @@
+<div class="chat" data-chat>
+  <button class="chat-launcher" type="button" aria-expanded="false" aria-controls="chat-panel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z"/><path d="M8.5 8.5h7M8.5 11.5h4.5"/></svg>
+    <span>線上客服</span>
+    <span class="chat-badge" hidden></span>
+  </button>
+  <section class="chat-panel" id="chat-panel" role="dialog" aria-labelledby="chat-title" hidden>
+    <header class="chat-head">
+      <div>
+        <h2 id="chat-title">Yutis Care 線上客服</h2>
+        <p>留言後我們會盡快回覆</p>
+      </div>
+      <button class="chat-close" type="button" aria-label="收合線上客服">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="chat-log" aria-live="polite">
+      <p class="chat-msg from-staff chat-greeting"><span class="chat-bubble">您好！歡迎詢問 Yutis Care 的功能、試用或部署方式。請不要在對話中提供員工的健康資料。</span></p>
+    </div>
+    <form class="chat-start" novalidate>
+      <div class="field">
+        <label for="chat-name">怎麼稱呼您<span class="req" aria-hidden="true">*</span></label>
+        <input id="chat-name" name="name" type="text" autocomplete="name" maxlength="50" required aria-describedby="chat-err-name">
+        <span class="err" id="chat-err-name"></span>
+      </div>
+      <div class="field">
+        <label for="chat-email">Email<span class="opt">選填</span></label>
+        <input id="chat-email" name="email" type="email" autocomplete="email" maxlength="254" aria-describedby="chat-help-email chat-err-email">
+        <span class="help" id="chat-help-email">您離開網頁後，我們的回覆會寄到這裡。</span>
+        <span class="err" id="chat-err-email"></span>
+      </div>
+      <div class="field">
+        <label for="chat-company">公司名稱<span class="opt">選填</span></label>
+        <input id="chat-company" name="companyName" type="text" autocomplete="organization" maxlength="50" aria-describedby="chat-err-companyName">
+        <span class="err" id="chat-err-companyName"></span>
+      </div>
+      <div class="field">
+        <label for="chat-message">想詢問的問題<span class="req" aria-hidden="true">*</span></label>
+        <textarea id="chat-message" name="message" rows="3" maxlength="2000" required aria-describedby="chat-err-message"></textarea>
+        <span class="err" id="chat-err-message"></span>
+      </div>
+      <div class="hp" aria-hidden="true"><label>網站<input name="website" type="text" tabindex="-1" autocomplete="off"></label></div>
+      <label class="field consent chat-consent"><input name="consent" type="checkbox" aria-describedby="chat-err-consent"><span>我已閱讀並同意<a href="/privacy/" target="_blank" rel="noopener">隱私權政策</a>，同意 Yutis Care 為回覆本次詢問處理上述資料。</span></label>
+      <span class="err chat-consent-err" id="chat-err-consent"></span>
+      <p class="chat-error" role="alert" hidden></p>
+      <button class="btn btn-primary" type="submit">開始對話</button>
+    </form>
+    <form class="chat-compose" novalidate hidden>
+      <label class="sr-only" for="chat-input">輸入訊息</label>
+      <textarea id="chat-input" name="body" rows="1" maxlength="2000" placeholder="輸入訊息，按 Enter 送出"></textarea>
+      <button class="chat-send" type="submit" aria-label="送出訊息">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg>
+      </button>
+      <p class="chat-error" role="alert" hidden></p>
+    </form>
+  </section>
+</div>
+<script type="module" src="/src/chat.ts"></script>

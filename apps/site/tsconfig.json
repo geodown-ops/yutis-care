@@ -8,7 +8,7 @@
     "noEmit": true,
     "declaration": false,
     "sourceMap": false,
-    "paths": { "@yutis/domain": ["../../packages/domain/src/trial.ts"] }
+    "paths": { "@yutis/domain": ["../../packages/domain/src/trial.ts"], "@yutis/domain/chat": ["../../packages/domain/src/chat.ts"] }
   },
   "include": ["src", "test", "vite.config.ts"]
 }
